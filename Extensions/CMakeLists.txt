@@ -1,50 +1,35 @@
-#This is the CMake file used to build the extensions.
-#For more information, see the Readme.md file.
+# This is the CMake file used to build the C++ extensions. 
+# For more information, see the README.md file.
 
-cmake_minimum_required(VERSION 2.6)
-cmake_policy(SET CMP0011 NEW)
+cmake_minimum_required(VERSION 3.5)
 
 project(GD-Extensions)
-include(CMakeUtils.txt) #Functions to factor common tasks done in CMakeLists.txt of extensions
+include(CMakeUtils.txt) # Functions to factor common tasks done in CMakeLists.txt of extensions
 
-#Add all the CMakeLists:
-ADD_SUBDIRECTORY(AdMobObject)
-IF (NOT EMSCRIPTEN) #Only add some extensions when compiling with emscripten.
-	ADD_SUBDIRECTORY(AnchorBehavior)
-	ADD_SUBDIRECTORY(AdvancedXML)
-	ADD_SUBDIRECTORY(AES)
-	ADD_SUBDIRECTORY(Box3DObject)
-	IF (NOT APPLE)
-		ADD_SUBDIRECTORY(CommonDialogs)
-	ENDIF()
-ENDIF()
-ADD_SUBDIRECTORY(DestroyOutsideBehavior)
-ADD_SUBDIRECTORY(DraggableBehavior)
-IF (NOT EMSCRIPTEN)
-	ADD_SUBDIRECTORY(Function)
-	ADD_SUBDIRECTORY(Inventory)
-	ADD_SUBDIRECTORY(Light)
-	ADD_SUBDIRECTORY(LinkedObjects)
-	ADD_SUBDIRECTORY(Network)
-	ADD_SUBDIRECTORY(ParticleSystem)
-	ADD_SUBDIRECTORY(PanelSpriteObject)
-	ADD_SUBDIRECTORY(PathBehavior)
-	ADD_SUBDIRECTORY(PathfindingBehavior)
-	ADD_SUBDIRECTORY(PhysicsBehavior)
-ENDIF()
-ADD_SUBDIRECTORY(PlatformBehavior)
-IF (NOT EMSCRIPTEN)
-	ADD_SUBDIRECTORY(PrimitiveDrawing)
-	ADD_SUBDIRECTORY(SoundObject)
-	ADD_SUBDIRECTORY(SystemInfo)
-	ADD_SUBDIRECTORY(TextEntryObject)
-ENDIF()
-	ADD_SUBDIRECTORY(TextObject)
-IF (NOT EMSCRIPTEN)
-    ADD_SUBDIRECTORY(TileMapObject)
-ENDIF()
-ADD_SUBDIRECTORY(TiledSpriteObject)
-IF (NOT EMSCRIPTEN)
-	ADD_SUBDIRECTORY(TimedEvent)
-ENDIF()
-ADD_SUBDIRECTORY(TopDownMovementBehavior)
+# List of non pure JS extensions
+set(
+	GD_EXTENSIONS
+	3D
+	AnchorBehavior
+	DestroyOutsideBehavior
+	DraggableBehavior
+	Inventory
+	LinkedObjects
+	PanelSpriteObject
+	ParticleSystem
+	PathfindingBehavior
+	PhysicsBehavior
+	PlatformBehavior
+	PrimitiveDrawing
+	Shopify
+	SystemInfo
+	TextEntryObject
+	TextObject
+	TiledSpriteObject
+	Spine
+	TopDownMovementBehavior)
+
+# Automatically add all listed extensions
+foreach(extension ${GD_EXTENSIONS})
+	add_subdirectory(${extension})
+endforeach()

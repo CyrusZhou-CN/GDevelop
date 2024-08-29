@@ -1,18 +1,19 @@
 /*
  * GDevelop Core
- * Copyright 2008-2016 Florian Rival (Florian.Rival@gmail.com). All rights reserved.
- * This project is released under the MIT License.
+ * Copyright 2008-2016 Florian Rival (Florian.Rival@gmail.com). All rights
+ * reserved. This project is released under the MIT License.
  */
 #ifndef SOURCEFILE_H
 #define SOURCEFILE_H
 #include <ctime>
-#include "GDCore/String.h"
 #include <memory>
-namespace gd { class SerializerElement; }
+#include "GDCore/String.h"
+namespace gd {
+class SerializerElement;
+}
 class BaseEvent;
 
-namespace gd
-{
+namespace gd {
 
 /**
  * \brief Represents a "physical" source file.
@@ -21,58 +22,69 @@ namespace gd
  * by platforms. Most of the time, special events are provided to use functions
  * created in such files.
  */
-class GD_CORE_API SourceFile
-{
-public:
-    SourceFile();
-    virtual ~SourceFile();
+class GD_CORE_API SourceFile {
+ public:
+  SourceFile();
+  virtual ~SourceFile();
 
-    /**
-     * \brief Get the filename
-     */
-    gd::String GetFileName() const { return filename; };
+  /**
+   * \brief Return a pointer to a new SourceFile constructed from this one.
+   */
+  SourceFile* Clone() const { return new SourceFile(*this); };
 
-    /**
-     * \brief Change the filename
-     */
-    void SetFileName(gd::String filename_) { filename = filename_; };
+  /**
+   * \brief Get the filename
+   */
+  gd::String GetFileName() const { return filename; };
 
-    /**
-     * \brief Serialize the source file.
-     */
-    void SerializeTo(SerializerElement & element) const;
+  /**
+   * \brief Change the filename
+   */
+  void SetFileName(gd::String filename_) { filename = filename_; };
 
-    /**
-     * \brief Unserialize the source file.
-     */
-    void UnserializeFrom(const SerializerElement & element);
+  /**
+   * \brief Serialize the source file.
+   */
+  void SerializeTo(SerializerElement& element) const;
 
-    /**
-     * \brief Set if the file is hidden from the user point of view and is only managed by GDevelop
-     */
-    void SetGDManaged(bool gdManaged_) { gdManaged = gdManaged_; };
+  /**
+   * \brief Unserialize the source file.
+   */
+  void UnserializeFrom(const SerializerElement& element);
 
-    /**
-     * \brief Return true if the file is hidden from the user point of view and is only managed by GDevelop
-     */
-    bool IsGDManaged() const { return gdManaged; };
+  /**
+   * \brief Set if the file is hidden from the user point of view and is only
+   * managed by GDevelop
+   */
+  void SetGDManaged(bool gdManaged_) { gdManaged = gdManaged_; };
 
-    /**
-     * \brief Change the language of the source file
-     */
-    void SetLanguage(gd::String lang) { language = lang; }
+  /**
+   * \brief Return true if the file is hidden from the user point of view and is
+   * only managed by GDevelop
+   */
+  bool IsGDManaged() const { return gdManaged; };
 
-    /**
-     * \brief Get the language of the source file
-     */
-    const gd::String & GetLanguage() const { return language; }
+  /**
+   * \brief Change the language of the source file
+   */
+  void SetLanguage(gd::String lang) { language = lang; }
 
-private:
+  /**
+   * \brief Get the language of the source file
+   */
+  const gd::String& GetLanguage() const { return language; }
 
-    gd::String filename; ///< Filename
-    bool gdManaged; ///< True if the source file is hidden from the user point of view and is managed only by GDevelop.
-    gd::String language; ///< String identifying the language of this source file (typically "C++ or "Javascript").
-    std::weak_ptr<BaseEvent> associatedGdEvent; ///< When a source file is GD-managed, it is usually created for a specific event. This member is not saved: It is the event responsibility to call SetAssociatedEvent.
+ private:
+  gd::String filename;  ///< Filename
+  bool gdManaged;  ///< True if the source file is hidden from the user point of
+                   ///< view and is managed only by GDevelop.
+  gd::String language;  ///< String identifying the language of this source file
+                        ///< (typically "C++ or "Javascript").
+  std::weak_ptr<BaseEvent>
+      associatedGdEvent;  ///< When a source file is GD-managed, it is usually
+                          ///< created for a specific event. This member is not
+                          ///< saved: It is the event responsibility to call
+                          ///< SetAssociatedEvent.
 };
 
 //"Tool" Functions
@@ -80,10 +92,15 @@ private:
 /**
  * Functor testing Source Files name
  */
-struct ExternalSourceFileHasName : public std::binary_function<std::shared_ptr<SourceFile>, gd::String, bool> {
-    bool operator()(const std::shared_ptr<SourceFile> & externalEvents, gd::String name) const { return externalEvents->GetFileName() == name; }
+struct ExternalSourceFileHasName
+    : public std::
+          binary_function<std::unique_ptr<SourceFile>, gd::String, bool> {
+  bool operator()(const std::unique_ptr<SourceFile>& externalEvents,
+                  gd::String name) const {
+    return externalEvents->GetFileName() == name;
+  }
 };
 
-}
+}  // namespace gd
 
-#endif // SOURCEFILE_H
+#endif  // SOURCEFILE_H

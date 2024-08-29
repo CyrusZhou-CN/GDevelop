@@ -5,92 +5,66 @@ Copyright (c) 2014-2016 Florian Rival (Florian.Rival@gmail.com)
 This project is released under the MIT License.
 */
 
-#include "GDCpp/Extensions/ExtensionBase.h"
-#include "GDCore/Tools/Version.h"
 #include "DestroyOutsideBehavior.h"
+#include "GDCore/Extensions/PlatformExtension.h"
+#include "GDCore/Project/BehaviorsSharedData.h"
+#include "GDCore/Tools/Localization.h"
 
+void DeclareDestroyOutsideBehaviorExtension(gd::PlatformExtension& extension) {
+  extension
+      .SetExtensionInformation("DestroyOutsideBehavior",
+                               _("Destroy Outside Screen Behavior"),
+                               _("This behavior can be used to destroy "
+                                 "objects when they go outside of "
+                                 "the bounds of the camera. Useful for bullets "
+                                 "or other short-lived objects."),
+                               "Florian Rival",
+                               "Open source (MIT License)")
+      .SetCategory("Game mechanic")
+      .SetTags("screen")
+      .SetExtensionHelpPath("/behaviors/destroyoutside");
 
-void DeclareDestroyOutsideBehaviorExtension(gd::PlatformExtension & extension)
-{
-    extension.SetExtensionInformation("DestroyOutsideBehavior",
-                              _("Destroy Outside Screen Behavior"),
-                              _("Behavior destroying object when they go outside the screen"),
-                              "Florian Rival",
-                              "Open source (MIT License)");
+  gd::BehaviorMetadata& aut =
+      extension.AddBehavior("DestroyOutside",
+                            _("Destroy when outside of the screen"),
+                            _("DestroyOutside"),
+                            _("Destroy objects automatically when they go "
+                              "outside of the screen's borders."),
+                            "",
+                            "CppPlatform/Extensions/destroyoutsideicon.png",
+                            "DestroyOutsideBehavior",
+                            std::make_shared<DestroyOutsideBehavior>(),
+                            std::shared_ptr<gd::BehaviorsSharedData>())
+                            .SetQuickCustomizationVisibility(gd::QuickCustomization::Hidden);
 
-    gd::BehaviorMetadata & aut = extension.AddBehavior("DestroyOutside",
-          _("Destroy when outside the screen"),
-          _("DestroyOutside"),
-          _("Automatically destroy the object when it goes outside the screen"),
-          "",
-          "CppPlatform/Extensions/destroyoutsideicon.png",
-          "DestroyOutsideBehavior",
-          std::shared_ptr<gd::Behavior>(new DestroyOutsideBehavior),
-          std::shared_ptr<gd::BehaviorsSharedData>());
-
-    #if defined(GD_IDE_ONLY)
-    aut.SetIncludeFile("DestroyOutsideBehavior/DestroyOutsideBehavior.h");
-
-    aut.AddCondition("ExtraBorder",
+  aut.AddCondition("ExtraBorder",
                    _("Additional border"),
-                   _("Compare the additional border that the object must cross before being deleted."),
-                   _("The additional border of _PARAM0_ is _PARAM2__PARAM3_"),
-                   _(""),
+                   _("Compare the additional border that the object must cross "
+                     "before being deleted."),
+                   _("the additional border"),
+                   _("Destroy outside configuration"),
                    "CppPlatform/Extensions/destroyoutsideicon24.png",
                    "CppPlatform/Extensions/destroyoutsideicon16.png")
-        .AddParameter("object", _("Object"))
-        .AddParameter("behavior", _("Behavior"), "DestroyOutside")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
-        .MarkAsAdvanced()
-        .SetFunctionName("GetExtraBorder").SetManipulatedType("number")
-        .SetIncludeFile("DestroyOutsideBehavior/DestroyOutsideBehavior.h");
+      .AddParameter("object", _("Object"))
+      .AddParameter("behavior", _("Behavior"), "DestroyOutside")
+      .UseStandardRelationalOperatorParameters(
+          "number", gd::ParameterOptions::MakeNewOptions())
+      .MarkAsAdvanced()
+      .SetFunctionName("GetExtraBorder");
 
-    aut.AddAction("ExtraBorder",
-                   _("Additional border"),
-                   _("Change the additional border that the object must cross before being deleted."),
-                   _("Do _PARAM2__PARAM3_ to the additional border of _PARAM0_"),
-                   _(""),
-                   "CppPlatform/Extensions/destroyoutsideicon24.png",
-                   "CppPlatform/Extensions/destroyoutsideicon16.png")
-        .AddParameter("object", _("Object"))
-        .AddParameter("behavior", _("Behavior"), "DestroyOutside")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
-        .MarkAsAdvanced()
-        .SetFunctionName("SetExtraBorder").SetManipulatedType("number")
-        .SetGetter("GetExtraBorder").SetIncludeFile("DestroyOutsideBehavior/DestroyOutsideBehavior.h");
-    #endif
-
+  aut.AddAction("ExtraBorder",
+                _("Additional border"),
+                _("Change the additional border that the object must cross "
+                  "before being deleted."),
+                _("the additional border"),
+                _("Destroy outside configuration"),
+                "CppPlatform/Extensions/destroyoutsideicon24.png",
+                "CppPlatform/Extensions/destroyoutsideicon16.png")
+      .AddParameter("object", _("Object"))
+      .AddParameter("behavior", _("Behavior"), "DestroyOutside")
+      .UseStandardOperatorParameters("number",
+                                     gd::ParameterOptions::MakeNewOptions())
+      .MarkAsAdvanced()
+      .SetFunctionName("SetExtraBorder")
+      .SetGetter("GetExtraBorder");
 }
-
-/**
- * \brief This class declares information about the extension.
- */
-class DestroyOutsideBehaviorCppExtension : public ExtensionBase
-{
-public:
-
-    /**
-     * Constructor of an extension declares everything the extension contains: objects, actions, conditions and expressions.
-     */
-    DestroyOutsideBehaviorCppExtension()
-    {
-        DeclareDestroyOutsideBehaviorExtension(*this);
-        GD_COMPLETE_EXTENSION_COMPILATION_INFORMATION();
-    };
-};
-
-#if defined(ANDROID)
-extern "C" ExtensionBase * CreateGDCppDestroyOutsideBehaviorExtension() {
-    return new DestroyOutsideBehaviorCppExtension;
-}
-#elif !defined(EMSCRIPTEN)
-/**
- * Used by GDevelop to create the extension class
- * -- Do not need to be modified. --
- */
-extern "C" ExtensionBase * GD_EXTENSION_API CreateGDExtension() {
-    return new DestroyOutsideBehaviorCppExtension;
-}
-#endif

@@ -13,15 +13,12 @@
 #include <string>
 #include <vector>
 #include "Utf8/utf8.h"
-#include <SFML/System/String.hpp>
 
 #ifdef __GNUC__
     #define GD_DEPRECATED    __attribute__((deprecated))
 #else
     #define GD_DEPRECATED
 #endif
-
-class wxString;
 
 namespace gd
 {

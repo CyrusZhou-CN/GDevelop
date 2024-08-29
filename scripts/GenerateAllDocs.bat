@@ -1,5 +1,6 @@
 @echo off
 rem Script launching the generation of the documentations of all modules
+rem Install globally doxgen before starting it.
 echo Generating all docs...
 cd ..
 cd Core\docs
@@ -10,12 +11,9 @@ cd GDJS\docs
 doxygen > ..\..\scripts\logs\GDJSDoxygenLog.txt  2> ..\..\scripts\logs\GDJSDoxygenWarningLog.txt
 IF NOT ERRORLEVEL 0 echo "Error during doc generation"
 cd ..\..
-cd GDCpp\docs
-doxygen > ..\..\scripts\logs\GDCppDoxygenLog.txt 2> ..\..\scripts\logs\GDCppDoxygenWarningLog.txt
+cd GDJS
+npm install
+npm run generate-doc
 IF NOT ERRORLEVEL 0 echo "Error during doc generation"
-cd ..\..
-cd GDJS\docs
-yuidoc ../Runtime > ..\..\scripts\logs\GDJSYuidDocLog.txt  2> ..\..\scripts\logs\GDJSYuidDocWarningLog.txt
-IF NOT ERRORLEVEL 0 echo "Error during doc generation"
-cd ..\..
+cd ..
 cd scripts

@@ -1,70 +1,50 @@
 /*
  * GDevelop Core
- * Copyright 2008-2016 Florian Rival (Florian.Rival@gmail.com). All rights reserved.
- * This project is released under the MIT License.
+ * Copyright 2008-2016 Florian Rival (Florian.Rival@gmail.com). All rights
+ * reserved. This project is released under the MIT License.
  */
 #include "ProjectResourcesAdder.h"
-#include "GDCore/Project/Project.h"
-#include "GDCore/IDE/Project/ImagesUsedInventorizer.h"
 #include "GDCore/CommonTools.h"
-#include "GDCore/Tools/Log.h"
+#include "GDCore/IDE/Project/ResourcesInUseHelper.h"
+#include "GDCore/Project/Project.h"
 #include "GDCore/Tools/Localization.h"
+#include "GDCore/Tools/Log.h"
+#include "GDCore/IDE/ResourceExposer.h"
 
 using namespace std;
 
-namespace gd
-{
+namespace gd {
 
-bool ProjectResourcesAdder::AddAllMissingImages(gd::Project & project)
-{
-    gd::ImagesUsedInventorizer inventorizer;
-    project.ExposeResources(inventorizer);
-    std::set<gd::String> & allImages = inventorizer.GetAllUsedImages();
+std::vector<gd::String> ProjectResourcesAdder::GetAllUseless(
+    gd::Project& project, const gd::String& resourceType) {
+  std::vector<gd::String> unusedResources;
 
-    ResourcesManager & resourcesManager = project.GetResourcesManager();
-    for (std::set<gd::String>::const_iterator it = allImages.begin(); it != allImages.end(); ++it)
-    {
-        if (!resourcesManager.HasResource(*it))
-        {
-            std::cout << "Adding missing resource \""<<*it<<"\"to the project.";
-            resourcesManager.AddResource(*it, /*filename=*/*it, "image");
-        }
-    }
+  // Search for resources used in the project
+  gd::ResourcesInUseHelper resourcesInUse(project.GetResourcesManager());
+  gd::ResourceExposer::ExposeWholeProjectResources(project, resourcesInUse);
+  std::set<gd::String>& usedResources = resourcesInUse.GetAll(resourceType);
 
-    return true;
+  // Search all resources not used
+  const std::vector<std::shared_ptr<Resource>>& resources =
+      project.GetResourcesManager().GetAllResources();
+  for (std::size_t i = 0; i < resources.size(); i++) {
+    if (resources[i]->GetKind() != resourceType) continue;
+
+    if (usedResources.find(resources[i]->GetName()) == usedResources.end())
+      unusedResources.push_back(resources[i]->GetName());
+  }
+
+  return unusedResources;
 }
 
-std::vector<gd::String> ProjectResourcesAdder::GetAllUselessImages(gd::Project & project)
-{
-    std::vector<gd::String> unusedResources;
+void ProjectResourcesAdder::RemoveAllUseless(gd::Project& project,
+                                             const gd::String& resourceType) {
+  std::vector<gd::String> unusedResources =
+      GetAllUseless(project, resourceType);
 
-    //Search for used images
-    gd::ImagesUsedInventorizer inventorizer;
-
-    project.ExposeResources(inventorizer);
-    std::set<gd::String> & usedImages = inventorizer.GetAllUsedImages();
-
-    //Search all images resources not used
-    std::vector<gd::String> resources = project.GetResourcesManager().GetAllResourcesList();
-    for (std::size_t i = 0;i < resources.size();i++)
-    {
-        if (project.GetResourcesManager().GetResource(resources[i]).GetKind() != "image")
-            continue;
-
-        if (usedImages.find(resources[i]) == usedImages.end())
-            unusedResources.push_back(resources[i]);
-    }
-
-    return unusedResources;
+  for (std::size_t i = 0; i < unusedResources.size(); ++i) {
+    project.GetResourcesManager().RemoveResource(unusedResources[i]);
+  }
 }
 
-void ProjectResourcesAdder::RemoveAllUselessImages(gd::Project & project)
-{
-    std::vector<gd::String> unusedResources = GetAllUselessImages(project);
-
-    for(std::size_t i = 0;i < unusedResources.size();++i) {
-        project.GetResourcesManager().RemoveResource(unusedResources[i]);
-    }
-}
-
-}
+}  // namespace gd

@@ -1,203 +1,287 @@
 /*
  * GDevelop Core
- * Copyright 2008-2016 Florian Rival (Florian.Rival@gmail.com). All rights reserved.
- * This project is released under the MIT License.
+ * Copyright 2008-2016 Florian Rival (Florian.Rival@gmail.com). All rights
+ * reserved. This project is released under the MIT License.
  */
 
 #include "EventsVariablesFinder.h"
 #include "GDCore/Events/Event.h"
 #include "GDCore/Events/Instruction.h"
-#include "GDCore/Extensions/Metadata/InstructionMetadata.h"
+#include "GDCore/Events/Parsers/ExpressionParser2NodePrinter.h"
+#include "GDCore/Events/Parsers/ExpressionParser2NodeWorker.h"
 #include "GDCore/Extensions/Metadata/ExpressionMetadata.h"
-#include "GDCore/Events/Parsers/ExpressionParser.h"
+#include "GDCore/Extensions/Metadata/InstructionMetadata.h"
+#include "GDCore/Extensions/Metadata/MetadataProvider.h"
 #include "GDCore/Extensions/Platform.h"
-#include "GDCore/Project/Project.h"
+#include "GDCore/IDE/Events/ArbitraryEventsWorker.h"
 #include "GDCore/Project/Layout.h"
 #include "GDCore/Project/Object.h"
-#include "GDCore/Extensions/Metadata/MetadataProvider.h"
+#include "GDCore/Project/Project.h"
+#include "GDCore/Project/ProjectScopedContainers.h"
+#include "GDCore/Project/ExternalEvents.h"
+#include "GDCore/IDE/DependenciesAnalyzer.h"
 
 using namespace std;
 
-namespace gd
-{
+namespace gd {
+namespace {
+/**
+ * \brief Go through the nodes to search for variable occurrences.
+ *
+ * \see gd::ExpressionParser2
+ */
+class GD_CORE_API VariableFinderExpressionNodeWorker
+    : public ExpressionParser2NodeWorker {
+ public:
+  VariableFinderExpressionNodeWorker(std::set<gd::String>& results_,
+                              const gd::Platform &platform_,
+                              const gd::ProjectScopedContainers &projectScopedContainers_,
+                              const gd::String& parameterType_,
+                              const gd::String& objectName_ = "")
+      : results(results_),
+        platform(platform_),
+        projectScopedContainers(projectScopedContainers_),
+        parameterType(parameterType_),
+        objectName(objectName_){};
+  virtual ~VariableFinderExpressionNodeWorker(){};
 
-class CallbacksForSearchingVariable : public gd::ParserCallbacks
-{
-public:
+ protected:
+  void OnVisitSubExpressionNode(SubExpressionNode& node) override {
+    node.expression->Visit(*this);
+  }
+  void OnVisitOperatorNode(OperatorNode& node) override {
+    node.leftHandSide->Visit(*this);
+    node.rightHandSide->Visit(*this);
+  }
+  void OnVisitUnaryOperatorNode(UnaryOperatorNode& node) override {
+    node.factor->Visit(*this);
+  }
+  void OnVisitNumberNode(NumberNode& node) override {}
+  void OnVisitTextNode(TextNode& node) override {}
+  void OnVisitVariableNode(VariableNode& node) override {
+    // We don't check variables or object variables here, because object variables only work
+    // if the variable is already declared.
 
-    CallbacksForSearchingVariable(std::set<gd::String> & results_, const gd::String & parameterType_, const gd::String & objectName_ = "") :
-    results(results_),
-    parameterType(parameterType_),
-    objectName(objectName_)
-    {};
-    virtual ~CallbacksForSearchingVariable() {};
+    if (node.child) node.child->Visit(*this);
+  }
+  void OnVisitVariableAccessorNode(VariableAccessorNode& node) override {
+    if (node.child) node.child->Visit(*this);
+  }
+  void OnVisitVariableBracketAccessorNode(
+      VariableBracketAccessorNode& node) override {
+    node.expression->Visit(*this);
+    if (node.child) node.child->Visit(*this);
+  }
+  void OnVisitIdentifierNode(IdentifierNode& node) override {
+    // We don't check object variables here, because object variables only work
+    // if the variable is already declared.
+  }
+  void OnVisitObjectFunctionNameNode(ObjectFunctionNameNode& node) override {}
+  void OnVisitFunctionCallNode(FunctionCallNode& node) override {
+    bool considerFunction = objectName.empty() || node.objectName == objectName;
 
-    virtual void OnConstantToken(gd::String text) {}
+    const bool isObjectFunction = !node.objectName.empty();
+    const gd::ExpressionMetadata &metadata = isObjectFunction ?
+            MetadataProvider::GetObjectAnyExpressionMetadata(
+                platform,
+                projectScopedContainers.GetObjectsContainersList().GetTypeOfObject(objectName),
+                node.functionName):
+            MetadataProvider::GetAnyExpressionMetadata(platform, node.functionName);
 
-    virtual void OnStaticFunction(gd::String functionName, const std::vector<gd::Expression> & parameters, const gd::ExpressionMetadata & expressionInfo) { SearchInParameters(parameters, expressionInfo); }
-    virtual void OnObjectFunction(gd::String functionName, const std::vector<gd::Expression> & parameters, const gd::ExpressionMetadata & expressionInfo) { SearchInParameters(parameters, expressionInfo); }
-    virtual void OnObjectBehaviorFunction(gd::String functionName, const std::vector<gd::Expression> & parameters, const gd::ExpressionMetadata & expressionInfo) { SearchInParameters(parameters, expressionInfo); }
-
-    virtual bool OnSubMathExpression(const gd::Platform & platform, const gd::Project & project, const gd::Layout & layout, gd::Expression & expression)
-    {
-        CallbacksForSearchingVariable callbacks(results, parameterType, objectName);
-
-        gd::ExpressionParser parser(expression.GetPlainString());
-        parser.ParseMathExpression(platform, project, layout, callbacks);
-
-        return true;
+    if (gd::MetadataProvider::IsBadExpressionMetadata(metadata)) {
+      return;
     }
 
-    virtual bool OnSubTextExpression(const gd::Platform & platform, const gd::Project & project, const gd::Layout & layout, gd::Expression & expression)
-    {
-        CallbacksForSearchingVariable callbacks(results, parameterType, objectName);
+    size_t parameterIndex = 0;
+    for (size_t metadataIndex = (isObjectFunction ? 1 : 0);
+         metadataIndex < metadata.GetParameters().GetParametersCount() &&
+         parameterIndex < node.parameters.size();
+         ++metadataIndex) {
+      auto& parameterMetadata = metadata.GetParameters().GetParameter(metadataIndex);
+      if (parameterMetadata.IsCodeOnly()) {
+        continue;
+      }
+      auto& parameterNode = node.parameters[parameterIndex];
+      ++parameterIndex;
 
-        gd::ExpressionParser parser(expression.GetPlainString());
-        parser.ParseStringExpression(platform, project, layout, callbacks);
-
-        return true;
+      if (considerFunction && parameterMetadata.GetType() == parameterType) {
+        // Store the value of the parameter
+        results.insert(
+            gd::ExpressionParser2NodePrinter::PrintNode(*parameterNode));
+      } else {
+        parameterNode->Visit(*this);
+      }
     }
+  }
+  void OnVisitEmptyNode(EmptyNode& node) override {}
 
-    void SearchInParameters(const std::vector<gd::Expression> & parameters, const gd::ExpressionMetadata & expressionInfo)
-    {
-        gd::String lastObjectParameter = "";
-        for (std::size_t i = 0;i<parameters.size();++i)
-        {
-            if (i >= expressionInfo.parameters.size()) break;
+ private:
+  const gd::Platform &platform;
+  const gd::ProjectScopedContainers &projectScopedContainers;
 
-            //The parameter has the searched type...
-            if ( expressionInfo.parameters[i].type == parameterType )
-            {
-                //...remember the value of the parameter.
-                if ( objectName.empty() || objectName == lastObjectParameter)
-                    results.insert(parameters[i].GetPlainString());
-            }
-            //Remember the value of the last "object" parameter.
-            else if (gd::ParameterMetadata::IsObject(expressionInfo.parameters[i].type))
-                lastObjectParameter = parameters[i].GetPlainString();
-        }
-    }
-
-private:
-    std::set< gd::String > & results; ///< Reference to the std::set where arguments values must be stored.
-    gd::String parameterType; ///< The name of the parameter to be searched for
-    gd::String objectName; ///< If not empty, parameters will be taken into account only if the last object parameter is filled with this value.
+  std::set<gd::String>& results;  ///< Reference to the std::set where argument
+                                  ///< values must be stored.
+  gd::String parameterType;  ///< The type of the parameters to be searched for.
+  gd::String objectName;     ///< If not empty, parameters will be taken into
+                             ///< account only if related to this object.
 };
 
-std::set < gd::String > EventsVariablesFinder::FindAllGlobalVariables(const gd::Platform & platform, const gd::Project & project)
-{
-    std::set < gd::String > results;
+/**
+ * \brief Go through the events to search for variable occurrences.
+ */
+class GD_CORE_API VariableFinderEventWorker
+    : public ReadOnlyArbitraryEventsWorkerWithContext {
+ public:
+  VariableFinderEventWorker(std::set<gd::String>& results_,
+                              const gd::Platform &platform_,
+                              const gd::String& parameterType_,
+                              const gd::String& objectName_ = "")
+      : results(results_),
+        platform(platform_),
+        parameterType(parameterType_),
+        objectName(objectName_){};
+  virtual ~VariableFinderEventWorker(){};
 
-    for (std::size_t i = 0;i<project.GetLayoutsCount();++i)
-    {
-        std::set < gd::String > results2 = FindArgumentsInEvents(platform, project, project.GetLayout(i), project.GetLayout(i).GetEvents(), "globalvar");
-        results.insert(results2.begin(), results2.end());
+  void DoVisitInstructionList(const gd::InstructionsList& instructions,
+                                      bool areConditions) override {
+    for (std::size_t aId = 0; aId < instructions.size(); ++aId) {
+      auto& instruction = instructions[aId];
+      gd::String lastObjectParameter = "";
+      const gd::InstructionMetadata& instrInfos =
+          areConditions ? MetadataProvider::GetConditionMetadata(
+                              platform, instruction.GetType())
+                        : MetadataProvider::GetActionMetadata(
+                              platform, instruction.GetType());
+      for (std::size_t pNb = 0; pNb < instrInfos.parameters.GetParametersCount(); ++pNb) {
+        // The parameter has the searched type...
+        if (instrInfos.parameters.GetParameter(pNb).GetType() == parameterType) {
+          //...remember the value of the parameter.
+          if (objectName.empty() || lastObjectParameter == objectName)
+            results.insert(instruction.GetParameter(pNb).GetPlainString());
+        }
+        // Search in expressions
+        else if (ParameterMetadata::IsExpression(
+                    "number", instrInfos.parameters.GetParameter(pNb).GetType()) ||
+                ParameterMetadata::IsExpression(
+                    "string", instrInfos.parameters.GetParameter(pNb).GetType())) {
+          auto node = instruction.GetParameter(pNb).GetRootNode();
+
+          VariableFinderExpressionNodeWorker searcher(
+              results,
+              platform,
+              GetProjectScopedContainers(),
+              parameterType,
+              objectName);
+          node->Visit(searcher);
+        }
+        // Remember the value of the last "object" parameter.
+        else if (gd::ParameterMetadata::IsObject(
+                    instrInfos.parameters.GetParameter(pNb).GetType())) {
+          lastObjectParameter =
+              instruction.GetParameter(pNb).GetPlainString();
+        }
+      }
     }
+  };
 
-    return results;
+ private:
+  const gd::Platform &platform;
+
+  std::set<gd::String>& results;  ///< Reference to the std::set where argument
+                                  ///< values must be stored.
+  gd::String parameterType;  ///< The type of the parameters to be searched for.
+  gd::String objectName;     ///< If not empty, parameters will be taken into
+                             ///< account only if related to this object.
+};
+} // namespace
+
+std::set<gd::String> EventsVariablesFinder::FindAllGlobalVariables(
+    const gd::Platform& platform, const gd::Project& project) {
+  std::set<gd::String> results;
+
+  for (std::size_t i = 0; i < project.GetLayoutsCount(); ++i) {
+    FindArgumentsInEventsAndDependencies(
+            results,
+            platform,
+            project,
+            project.GetLayout(i),
+            "globalvar");
+  }
+
+  return results;
 }
 
-std::set < gd::String > EventsVariablesFinder::FindAllLayoutVariables(const gd::Platform & platform, const gd::Project & project, const gd::Layout & layout)
-{
-    std::set < gd::String > results;
+std::set<gd::String> EventsVariablesFinder::FindAllLayoutVariables(
+    const gd::Platform& platform,
+    const gd::Project& project,
+    const gd::Layout& layout) {
+  std::set<gd::String> results;
 
-    std::set < gd::String > results2 = FindArgumentsInEvents(platform, project, layout, layout.GetEvents(), "scenevar");
-    results.insert(results2.begin(), results2.end());
+  FindArgumentsInEventsAndDependencies(
+      results,
+      platform,
+      project,
+      layout,
+      "scenevar");
 
-    return results;
+  return results;
 }
 
-std::set < gd::String > EventsVariablesFinder::FindAllObjectVariables(const gd::Platform & platform, const gd::Project & project, const gd::Layout & layout, const gd::Object & object)
-{
-    std::set < gd::String > results;
+std::set<gd::String> EventsVariablesFinder::FindAllObjectVariables(
+    const gd::Platform& platform,
+    const gd::Project& project,
+    const gd::Layout& layout,
+    const gd::String& objectName) {
+  std::set<gd::String> results;
 
-    std::set < gd::String > results2 = FindArgumentsInEvents(platform, project, layout, layout.GetEvents(), "objectvar", object.GetName());
-    results.insert(results2.begin(), results2.end());
+  FindArgumentsInEventsAndDependencies(
+      results,
+      platform,
+      project,
+      layout,
+      "objectvar",
+      objectName);
 
-    return results;
+  return results;
 }
 
-std::set < gd::String > EventsVariablesFinder::FindArgumentsInInstructions(const gd::Platform & platform,
-    const gd::Project & project, const gd::Layout & layout, const gd::InstructionsList & instructions,
-    bool instructionsAreConditions, const gd::String & parameterType, const gd::String & objectName)
-{
-    std::set < gd::String > results;
+void EventsVariablesFinder::FindArgumentsInEventsAndDependencies(
+    std::set<gd::String>& results,
+    const gd::Platform& platform,
+    const gd::Project& project,
+    const gd::Layout& layout,
+    const gd::String& parameterType,
+    const gd::String& objectName) {
 
-    for (std::size_t aId = 0;aId < instructions.size();++aId)
-    {
-        gd::String lastObjectParameter = "";
-        gd::InstructionMetadata instrInfos = instructionsAreConditions ? MetadataProvider::GetConditionMetadata(platform, instructions[aId].GetType()) :
-                                                                         MetadataProvider::GetActionMetadata(platform, instructions[aId].GetType());
-        for (std::size_t pNb = 0;pNb < instrInfos.parameters.size();++pNb)
-        {
-            //The parameter has the searched type...
-            if ( instrInfos.parameters[pNb].type == parameterType )
-            {
-                //...remember the value of the parameter.
-                if (objectName.empty() || lastObjectParameter == objectName)
-                    results.insert(instructions[aId].GetParameter(pNb).GetPlainString());
-            }
-            //Search in expressions
-            else if (instrInfos.parameters[pNb].type == "expression")
-            {
-                CallbacksForSearchingVariable callbacks(results, parameterType, objectName);
+  VariableFinderEventWorker eventWorker(results,
+                                        platform,
+                                        parameterType,
+                                        objectName);
+  eventWorker.Launch(layout.GetEvents(),
+      gd::ProjectScopedContainers::MakeNewProjectScopedContainersForProjectAndLayout(project, layout));
 
-                gd::ExpressionParser parser(instructions[aId].GetParameter(pNb).GetPlainString());
-                parser.ParseMathExpression(platform, project, layout, callbacks);
-            }
-            //Search in gd::String expressions
-            else if (instrInfos.parameters[pNb].type == "string"||instrInfos.parameters[pNb].type == "file" ||instrInfos.parameters[pNb].type == "joyaxis" ||instrInfos.parameters[pNb].type == "color"||instrInfos.parameters[pNb].type == "layer")
-            {
-                CallbacksForSearchingVariable callbacks(results, parameterType, objectName);
+  DependenciesAnalyzer dependenciesAnalyzer(project, layout);
+  dependenciesAnalyzer.Analyze();
+  for (const gd::String& externalEventName : dependenciesAnalyzer.GetExternalEventsDependencies()) {
+    const gd::ExternalEvents& externalEvents = project.GetExternalEvents(externalEventName);
 
-                gd::ExpressionParser parser(instructions[aId].GetParameter(pNb).GetPlainString());
-                parser.ParseStringExpression(platform, project, layout, callbacks);
-            }
-            //Remember the value of the last "object" parameter.
-            else if (gd::ParameterMetadata::IsObject(instrInfos.parameters[pNb].type))
-            {
-                lastObjectParameter = instructions[aId].GetParameter(pNb).GetPlainString();
-            }
-        }
+    VariableFinderEventWorker eventWorker(results,
+                                          platform,
+                                          parameterType,
+                                          objectName);
+    eventWorker.Launch(externalEvents.GetEvents(),
+        gd::ProjectScopedContainers::MakeNewProjectScopedContainersForProjectAndLayout(project, layout));
+  }
+  for (const gd::String& sceneName : dependenciesAnalyzer.GetScenesDependencies()) {
+    const gd::Layout& dependencyLayout = project.GetLayout(sceneName);
 
-        if ( !instructions[aId].GetSubInstructions().empty() )
-            FindArgumentsInInstructions(platform, project, layout, instructions[aId].GetSubInstructions(),
-                instructionsAreConditions, parameterType);
-    }
-
-    return results;
+    VariableFinderEventWorker eventWorker(results,
+                                          platform,
+                                          parameterType,
+                                          objectName);
+    eventWorker.Launch(dependencyLayout.GetEvents(),
+        gd::ProjectScopedContainers::MakeNewProjectScopedContainersForProjectAndLayout(project, dependencyLayout));
+  }
 }
 
-std::set < gd::String > EventsVariablesFinder::FindArgumentsInEvents(const gd::Platform & platform,
-    const gd::Project & project, const gd::Layout & layout, const gd::EventsList & events,
-    const gd::String & parameterType, const gd::String & objectName)
-{
-    std::set < gd::String > results;
-    for (std::size_t i = 0;i<events.size();++i)
-    {
-        vector < const gd::InstructionsList* > conditionsVectors =  events[i].GetAllConditionsVectors();
-        for (std::size_t j = 0;j < conditionsVectors.size();++j)
-        {
-            std::set < gd::String > results2 = FindArgumentsInInstructions(platform, project, layout, *conditionsVectors[j], /*conditions=*/true, parameterType, objectName);
-            results.insert(results2.begin(), results2.end());
-        }
-
-        vector < const gd::InstructionsList* > actionsVectors =  events[i].GetAllActionsVectors();
-        for (std::size_t j = 0;j < actionsVectors.size();++j)
-        {
-            std::set < gd::String > results2 = FindArgumentsInInstructions(platform, project, layout, *actionsVectors[j], /*conditions=*/false, parameterType, objectName);
-            results.insert(results2.begin(), results2.end());
-        }
-
-        if ( events[i].CanHaveSubEvents() )
-        {
-            std::set < gd::String > results2 = FindArgumentsInEvents(platform, project, layout, events[i].GetSubEvents(), parameterType, objectName);
-            results.insert(results2.begin(), results2.end());
-        }
-    }
-
-    return results;
-}
-
-
-}
+}  // namespace gd

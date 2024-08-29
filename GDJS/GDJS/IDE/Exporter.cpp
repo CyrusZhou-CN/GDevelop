@@ -1,277 +1,214 @@
 /*
  * GDevelop JS Platform
- * Copyright 2008-2016 Florian Rival (Florian.Rival@gmail.com). All rights reserved.
- * This project is released under the MIT License.
+ * Copyright 2008-2016 Florian Rival (Florian.Rival@gmail.com). All rights
+ * reserved. This project is released under the MIT License.
  */
+#include "GDJS/IDE/Exporter.h"
+
 #include <algorithm>
-#include <sstream>
 #include <fstream>
+#include <sstream>
 #include <streambuf>
 #include <string>
-#if !defined(GD_NO_WX_GUI)
-#include <wx/filename.h>
-#include <wx/dir.h>
-#include <wx/msgdlg.h>
-#include <wx/config.h>
-#include <wx/progdlg.h>
-#include <wx/zipstrm.h>
-#include <wx/wfstream.h>
-#endif
+
+#include "GDCore/CommonTools.h"
+#include "GDCore/Events/CodeGeneration/DiagnosticReport.h"
+#include "GDCore/IDE/AbstractFileSystem.h"
+#include "GDCore/IDE/Events/UsedExtensionsFinder.h"
+#include "GDCore/IDE/Project/ProjectResourcesCopier.h"
+#include "GDCore/IDE/Project/SceneResourcesFinder.h"
+#include "GDCore/IDE/ProjectStripper.h"
+#include "GDCore/Project/ExternalEvents.h"
+#include "GDCore/Project/ExternalLayout.h"
+#include "GDCore/Project/Layout.h"
+#include "GDCore/Project/Project.h"
+#include "GDCore/Project/SourceFile.h"
+#include "GDCore/Serialization/Serializer.h"
 #include "GDCore/Tools/Localization.h"
 #include "GDCore/Tools/Log.h"
-#include "GDCore/TinyXml/tinyxml.h"
-#include "GDCore/Project/Project.h"
-#include "GDCore/Project/Layout.h"
-#include "GDCore/Project/ExternalLayout.h"
-#include "GDCore/IDE/AbstractFileSystem.h"
-#include "GDCore/Serialization/Serializer.h"
-#include "GDCore/Project/ExternalEvents.h"
-#include "GDCore/Project/SourceFile.h"
-#include "GDCore/IDE/wxTools/ShowFolder.h"
-#include "GDCore/IDE/Project/ProjectResourcesCopier.h"
-#include "GDCore/IDE/ProjectStripper.h"
-#include "GDCore/CommonTools.h"
-#include "GDJS/IDE/Exporter.h"
-#include "GDJS/IDE/ExporterHelper.h"
 #include "GDJS/Events/CodeGeneration/EventsCodeGenerator.h"
-#include "GDJS/IDE/Dialogs/ProjectExportDialog.h"
-#include "GDJS/IDE/Dialogs/CocoonJSUploadDialog.h"
-#include "GDJS/IDE/Dialogs/CordovaPackageDialog.h"
-#undef CopyFile //Disable an annoying macro
+#include "GDJS/IDE/ExporterHelper.h"
 
-namespace gdjs
-{
+#undef CopyFile  // Disable an annoying macro
 
-Exporter::~Exporter()
-{
+namespace gdjs {
+
+static void InsertUnique(std::vector<gd::String> &container, gd::String str) {
+  if (std::find(container.begin(), container.end(), str) == container.end())
+    container.push_back(str);
 }
 
-bool Exporter::ExportLayoutForPixiPreview(gd::Project & project, gd::Layout & layout, gd::String exportDir)
-{
-    ExporterHelper helper(fs);
-    return helper.ExportLayoutForPixiPreview(project, layout, exportDir, "");
+Exporter::Exporter(gd::AbstractFileSystem &fileSystem, gd::String gdjsRoot_)
+    : fs(fileSystem), gdjsRoot(gdjsRoot_) {
+  SetCodeOutputDirectory(fs.GetTempDir() + "/GDTemporaries/JSCodeTemp");
 }
 
-bool Exporter::ExportExternalLayoutForPixiPreview(gd::Project & project, gd::Layout & layout,
-   gd::ExternalLayout & externalLayout, gd::String exportDir)
-{
-    gd::SerializerElement options;
-    options.AddChild("injectExternalLayout").SetValue(externalLayout.GetName());
+Exporter::~Exporter() {}
 
-    ExporterHelper helper(fs);
-    return helper.ExportLayoutForPixiPreview(project, layout, exportDir,
-        gd::Serializer::ToJSON(options)
-    );
+bool Exporter::ExportProjectForPixiPreview(
+    const PreviewExportOptions &options) {
+  ExporterHelper helper(fs, gdjsRoot, codeOutputDir);
+  return helper.ExportProjectForPixiPreview(options);
 }
 
-void Exporter::ShowProjectExportDialog(gd::Project & project)
-{
-    #if !defined(GD_NO_WX_GUI)
-    ProjectExportDialog dialog(NULL, project);
-    if ( dialog.ShowModal() != 1 ) return;
+bool Exporter::ExportWholePixiProject(const ExportOptions &options) {
+  ExporterHelper helper(fs, gdjsRoot, codeOutputDir);
+  gd::Project exportedProject = options.project;
 
-    if (dialog.GetExportType() == ProjectExportDialog::Cocos2d)
-    {
-        ExportWholeCocos2dProject(project, dialog.IsDebugMode(), dialog.GetExportDir());
+  auto usedExtensionsResult =
+      gd::UsedExtensionsFinder::ScanProject(options.project);
+  auto &usedExtensions = usedExtensionsResult.GetUsedExtensions();
+
+  auto exportProject = [this,
+                        &exportedProject,
+                        &options,
+                        &helper,
+                        &usedExtensionsResult](gd::String exportDir) {
+    gd::WholeProjectDiagnosticReport &wholeProjectDiagnosticReport =
+        options.project.GetWholeProjectDiagnosticReport();
+    wholeProjectDiagnosticReport.Clear();
+
+    // Use project properties fallback to set empty properties
+    if (exportedProject.GetAuthorIds().empty() &&
+        !options.fallbackAuthorId.empty()) {
+      exportedProject.GetAuthorIds().push_back(options.fallbackAuthorId);
     }
-    else
-    {
-        bool exportForCordova = dialog.GetExportType() == ProjectExportDialog::PixiCordova;
-        ExportWholePixiProject(project, dialog.GetExportDir(), dialog.RequestMinify(),
-            exportForCordova);
-    }
-
-    #else
-    gd::LogError("BAD USE: Exporter::ShowProjectExportDialog is not available.");
-    #endif
-}
-
-bool Exporter::ExportWholePixiProject(gd::Project & project, gd::String exportDir,
-    bool minify, bool exportForCordova)
-{
-    ExporterHelper helper(fs);
-
-    auto exportProject = [this, &project, &minify,
-        &exportForCordova, &helper](gd::String exportDir)
-    {
-        wxProgressDialog * progressDialogPtr = NULL;
-        #if !defined(GD_NO_WX_GUI)
-        wxProgressDialog progressDialog(_("Export in progress ( 1/2 )"), _("Exporting the project..."));
-        progressDialogPtr = &progressDialog;
-        #endif
-
-        //Prepare the export directory
-        fs.MkDir(exportDir);
-        fs.ClearDir(exportDir);
-        std::vector<gd::String> includesFiles;
-
-        gd::Project exportedProject = project;
-
-        //Export the resources (before generating events as some resources filenames may be updated)
-        helper.ExportResources(fs, exportedProject, exportDir, progressDialogPtr);
-
-        #if !defined(GD_NO_WX_GUI)
-        progressDialog.SetTitle(_("Export in progress ( 2/2 )"));
-        progressDialog.Update(50, _("Exporting events..."));
-        #endif
-
-        //Export events
-        if ( !helper.ExportEventsCode(exportedProject, fs.GetTempDir()+"/GDTemporaries/JSCodeTemp/", includesFiles) )
-        {
-            gd::LogError(_("Error during exporting! Unable to export events:\n")+lastError);
-            return false;
-        }
-        helper.AddLibsInclude(true, false, includesFiles);
-
-        //Export source files
-        if ( !helper.ExportExternalSourceFiles(exportedProject, fs.GetTempDir()+"/GDTemporaries/JSCodeTemp/", includesFiles) )
-        {
-            gd::LogError(_("Error during exporting! Unable to export source files:\n")+lastError);
-            return false;
-        }
-
-        //Strip the project (*after* generating events as the events may use stripped things like objects groups...)...
-        gd::ProjectStripper::StripProject(exportedProject);
-
-        //...and export it
-        helper.ExportToJSON(fs, exportedProject, fs.GetTempDir() + "/GDTemporaries/JSCodeTemp/data.js",
-                     "gdjs.projectData");
-        includesFiles.push_back(fs.GetTempDir()+"/GDTemporaries/JSCodeTemp/data.js");
-
-        #if !defined(GD_NO_WX_GUI)
-        progressDialog.Update(80, minify ? _("Exporting files and minifying them...") : _("Exporting files..."));
-        #endif
-
-        //Copy all dependencies and the index (or metadata) file.
-        helper.RemoveIncludes(false, true, includesFiles);
-        helper.ExportIncludesAndLibs(includesFiles, exportDir, minify);
-
-        gd::String source = exportForCordova ?
-            "./JsPlatform/Runtime/Cordova/www/index.html" :
-            "./JsPlatform/Runtime/index.html";
-
-        if (!helper.ExportPixiIndexFile(source, exportDir, includesFiles, ""))
-        {
-            gd::LogError(_("Error during export:\n") + lastError);
-            return false;
-        }
-
-        return true;
-    };
-
-    if (exportForCordova)
-    {
-        //Prepare the export directory
-        fs.MkDir(exportDir);
-        if (!helper.ExportCordovaConfigFile(project, exportDir))
-            return false;
-
-        if (!exportProject(exportDir + "/www"))
-            return false;
-    } else {
-        if (!exportProject(exportDir))
-            return false;
+    if (exportedProject.GetAuthorUsernames().empty() &&
+        !options.fallbackAuthorUsername.empty()) {
+      exportedProject.GetAuthorUsernames().push_back(
+          options.fallbackAuthorUsername);
     }
 
-    //Finished!
-    #if !defined(GD_NO_WX_GUI)
-    if ( exportForCordova )
-    {
-        CordovaPackageDialog packageDialog(NULL, exportDir);
-        packageDialog.ShowModal();
-    }
-    else
-    {
-        if ( wxMessageBox(_("Compilation achieved. Do you want to open the folder where the project has been compiled\?"),
-                          _("Compilation finished"), wxYES_NO) == wxYES )
-        {
-            gd::ShowFolder(exportDir);
-        }
-    }
-    #endif
-
-    return true;
-}
-
-bool Exporter::ExportWholeCocos2dProject(gd::Project & project, bool debugMode, gd::String exportDir)
-{
-    ExporterHelper helper(fs);
-
-    wxProgressDialog * progressDialogPtr = NULL;
-    #if !defined(GD_NO_WX_GUI)
-    wxProgressDialog progressDialog(_("Export in progress ( 1/2 )"), _("Exporting the project..."));
-    progressDialogPtr = &progressDialog;
-    #endif
-
-    //Prepare the export directory
+    // Prepare the export directory
     fs.MkDir(exportDir);
     std::vector<gd::String> includesFiles;
+    std::vector<gd::String> resourcesFiles;
 
-    gd::Project exportedProject = project;
+    // Export the resources (before generating events as some resources
+    // filenames may be updated)
+    helper.ExportResources(fs, exportedProject, exportDir);
 
-    //Export the resources (before generating events as some resources filenames may be updated)
-    helper.ExportResources(fs, exportedProject, exportDir + "/res", progressDialogPtr);
+    // Compatibility with GD <= 5.0-beta56
+    // Stay compatible with text objects declaring their font as just a filename
+    // without a font resource - by manually adding these resources.
+    helper.AddDeprecatedFontFilesToFontResources(
+        fs, exportedProject.GetResourcesManager(), exportDir);
+    // end of compatibility code
 
-    #if !defined(GD_NO_WX_GUI)
-    progressDialog.SetTitle(_("Export in progress ( 2/2 )"));
-    progressDialog.Update(50, _("Exporting events..."));
-    #endif
+    // Export engine libraries
+    helper.AddLibsInclude(
+        /*pixiRenderers=*/true,
+        usedExtensionsResult.Has3DObjects(),
+        /*includeWebsocketDebuggerClient=*/false,
+        /*includeWindowMessageDebuggerClient=*/false,
+        exportedProject.GetLoadingScreen().GetGDevelopLogoStyle(),
+        includesFiles);
 
-    //Export events
-    if ( !helper.ExportEventsCode(exportedProject, fs.GetTempDir()+"/GDTemporaries/JSCodeTemp/", includesFiles) )
-    {
-        gd::LogError(_("Error during exporting! Unable to export events:\n")+lastError);
-        return false;
+    // Export files for free function, object and behaviors
+    for (const auto &includeFile : usedExtensionsResult.GetUsedIncludeFiles()) {
+      InsertUnique(includesFiles, includeFile);
     }
-    helper.AddLibsInclude(false, true, includesFiles);
-
-    //Export source files
-    if ( !helper.ExportExternalSourceFiles(exportedProject, fs.GetTempDir()+"/GDTemporaries/JSCodeTemp/", includesFiles) )
-    {
-        gd::LogError(_("Error during exporting! Unable to export source files:\n")+lastError);
-        return false;
+    for (const auto &requiredFile :
+         usedExtensionsResult.GetUsedRequiredFiles()) {
+      InsertUnique(resourcesFiles, requiredFile);
     }
 
-    //Strip the project (*after* generating events as the events may use stripped things like objects groups...)...
-    gd::ProjectStripper::StripProject(exportedProject);
+    // Export effects (after engine libraries as they auto-register themselves
+    // to the engine)
+    helper.ExportEffectIncludes(exportedProject, includesFiles);
+
+    // Export events
+    if (!helper.ExportEventsCode(exportedProject, codeOutputDir, includesFiles,
+                                 wholeProjectDiagnosticReport, false)) {
+      gd::LogError(_("Error during exporting! Unable to export events:\n") +
+                   lastError);
+      return false;
+    }
+
+    // Export source files
+    if (!helper.ExportExternalSourceFiles(
+            exportedProject, codeOutputDir, includesFiles)) {
+      gd::LogError(
+          _("Error during exporting! Unable to export source files:\n") +
+          lastError);
+      return false;
+    }
+
+    auto projectUsedResources =
+        gd::SceneResourcesFinder::FindProjectResources(exportedProject);
+    std::unordered_map<gd::String, std::set<gd::String>> scenesUsedResources;
+    for (std::size_t layoutIndex = 0;
+         layoutIndex < exportedProject.GetLayoutsCount(); layoutIndex++) {
+      auto &layout = exportedProject.GetLayout(layoutIndex);
+      scenesUsedResources[layout.GetName()] =
+          gd::SceneResourcesFinder::FindSceneResources(exportedProject,
+                                                            layout);
+    }
+
+    // Strip the project (*after* generating events as the events may use
+    // stripped things like objects groups...)...
+    gd::ProjectStripper::StripProjectForExport(exportedProject);
 
     //...and export it
-    helper.ExportToJSON(fs, exportedProject, fs.GetTempDir() + "/GDTemporaries/JSCodeTemp/data.js",
-                 "gdjs.projectData");
-    includesFiles.push_back(fs.GetTempDir()+"/GDTemporaries/JSCodeTemp/data.js");
+    gd::SerializerElement noRuntimeGameOptions;
+    helper.ExportProjectData(fs, exportedProject, codeOutputDir + "/data.js",
+                             noRuntimeGameOptions, projectUsedResources,
+                             scenesUsedResources);
+    includesFiles.push_back(codeOutputDir + "/data.js");
 
-    #if !defined(GD_NO_WX_GUI)
-    progressDialog.Update(80, _("Exporting files..."));
-    #endif
+    helper.ExportIncludesAndLibs(includesFiles, exportDir, false);
+    helper.ExportIncludesAndLibs(resourcesFiles, exportDir, false);
 
-    //Copy all dependencies and the index (or metadata) file.
-    helper.RemoveIncludes(true, false, includesFiles);
-    helper.ExportIncludesAndLibs(includesFiles, exportDir + "/src", false);
+    gd::String source = gdjsRoot + "/Runtime/index.html";
+    if (options.target == "cordova")
+      source = gdjsRoot + "/Runtime/Cordova/www/index.html";
+    else if (options.target == "facebookInstantGames")
+      source = gdjsRoot + "/Runtime/FacebookInstantGames/index.html";
 
-    gd::String source = "./JsPlatform/Runtime/index.html";
-
-    if (!helper.ExportCocos2dFiles(project, exportDir, debugMode, includesFiles))
-    {
-        gd::LogError(_("Error during export:\n") + lastError);
-        return false;
+    if (!helper.ExportPixiIndexFile(exportedProject,
+                                    source,
+                                    exportDir,
+                                    includesFiles,
+                                    /*nonRuntimeScriptsCacheBurst=*/0,
+                                    "")) {
+      gd::LogError(_("Error during export:\n") + lastError);
+      return false;
     }
-
-    //Finished!
-    #if !defined(GD_NO_WX_GUI)
-    //TODO: Factor/update message?
-    if ( wxMessageBox(_("Compilation achieved. Do you want to open the folder where the project has been compiled\?"),
-                      _("Compilation finished"), wxYES_NO) == wxYES )
-    {
-        gd::ShowFolder(exportDir);
-    }
-    #endif
 
     return true;
+  };
+
+  if (options.target == "cordova") {
+    fs.MkDir(options.exportPath);
+    fs.MkDir(options.exportPath + "/www");
+
+    if (!exportProject(options.exportPath + "/www")) return false;
+
+    if (!helper.ExportCordovaFiles(
+            exportedProject, options.exportPath, usedExtensions))
+      return false;
+  } else if (options.target == "electron") {
+    fs.MkDir(options.exportPath);
+
+    if (!exportProject(options.exportPath + "/app")) return false;
+
+    if (!helper.ExportElectronFiles(
+            exportedProject, options.exportPath, usedExtensions))
+      return false;
+  } else if (options.target == "facebookInstantGames") {
+    if (!exportProject(options.exportPath)) return false;
+
+    if (!helper.ExportFacebookInstantGamesFiles(exportedProject,
+                                                options.exportPath))
+      return false;
+  } else {
+    if (!exportProject(options.exportPath)) return false;
+
+    if (!helper.ExportHtml5Files(exportedProject, options.exportPath))
+      return false;
+  }
+
+  return true;
 }
 
-gd::String Exporter::GetProjectExportButtonLabel()
-{
-    return _("Export to the web");
-}
-
-}
+}  // namespace gdjs

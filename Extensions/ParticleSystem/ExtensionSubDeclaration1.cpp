@@ -5,480 +5,329 @@ Copyright (c) 2010-2016 Florian Rival (Florian.Rival@gmail.com)
 This project is released under the MIT License.
 */
 
-#include "GDCpp/Extensions/ExtensionBase.h"
-#include "GDCore/Tools/Version.h"
 #include "Extension.h"
-#include "ParticleEmitterObject.h"
+#include "GDCore/Extensions/PlatformExtension.h"
+#include "GDCore/Tools/Localization.h"
 #include "ParticleEmitterObject.h"
 
 /**
  * Declare some actions and conditions of the particle emitter
  */
-void Extension::ExtensionSubDeclaration1(gd::ObjectMetadata & obj)
-{
-    #if defined(GD_IDE_ONLY)
-    obj.AddAction("EmitterForceMin",
-                   _("Emission minimal force"),
-                   _("Modify minimal emission force of particles."),
-                   _("Do _PARAM1__PARAM2_ to minimal emission force of _PARAM0_"),
-                   _("Common"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
+void ExtensionSubDeclaration1(gd::ObjectMetadata& obj) {
+  obj.AddAction("EmitterForceMin",
+                _("Emission minimal force"),
+                _("Modify minimal emission force of particles."),
+                _("the minimal emission force"),
+                _("Common"),
+                "CppPlatform/Extensions/particleSystemicon24.png",
+                "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardOperatorParameters("number",
+                                     gd::ParameterOptions::MakeNewOptions());
 
-        .SetFunctionName("SetEmitterForceMin").SetManipulatedType("number").SetGetter("GetEmitterForceMin").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
+  obj.AddAction("EmitterForceMax",
+                _("Emission maximal force"),
+                _("Modify maximal emission force of particles."),
+                _("the maximal emission force"),
+                _("Common"),
+                "CppPlatform/Extensions/particleSystemicon24.png",
+                "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardOperatorParameters("number",
+                                     gd::ParameterOptions::MakeNewOptions());
 
-    obj.AddAction("EmitterForceMax",
-                   _("Emission maximal force"),
-                   _("Modify maximal emission force of particles."),
-                   _("Do _PARAM1__PARAM2_ to maximal emission force of _PARAM0_"),
-                   _("Common"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
+  obj.AddAction("EmitterAngle",
+                _("Emission angle"),
+                _("Modify emission angle."),
+                _("the emission angle"),
+                _("Common"),
+                "CppPlatform/Extensions/particleSystemicon24.png",
+                "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardOperatorParameters(
+          "number",
+          gd::ParameterOptions::MakeNewOptions().SetDescription(
+              _("Angle (in degrees)")));
 
-        .SetFunctionName("SetEmitterForceMax").SetManipulatedType("number").SetGetter("GetEmitterForceMax").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-    obj.AddAction("EmitterXDirection",
-                   _("Emission X direction"),
-                   _("Modify emission X direction."),
-                   _("Do _PARAM1__PARAM2_ to the emission X direction of _PARAM0_"),
-                   _("Advanced"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
-
-        .SetFunctionName("SetEmitterXDirection").SetManipulatedType("number").SetGetter("GetEmitterXDirection").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-    obj.AddCondition("EmitterXDirection",
-                   _("Emission X direction"),
-                   _("Test emission X direction."),
-                   _("The emission X direction of _PARAM0_ is _PARAM1__PARAM2_"),
-                   _("Advanced"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
-
-        .SetFunctionName("GetEmitterXDirection").SetManipulatedType("number").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-
-    obj.AddAction("EmitterYDirection",
-                   _("Emission Y direction"),
-                   _("Modify emission Y direction."),
-                   _("Do _PARAM1__PARAM2_ to the emission Y direction of _PARAM0_"),
-                   _("Advanced"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
-
-        .SetFunctionName("SetEmitterYDirection").SetManipulatedType("number").SetGetter("GetEmitterYDirection").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-    obj.AddCondition("EmitterYDirection",
-                   _("Emission Y direction"),
-                   _("Test emission Y direction."),
-                   _("Emission Y direction of _PARAM0_ is _PARAM1__PARAM2_"),
-                   _("Advanced"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
-
-        .SetFunctionName("GetEmitterYDirection").SetManipulatedType("number").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-
-    obj.AddAction("EmitterZDirection",
-                   _("Emission Z direction"),
-                   _("Modify emission Z direction."),
-                   _("Do _PARAM1__PARAM2_ to the emission Z direction of _PARAM0_"),
-                   _("Advanced"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
-
-        .SetFunctionName("SetEmitterZDirection").SetManipulatedType("number").SetGetter("GetEmitterZDirection").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-
-    obj.AddCondition("EmitterZDirection",
-                   _("Emission Z direction"),
-                   _("Test emission Z direction."),
-                   _("Emission Z direction of _PARAM0_ is _PARAM1__PARAM2_"),
-                   _("Advanced"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
-
-        .SetFunctionName("GetEmitterZDirection").SetManipulatedType("number").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-
-    obj.AddAction("EmitterAngle",
-                   _("Emission angle"),
-                   _("Modify emission angle."),
-                   _("Do _PARAM1__PARAM2_ to the emission angle of _PARAM0_"),
-                   _("Common"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
-
-        .SetFunctionName("SetAngle").SetManipulatedType("number").SetGetter("GetAngle").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-
-    obj.AddCondition("EmitterAngle",
+  obj.AddCondition("EmitterAngle",
                    _("Emission angle"),
                    _("Test the value of emission angle of the emitter."),
-                   _("Emission angle of _PARAM0_ is _PARAM1__PARAM2_"),
+                   _("the emission angle"),
                    _("Common"),
                    "CppPlatform/Extensions/particleSystemicon24.png",
                    "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardRelationalOperatorParameters(
+          "number",
+          gd::ParameterOptions::MakeNewOptions().SetDescription(
+              _("Angle to compare to (in degrees)")));
 
-        .SetFunctionName("GetAngle").SetManipulatedType("number").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
+  obj.AddAction("EmitterAngleA",
+                _("Emission angle 1"),
+                _("Change emission angle #1"),
+                _("the 1st emission angle"),
+                _("Advanced"),
+                "CppPlatform/Extensions/particleSystemicon24.png",
+                "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardOperatorParameters("number",
+                                     gd::ParameterOptions::MakeNewOptions())
+      .SetHidden();  // Angle A is not used.
 
-    obj.AddAction("EmitterAngleA",
-                   _("Emission angle 1"),
-                   _("Change emission angle #1"),
-                   _("Do _PARAM1__PARAM2_ to the 1st emission angle of _PARAM0_"),
-                   _("Advanced"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
-
-        .SetFunctionName("SetEmitterAngleA").SetManipulatedType("number").SetGetter("GetEmitterAngleA").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-
-    obj.AddCondition("EmitterAngleA",
+  obj.AddCondition("EmitterAngleA",
                    _("Emission angle 1"),
                    _("Test the value of emission 1st angle of the emitter"),
-                   _("Emission 1st angle of _PARAM0_ is _PARAM1__PARAM2_"),
+                   _("the 1st emission angle"),
                    _("Advanced"),
                    "CppPlatform/Extensions/particleSystemicon24.png",
                    "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardRelationalOperatorParameters(
+          "number", gd::ParameterOptions::MakeNewOptions())
+      .SetHidden();  // Angle A is not used.
 
-        .SetFunctionName("GetEmitterAngleA").SetManipulatedType("number").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
+  obj.AddAction("EmitterAngleB",
+                _("Emission angle 2"),
+                _("Change emission angle #2"),
+                _("the 2nd emission angle"),
+                _("Advanced"),
+                "CppPlatform/Extensions/particleSystemicon24.png",
+                "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardOperatorParameters("number",
+                                     gd::ParameterOptions::MakeNewOptions())
+      .SetHidden();  // Angle B is the same as cone spray angle
 
-
-    obj.AddAction("EmitterAngleB",
-                   _("Emission angle 2"),
-                   _("Change emission angle #2"),
-                   _("Do _PARAM1__PARAM2_ to the 2nd emission angle of _PARAM0_"),
-                   _("Advanced"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
-
-        .SetFunctionName("SetEmitterAngleB").SetManipulatedType("number").SetGetter("GetEmitterAngleB").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-
-    obj.AddCondition("EmitterAngleB",
+  obj.AddCondition("EmitterAngleB",
                    _("Emission angle 2"),
                    _("Test the emission angle #2 of the emitter."),
-                   _("Emission 2nd angle of _PARAM0_ is _PARAM1__PARAM2_"),
+                   _("the 2nd emission angle"),
                    _("Advanced"),
                    "CppPlatform/Extensions/particleSystemicon24.png",
                    "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardRelationalOperatorParameters(
+          "number", gd::ParameterOptions::MakeNewOptions())
+      .SetHidden();  // Angle B is the same as cone spray angle
 
-        .SetFunctionName("GetEmitterAngleB").SetManipulatedType("number").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
+  obj.AddAction(
+         "ConeSprayAngle",
+         _("Angle of the spray cone"),
+         _("Modify the angle of the spray cone."),
+         _("the angle of the spray cone"),
+         _("Common"),
+         "CppPlatform/Extensions/particleSystemicon24.png",
+         "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardOperatorParameters(
+          "number",
+          gd::ParameterOptions::MakeNewOptions().SetDescription(
+              _("Angle (in degrees)")));
 
-
-    obj.AddAction("ConeSprayAngle",
-                   _("Angle of the spray cone"),
-                   _("Modify the angle of the spray cone."),
-                   _("Do _PARAM1__PARAM2_ to the angle of the spray cone of _PARAM0_"),
-                   _("Common"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
-
-        .SetFunctionName("SetConeSprayAngle").SetManipulatedType("number").SetGetter("GetConeSprayAngle").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-    obj.AddCondition("ConeSprayAngle",
+  obj.AddCondition("ConeSprayAngle",
                    _("Angle of the spray cone"),
                    _("Test the angle of the spray cone of the emitter"),
-                   _("Angle of the spray cone of _PARAM0_ is _PARAM1__PARAM2_"),
+                   _("the angle of the spray cone"),
                    _("Common"),
                    "CppPlatform/Extensions/particleSystemicon24.png",
                    "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardRelationalOperatorParameters(
+          "number",
+          gd::ParameterOptions::MakeNewOptions().SetDescription(
+              _("Angle to compare to (in degrees)")));
 
-        .SetFunctionName("GetConeSprayAngle").SetManipulatedType("number").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
+  obj.AddAction("ZoneRadius",
+                _("Creation radius"),
+                _("Modify creation radius of particles.\nParticles have to be "
+                  "recreated in order to take changes in account."),
+                _("the creation radius"),
+                _("Common"),
+                "CppPlatform/Extensions/particleSystemicon24.png",
+                "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardOperatorParameters("number",
+                                     gd::ParameterOptions::MakeNewOptions());
 
-    obj.AddAction("Friction",
-                   _("Friction"),
-                   _("Modify friction applied to particles."),
-                   _("Do _PARAM1__PARAM2_ to the friction of particles of _PARAM0_"),
-                   _("Common"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
-
-        .SetFunctionName("SetFriction").SetManipulatedType("number").SetGetter("GetFriction").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-
-    obj.AddCondition("Friction",
-                   _("Friction"),
-                   _("Test friction applied to particles."),
-                   _("Particles' friction of _PARAM0_ is _PARAM1__PARAM2_"),
-                   _("Common"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
-
-        .SetFunctionName("GetFriction").SetManipulatedType("number").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-
-    obj.AddAction("ZoneRadius",
-                   _("Creation radius"),
-                   _("Modify creation radius of particles.\nParticles have to be recreated in order to take changes in account."),
-                   _("Do _PARAM1__PARAM2_ to creation radius of _PARAM0_"),
-                   _("Common"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
-
-        .SetFunctionName("SetZoneRadius").SetManipulatedType("number").SetGetter("GetZoneRadius").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-
-    obj.AddCondition("ZoneRadius",
+  obj.AddCondition("ZoneRadius",
                    _("Creation radius"),
                    _("Test creation radius of particles."),
-                   _("Creation radius of _PARAM0_ is _PARAM1__PARAM2_"),
+                   _("the creation radius"),
                    _("Common"),
                    "CppPlatform/Extensions/particleSystemicon24.png",
                    "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardRelationalOperatorParameters(
+          "number", gd::ParameterOptions::MakeNewOptions());
 
-        .SetFunctionName("GetZoneRadius").SetManipulatedType("number").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
+  obj.AddAction(
+         "ParticleLifeTimeMin",
+         _("Minimum lifetime"),
+         _("Modify particles minimum lifetime. Particles have to be recreated "
+           "in order to take changes in account."),
+         _("the minimum lifetime of particles"),
+         _("Common"),
+         "CppPlatform/Extensions/particleSystemicon24.png",
+         "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardOperatorParameters(
+          "number",
+          gd::ParameterOptions::MakeNewOptions().SetDescription(
+              _("Duration (in seconds)")));
 
+  obj.AddCondition(
+         "ParticleLifeTimeMin",
+         _("Minimum lifetime"),
+         _("Test minimum lifetime of particles."),
+         _("the minimum lifetime of particles"),
+         _("Common"),
+         "CppPlatform/Extensions/particleSystemicon24.png",
+         "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardRelationalOperatorParameters(
+          "number",
+          gd::ParameterOptions::MakeNewOptions().SetDescription(
+              _("Duration to compare to (in seconds)")));
 
-    obj.AddAction("ParticleLifeTimeMin",
-                   _("Minimum lifetime"),
-                   _("Modify particles minimum lifetime.Particles have to be recreated in order to take changes in account."),
-                   _("Do _PARAM1__PARAM2_ to minimum lifetime of particles of _PARAM0_"),
-                   _("Common"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
+  obj.AddAction(
+         "ParticleLifeTimeMax",
+         _("Maximum lifetime"),
+         _("Modify particles maximum lifetime.\nParticles have to be recreated "
+           "in order to take changes in account."),
+         _("the maximum lifetime of particles"),
+         _("Common"),
+         "CppPlatform/Extensions/particleSystemicon24.png",
+         "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardOperatorParameters(
+          "number",
+          gd::ParameterOptions::MakeNewOptions().SetDescription(
+              _("Duration (in seconds)")));
 
-        .SetFunctionName("SetParticleLifeTimeMin").SetManipulatedType("number").SetGetter("GetParticleLifeTimeMin").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
+  obj.AddCondition(
+         "ParticleLifeTimeMax",
+         _("Maximum lifetime"),
+         _("Test maximum lifetime of particles."),
+         _("the maximum lifetime of particles"),
+         _("Common"),
+         "CppPlatform/Extensions/particleSystemicon24.png",
+         "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardRelationalOperatorParameters(
+          "number",
+          gd::ParameterOptions::MakeNewOptions().SetDescription(
+              _("Duration to compare to (in seconds)")));
 
-    obj.AddCondition("ParticleLifeTimeMin",
-                   _("Minimum lifetime"),
-                   _("Test minimum lifetime of particles."),
-                   _("Minimum lifetime of particles of _PARAM0_ is _PARAM1__PARAM2_"),
-                   _("Common"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
+  obj.AddAction("ParticleGravityX",
+                _("Gravity value on X axis"),
+                _("Change value of the gravity on X axis."),
+                _("the gravity on X axis"),
+                _("Advanced"),
+                "CppPlatform/Extensions/particleSystemicon24.png",
+                "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardOperatorParameters("number",
+                                     gd::ParameterOptions::MakeNewOptions());
 
-        .SetFunctionName("GetParticleLifeTimeMin").SetManipulatedType("number").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
+  obj.AddCondition(
+         "ParticleGravityX",
+         _("Gravity value on X axis"),
+         _("Compare value of the gravity on X axis."),
+         _("the gravity on X axis"),
+         _("Advanced"),
+         "CppPlatform/Extensions/particleSystemicon24.png",
+         "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardRelationalOperatorParameters(
+          "number", gd::ParameterOptions::MakeNewOptions());
 
-    obj.AddAction("ParticleLifeTimeMax",
-                   _("Maximum lifetime"),
-                   _("Modify particles maximum lifetime.\nParticles have to be recreated in order to take changes in account."),
-                   _("Do _PARAM1__PARAM2_ to maximum lifetime of particles of _PARAM0_"),
-                   _("Common"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
+  obj.AddAction("ParticleGravityY",
+                _("Gravity value on Y axis"),
+                _("Change value of the gravity on Y axis."),
+                _("the gravity on Y axis"),
+                _("Advanced"),
+                "CppPlatform/Extensions/particleSystemicon24.png",
+                "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardOperatorParameters("number",
+                                     gd::ParameterOptions::MakeNewOptions());
 
-        .SetFunctionName("SetParticleLifeTimeMax").SetManipulatedType("number").SetGetter("GetParticleLifeTimeMax").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
+  obj.AddCondition(
+         "ParticleGravityY",
+         _("Gravity value on Y axis"),
+         _("Compare value of the gravity on Y axis."),
+         _("the gravity on Y axis"),
+         _("Advanced"),
+         "CppPlatform/Extensions/particleSystemicon24.png",
+         "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardRelationalOperatorParameters(
+          "number", gd::ParameterOptions::MakeNewOptions());
 
+  obj.AddAction("ParticleGravityAngle",
+                _("Gravity angle"),
+                _("Change gravity angle"),
+                _("the gravity angle"),
+                _("Common"),
+                "CppPlatform/Extensions/particleSystemicon24.png",
+                "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardOperatorParameters(
+          "number",
+          gd::ParameterOptions::MakeNewOptions().SetDescription(
+              _("Angle (in degrees)")));
 
-    obj.AddCondition("ParticleLifeTimeMax",
-                   _("Maximum lifetime"),
-                   _("Test maximum lifetime of particles."),
-                   _("Maximum lifetime of particles of _PARAM0_ is _PARAM1__PARAM2_"),
-                   _("Common"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
-
-        .SetFunctionName("GetParticleLifeTimeMax").SetManipulatedType("number").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-
-    obj.AddAction("ParticleGravityX",
-                   _("X Gravity"),
-                   _("Change value of the gravity on X axis."),
-                   _("Do _PARAM1__PARAM2_ to the direction of gravity on X axis of _PARAM0_"),
-                   _("Advanced"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
-
-        .SetFunctionName("SetParticleGravityX").SetManipulatedType("number").SetGetter("GetParticleGravityX").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-
-    obj.AddCondition("ParticleGravityX",
-                   _("Direction of gravity on X axis"),
-                   _("Direction of the gravity on X axis."),
-                   _("Direction of gravity on X axis of _PARAM0_ is _PARAM1__PARAM2_"),
-                   _("Advanced"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
-
-        .SetFunctionName("GetParticleGravityX").SetManipulatedType("number").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-
-    obj.AddAction("ParticleGravityY",
-                   _("Y Gravity"),
-                   _("Change value of the gravity on Y axis."),
-                   _("Do _PARAM1__PARAM2_ to the direction of gravity on Y axis of_PARAM0_"),
-                   _("Advanced"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
-
-        .SetFunctionName("SetParticleGravityY").SetManipulatedType("number").SetGetter("GetParticleGravityY").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-
-    obj.AddCondition("ParticleGravityY",
-                   _("Direction of the gravity on Y axis"),
-                   _("Test direction of gravity on Y axis"),
-                   _("Direction of gravity on Y axis of _PARAM0_ is _PARAM1__PARAM2_"),
-                   _("Advanced"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
-
-        .SetFunctionName("GetParticleGravityY").SetManipulatedType("number").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-
-    obj.AddAction("ParticleGravityZ",
-                   _("Z Gravity"),
-                   _("Change value of the gravity on Z axis."),
-                   _("Do _PARAM1__PARAM2_ to the direction of gravity on Z axis of_PARAM0_"),
-                   _("Advanced"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
-
-        .SetFunctionName("SetParticleGravityZ").SetManipulatedType("number").SetGetter("GetParticleGravityZ").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-
-    obj.AddCondition("ParticleGravityZ",
-                   _("Direction of gravity on Z axis"),
-                   _("Test the direction of gravity on Z axis"),
-                   _("Direction of gravity on Z axis of _PARAM0_ is _PARAM1__PARAM2_"),
-                   _("Advanced"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
-
-        .SetFunctionName("GetParticleGravityZ").SetManipulatedType("number").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-    obj.AddAction("ParticleGravityAngle",
+  obj.AddCondition("ParticleGravityAngle",
                    _("Gravity angle"),
-                   _("Change gravity angle"),
-                   _("Do _PARAM1__PARAM2_ to the gravity angle of _PARAM0_"),
+                   _("Test the gravity angle of the emitter"),
+                   _("the gravity angle"),
                    _("Common"),
                    "CppPlatform/Extensions/particleSystemicon24.png",
                    "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardRelationalOperatorParameters(
+          "number",
+          gd::ParameterOptions::MakeNewOptions().SetDescription(
+              _("Angle to compare to (in degrees)")));
 
-        .SetFunctionName("SetParticleGravityAngle").SetManipulatedType("number").SetGetter("GetParticleGravityAngle").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
+  obj.AddAction("ParticleGravityLength",
+                _("Gravity"),
+                _("Change the gravity of the emitter."),
+                _("the gravity"),
+                _("Common"),
+                "CppPlatform/Extensions/particleSystemicon24.png",
+                "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardOperatorParameters("number",
+                                     gd::ParameterOptions::MakeNewOptions());
 
-    obj.AddCondition("ParticleGravityAngle",
-                   _("Gravity angle"),
-                   _("Test the gravity angle the emitter"),
-                   _("Gravity angle of _PARAM0_ is _PARAM1__PARAM2_"),
-                   _("Common"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
-
-        .SetFunctionName("GetParticleGravityAngle").SetManipulatedType("number").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-    obj.AddAction("ParticleGravityLength",
-                   _("Gravity"),
-                   _("Change the gravity of the emitter."),
-                   _("Do _PARAM1__PARAM2_ to the gravity of _PARAM0_"),
-                   _("Common"),
-                   "CppPlatform/Extensions/particleSystemicon24.png",
-                   "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("operator", _("Modification's sign"))
-        .AddParameter("expression", _("Value"))
-
-        .SetFunctionName("SetParticleGravityLength").SetManipulatedType("number").SetGetter("GetParticleGravityLength").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-
-    obj.AddCondition("ParticleGravityLength",
+  obj.AddCondition("ParticleGravityLength",
                    _("Gravity"),
                    _("Test the gravity of the emitter."),
-                   _("The gravity of _PARAM0_ is _PARAM1__PARAM2_"),
+                   _("the gravity"),
                    _("Common"),
                    "CppPlatform/Extensions/particleSystemicon24.png",
                    "CppPlatform/Extensions/particleSystemicon16.png")
-        .AddParameter("object", _("Object"), "ParticleEmitter")
-        .AddParameter("relationalOperator", _("Sign of the test"))
-        .AddParameter("expression", _("Value to test"))
+      .AddParameter("object", _("Object"), "ParticleEmitter")
+      .UseStandardRelationalOperatorParameters(
+          "number", gd::ParameterOptions::MakeNewOptions());
 
-        .SetFunctionName("GetParticleGravityLength").SetManipulatedType("number").SetIncludeFile("ParticleSystem/ParticleEmitterObject.h");
-    #endif
+  obj.AddAction("StartEmission",
+                _("Start emission"),
+                _("Refill tank (if not infinite) and start emission of the "
+                  "particles."),
+                _("Start emission of _PARAM0_"),
+                _("Common"),
+                "CppPlatform/Extensions/particleSystemicon24.png",
+                "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter");
+
+  obj.AddAction("StopEmission",
+                _("Stop emission"),
+                _("Stop the emission of particles."),
+                _("Stop emission of _PARAM0_"),
+                _("Common"),
+                "CppPlatform/Extensions/particleSystemicon24.png",
+                "CppPlatform/Extensions/particleSystemicon16.png")
+      .AddParameter("object", _("Object"), "ParticleEmitter");
 }
-

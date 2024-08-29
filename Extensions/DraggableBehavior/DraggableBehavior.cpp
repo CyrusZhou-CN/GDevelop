@@ -5,76 +5,43 @@ Copyright (c) 2014-2016 Florian Rival (Florian.Rival@gmail.com)
 This project is released under the MIT License.
 */
 
-#include <memory>
-#include <iostream>
-#include <SFML/Graphics.hpp>
 #include "DraggableBehavior.h"
-#include "GDCpp/Runtime/Project/Layout.h"
-#include "GDCpp/Runtime/RuntimeLayer.h"
-#include "GDCpp/Runtime/Serialization/SerializerElement.h"
-#include "GDCpp/Runtime/RuntimeScene.h"
-#include "GDCpp/Runtime/RuntimeObject.h"
-#include "GDCpp/Runtime/CommonTools.h"
 
-bool DraggableBehavior::somethingDragged = false;
-bool DraggableBehavior::leftPressedLastFrame = false;
+#include "GDCore/CommonTools.h"
+#include "GDCore/Project/PropertyDescriptor.h"
+#include "GDCore/Serialization/SerializerElement.h"
+#include "GDCore/Tools/Localization.h"
 
-DraggableBehavior::DraggableBehavior() :
-    dragged(false)
-{
+DraggableBehavior::DraggableBehavior() {}
+
+void DraggableBehavior::InitializeContent(gd::SerializerElement& content) {
+  content.SetAttribute("checkCollisionMask", true);
 }
 
-void DraggableBehavior::DoStepPreEvents(RuntimeScene & scene)
-{
-    //Begin drag ?
-    if ( !dragged && scene.GetInputManager().IsMouseButtonPressed("Left") &&
-        !leftPressedLastFrame && !somethingDragged )
-    {
-        RuntimeLayer & theLayer = scene.GetRuntimeLayer(object->GetLayer());
-        for (std::size_t cameraIndex = 0;cameraIndex < theLayer.GetCameraCount();++cameraIndex)
-        {
-            sf::Vector2f mousePos = scene.renderWindow->mapPixelToCoords(
-                scene.GetInputManager().GetMousePosition(), theLayer.GetCamera(cameraIndex).GetSFMLView());
+std::map<gd::String, gd::PropertyDescriptor> DraggableBehavior::GetProperties(
+    const gd::SerializerElement& behaviorContent) const {
+  std::map<gd::String, gd::PropertyDescriptor> properties;
+  properties["checkCollisionMask"]
+      .SetValue(behaviorContent.GetBoolAttribute("checkCollisionMask")
+                    ? "true"
+                    : "false")
+      .SetType("Boolean")
+      .SetLabel(_("Do a precision check against the object's collision mask"))
+      .SetDescription(
+          _("Use the object (custom) collision mask instead of the bounding "
+            "box, making the behavior more precise at the cost of "
+            "reduced performance"));
+  ;
 
-            if ( object->GetDrawableX() <= mousePos.x
-                && object->GetDrawableX() + object->GetWidth() >= mousePos.x
-                && object->GetDrawableY() <= mousePos.y
-                && object->GetDrawableY() + object->GetHeight() >= mousePos.y )
-            {
-                dragged = true;
-                somethingDragged = true;
-                xOffset = mousePos.x - object->GetX();
-                yOffset = mousePos.y - object->GetY();
-                dragCameraIndex = cameraIndex;
-                break;
-            }
-        }
-    }
-    //End dragging ?
-    else if ( !scene.GetInputManager().IsMouseButtonPressed("Left") ) {
-        dragged = false;
-        somethingDragged = false;
-    }
-
-    //Being dragging ?
-    if ( dragged ) {
-        RuntimeLayer & theLayer = scene.GetRuntimeLayer(object->GetLayer());
-        sf::Vector2f mousePos = scene.renderWindow->mapPixelToCoords(
-            scene.GetInputManager().GetMousePosition(), theLayer.GetCamera(dragCameraIndex).GetSFMLView());
-
-        object->SetX(mousePos.x-xOffset);
-        object->SetY(mousePos.y-yOffset);
-    }
-
+  return properties;
 }
 
-void DraggableBehavior::DoStepPostEvents(RuntimeScene & scene)
-{
-    leftPressedLastFrame = scene.GetInputManager().IsMouseButtonPressed("Left");
-}
-
-void DraggableBehavior::OnDeActivate()
-{
-    if (dragged) somethingDragged = false;
-    dragged = false;
+bool DraggableBehavior::UpdateProperty(gd::SerializerElement& behaviorContent,
+                                       const gd::String& name,
+                                       const gd::String& value) {
+  if (name == "checkCollisionMask") {
+    behaviorContent.SetAttribute("checkCollisionMask", (value != "0"));
+    return true;
+  }
+  return false;
 }

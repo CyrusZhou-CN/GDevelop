@@ -1,36 +1,31 @@
 /*
  * GDevelop Core
- * Copyright 2008-2016 Florian Rival (Florian.Rival@gmail.com). All rights reserved.
- * This project is released under the MIT License.
+ * Copyright 2008-2016 Florian Rival (Florian.Rival@gmail.com). All rights
+ * reserved. This project is released under the MIT License.
  */
 
-#ifndef GDCORE_SPRITEOBJECT_H
-#define GDCORE_SPRITEOBJECT_H
-#include "GDCore/Project/Object.h"
-#include "GDCore/Extensions/Builtin/SpriteExtension/Animation.h"
-#include "GDCore/Extensions/Builtin/SpriteExtension/Direction.h"
-#include "GDCore/Extensions/Builtin/SpriteExtension/Sprite.h"
-namespace gd { class InitialInstance; }
-namespace gd { class Object; }
-namespace gd { class Layout; }
-namespace gd { class Sprite; }
-namespace gd { class Animation; }
-namespace gd { class MainFrameWrapper; }
-namespace gd { class SerializerElement; }
-namespace gd { class PropertyDescriptor; }
-#if defined(GD_IDE_ONLY)
-class wxBitmap;
-class wxWindow;
-#endif
+#pragma once
 
-namespace gd
-{
+#include "GDCore/Extensions/Builtin/SpriteExtension/SpriteAnimationList.h"
+#include "GDCore/Project/Object.h"
+
+namespace gd {
+class InitialInstance;
+class Object;
+class Layout;
+class SerializerElement;
+class PropertyDescriptor;
+}  // namespace gd
+
+namespace gd {
 
 /**
- * \brief Standard sprite object for extensions that implements the standard SpriteExtension
- * (see gd::BuiltinExtensionsImplementer::ImplementsSpriteExtension).
+ * \brief Standard sprite object for extensions that implements the standard
+ * SpriteExtension (see
+ * gd::BuiltinExtensionsImplementer::ImplementsSpriteExtension).
  *
- * A Sprite object is an object composed of animations, containing directions with images.
+ * A Sprite object is an object composed of animations, containing directions
+ * with images.
  *
  * \see Animation
  * \see Direction
@@ -38,95 +33,83 @@ namespace gd
  * \see gd::BuiltinExtensionsImplementer::ImplementsSpriteExtension
  * \ingroup SpriteObjectExtension
  */
-class GD_CORE_API SpriteObject : public gd::Object
-{
-public :
+class GD_CORE_API SpriteObject : public gd::ObjectConfiguration {
+ public:
+  SpriteObject();
+  virtual ~SpriteObject();
+  std::unique_ptr<gd::ObjectConfiguration> Clone() const override {
+    return gd::make_unique<SpriteObject>(*this);
+  }
 
-    SpriteObject(gd::String name_);
-    virtual ~SpriteObject();
-    virtual gd::Object * Clone() const { return new SpriteObject(*this);}
+  void ExposeResources(gd::ArbitraryResourceWorker& worker) override;
 
-    #if defined(GD_IDE_ONLY)
-    virtual bool GenerateThumbnail(const gd::Project & project, wxBitmap & thumbnail) const;
-    virtual void ExposeResources(gd::ArbitraryResourceWorker & worker);
+  std::map<gd::String, gd::PropertyDescriptor> GetProperties() const override;
+  bool UpdateProperty(const gd::String& name, const gd::String& value) override;
 
-    virtual std::map<gd::String, gd::PropertyDescriptor> GetInitialInstanceProperties(const gd::InitialInstance & position, gd::Project & project, gd::Layout & scene);
-    virtual bool UpdateInitialInstanceProperty(gd::InitialInstance & position, const gd::String & name, const gd::String & value, gd::Project & project, gd::Layout & scene);
-    virtual void EditObject( wxWindow* parent, gd::Project & project, gd::MainFrameWrapper & mainFrameWrapper_ );
-    #if !defined(EMSCRIPTEN)
-    virtual void DrawInitialInstance(gd::InitialInstance & instance, sf::RenderTarget & renderTarget, gd::Project & project, gd::Layout & layout);
-    virtual sf::Vector2f GetInitialInstanceDefaultSize(gd::InitialInstance & instance, gd::Project & project, gd::Layout & layout) const;
-    virtual sf::Vector2f GetInitialInstanceOrigin(gd::InitialInstance & instance, gd::Project & project, gd::Layout & layout) const;
-    virtual void LoadResources(gd::Project & project, gd::Layout & layout);
-    #endif
+  std::map<gd::String, gd::PropertyDescriptor> GetInitialInstanceProperties(
+      const gd::InitialInstance& position) override;
+  bool UpdateInitialInstanceProperty(gd::InitialInstance& position,
+                                     const gd::String& name,
+                                     const gd::String& value) override;
 
-    virtual bool SupportShaders() { return true; }
-    #endif
+  size_t GetAnimationsCount() const override;
 
-    /** \name Animations
-     * Methods related to animations management
-     */
-    ///@{
-    /**
-     * \brief Return the animation at the specified index.
-     * If the index is out of bound, a "bad animation" object is returned.
-     */
-    const Animation & GetAnimation(std::size_t nb) const;
+  const gd::String &GetAnimationName(size_t index) const override;
 
-    /**
-     * \brief Return the animation at the specified index.
-     * If the index is out of bound, a "bad animation" object is returned.
-     */
-    Animation & GetAnimation(std::size_t nb);
+  bool HasAnimationNamed(const gd::String &animationName) const override;
+  
+  /**
+   * \brief Return the animation configuration.
+   */
+  const SpriteAnimationList& GetAnimations() const;
 
-    /**
-     * \brief Return the number of animations this object has.
-     */
-    std::size_t GetAnimationsCount() const { return animations.size(); };
+  /**
+   * @brief Return the animation configuration.
+   */
+  SpriteAnimationList& GetAnimations();
 
-    /**
-     * \brief Add an animation at the end of the existing ones.
-     */
-    void AddAnimation(const Animation & animation);
+  /**
+   * \brief Set if the object animation should be played even if the object is
+   * hidden or far from the camera.
+   */
+  void SetUpdateIfNotVisible(bool updateIfNotVisible_) {
+    updateIfNotVisible = updateIfNotVisible_;
+  }
 
-    /**
-     * \brief Remove an animation.
-     */
-    bool RemoveAnimation(std::size_t nb);
+  /**
+   * \brief Check if the object animation should be played even if the object
+   * is hidden or far from the camera (false by default).
+   */
+  bool GetUpdateIfNotVisible() const { return updateIfNotVisible; }
 
-    /**
-     * \brief Remove all animations.
-     */
-    void RemoveAllAnimations() { animations.clear(); }
+  /**
+   * \brief Return the scale applied to object to evaluate the default dimensions.
+   */
+  double GetPreScale() { return preScale; }
 
-    /**
-     * \brief Return true if the object hasn't any animation.
-     */
-    bool HasNoAnimations() const { return animations.empty(); }
+  /**
+   * \brief Set the scale applied to object to evaluate the default dimensions.
+   * 
+   * Its value must be strictly positive.
+   */
+  void SetPreScale(double preScale_) {
+    if (preScale_ <= 0) {
+      return;
+    }
+    preScale = preScale_;
+  }
 
-    /**
-     * \brief Swap the position of two animations
-     */
-    void SwapAnimations(std::size_t firstIndex, std::size_t secondIndex);
+ private:
+  void DoUnserializeFrom(gd::Project& project,
+                         const gd::SerializerElement& element) override;
+  void DoSerializeTo(gd::SerializerElement& element) const override;
 
-    /**
-     * \brief Return a read-only reference to the vector containing all the animation of the object.
-     */
-    const std::vector < Animation > & GetAllAnimations() const { return animations; }
-    ///@}
+  SpriteAnimationList animations;
 
-private:
-
-    virtual void DoUnserializeFrom(gd::Project & project, const gd::SerializerElement & element);
-    #if defined(GD_IDE_ONLY)
-    virtual void DoSerializeTo(gd::SerializerElement & element) const;
-    #endif
-
-    const Sprite * GetInitialInstanceSprite(gd::InitialInstance & instance, gd::Project & project, gd::Layout & layout, bool * shouldNotRotate = NULL) const;
-    mutable std::vector < Animation > animations;
-
-    static Animation badAnimation; //< Bad animation when an out of bound animation is requested.
+  bool updateIfNotVisible;  ///< If set to true, ask the game engine to play
+                            ///< object animation even if hidden or far from
+                            ///< the screen.
+  double preScale;
 };
 
-}
-#endif // GDCORE_SPRITEOBJECT_H
+}  // namespace gd

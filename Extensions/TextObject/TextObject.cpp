@@ -5,390 +5,136 @@ Copyright (c) 2008-2016 Florian Rival (Florian.Rival@gmail.com)
 This project is released under the MIT License.
 */
 
-#if defined(GD_IDE_ONLY) && !defined(GD_NO_WX_GUI)
-#include <wx/log.h>
-#include "Dialogs/TextObjectEditor.h" //Must be placed first, otherwise we get errors relative to "cannot convert 'const TCHAR*'..." in wx/msw/winundef.h
-#endif
-#include <SFML/Graphics.hpp>
-#include "GDCpp/Runtime/Project/Object.h"
 #include "GDCore/Tools/Localization.h"
-#include "GDCpp/Runtime/ImageManager.h"
-#include "GDCpp/Runtime/Serialization/SerializerElement.h"
-#include "GDCpp/Runtime/FontManager.h"
-#include "GDCpp/Runtime/Project/InitialInstance.h"
-#include "GDCpp/Runtime/Polygon2d.h"
-#include "GDCpp/Runtime/CommonTools.h"
-#include "GDCpp/Runtime/Serialization/SerializerElement.h"
+#include "GDCore/CommonTools.h"
+#include "GDCore/Project/InitialInstance.h"
+#include "GDCore/Project/Object.h"
+#include "GDCore/Serialization/SerializerElement.h"
 #include "TextObject.h"
 
-#if defined(GD_IDE_ONLY)
 #include "GDCore/IDE/AbstractFileSystem.h"
 #include "GDCore/IDE/Project/ArbitraryResourceWorker.h"
-namespace gd { class MainFrameWrapper; }
-#endif
 
 using namespace std;
 
-TextObject::TextObject(gd::String name_) :
-    Object(name_),
-    text("Text"),
-    characterSize(20),
-    fontName(""),
-    smoothed(true),
-    bold(false),
-    italic(false),
-    underlined(false),
-    colorR( 255 ),
-    colorG( 255 ),
-    colorB( 255 )
-    #if defined(GD_IDE_ONLY)
-    ,font(NULL)
-    #endif
+TextObject::TextObject()
+    : text("Text"),
+      characterSize(20),
+      fontName(""),
+      smoothed(true),
+      bold(false),
+      italic(false),
+      underlined(false),
+      color("0;0;0"),
+      textAlignment("left"),
+      isOutlineEnabled(false),
+      outlineThickness(2),
+      outlineColor("255;255;255"),
+      isShadowEnabled(false),
+      shadowColor("0;0;0"),
+      shadowOpacity(127),
+      shadowAngle(90),
+      shadowDistance(4),
+      shadowBlurRadius(2)
 {
 }
 
-TextObject::~TextObject()
-{
-};
+TextObject::~TextObject(){};
 
-void TextObject::DoUnserializeFrom(gd::Project & project, const gd::SerializerElement & element)
-{
-    SetString(element.GetChild("string", 0,"String").GetValue().GetString());
-    SetFontFilename(element.GetChild("font", 0,"Font").GetValue().GetString());
-    SetCharacterSize(element.GetChild("characterSize", 0, "CharacterSize").GetValue().GetInt());
-    SetColor(element.GetChild("color", 0,"Color").GetIntAttribute("r", 255),
-        element.GetChild("color", 0,"Color").GetIntAttribute("g", 255),
-        element.GetChild("color", 0,"Color").GetIntAttribute("b", 255));
+void TextObject::DoUnserializeFrom(gd::Project& project,
+                                   const gd::SerializerElement& element) {
+  // Compatibility with GD <= 5.3.188
+  // end of compatibility code
+  bool isLegacy = !element.HasChild("content");
+  auto &content = isLegacy ? element : element.GetChild("content");
 
+  SetFontName(content.GetChild("font", 0, "Font").GetValue().GetString());
+  SetTextAlignment(content.GetChild("textAlignment").GetValue().GetString());
+  SetCharacterSize(content.GetChild("characterSize", 0, "CharacterSize")
+                       .GetValue()
+                       .GetInt());
+  smoothed = content.GetBoolAttribute("smoothed");
+  bold = content.GetBoolAttribute("bold");
+  italic = content.GetBoolAttribute("italic");
+  underlined = content.GetBoolAttribute("underlined");
 
-    smoothed = element.GetBoolAttribute("smoothed");
-    bold = element.GetBoolAttribute("bold");
-    italic = element.GetBoolAttribute("italic");
-    underlined = element.GetBoolAttribute("underlined");
+  // Compatibility with GD <= 5.3.188
+  if (isLegacy) {
+    SetText(content.GetChild("string", 0, "String").GetValue().GetString());
+    SetColor(
+        gd::String::From(
+            content.GetChild("color", 0, "Color").GetIntAttribute("r", 255)) +
+        ";" +
+        gd::String::From(
+            content.GetChild("color", 0, "Color").GetIntAttribute("g", 255)) +
+        ";" +
+        gd::String::From(
+            content.GetChild("color", 0, "Color").GetIntAttribute("b", 255)));
+  } else
+  // end of compatibility code
+  {
+    SetText(content.GetStringAttribute("text"));
+    SetColor(content.GetStringAttribute("color", "0;0;0"));
+  
+    SetOutlineEnabled(content.GetBoolAttribute("isOutlineEnabled", false));
+    SetOutlineThickness(content.GetIntAttribute("outlineThickness", 2));
+    SetOutlineColor(content.GetStringAttribute("outlineColor", "255;255;255"));
+
+    SetShadowEnabled(content.GetBoolAttribute("isShadowEnabled", false));
+    SetShadowColor(content.GetStringAttribute("shadowColor", "0;0;0"));
+    SetShadowOpacity(content.GetIntAttribute("shadowOpacity", 127));
+    SetShadowAngle(content.GetIntAttribute("shadowAngle", 90));
+    SetShadowDistance(content.GetIntAttribute("shadowDistance", 4));
+    SetShadowBlurRadius(content.GetIntAttribute("shadowBlurRadius", 2));
+  }
 }
 
-#if defined(GD_IDE_ONLY)
-void TextObject::DrawInitialInstance(gd::InitialInstance & instance, sf::RenderTarget & renderTarget, gd::Project & project, gd::Layout & layout)
-{
-    sf::Text sfText;
-    sfText.setString(text);
-    sfText.setCharacterSize(characterSize);
-    sfText.setStyle((bold ? sf::Text::Bold : 0) |
-                 (IsItalic() ? sf::Text::Italic : 0) |
-                 (IsUnderlined() ? sf::Text::Underlined : 0) );
-    if ( font ) sfText.setFont(*font);
-    else sfText.setFont(*FontManager::Get()->GetFont(""));
-    sfText.setOrigin(sfText.getLocalBounds().width/2, sfText.getLocalBounds().height/2);
-    sfText.setPosition( instance.GetX()+sfText.getOrigin().x, instance.GetY()+sfText.getOrigin().y );
-    sfText.setRotation( instance.GetAngle() );
-    sfText.setColor(sf::Color(colorR, colorG, colorB));
-
-    renderTarget.draw(sfText);
-}
-
-sf::Vector2f TextObject::GetInitialInstanceDefaultSize(gd::InitialInstance & instance, gd::Project & project, gd::Layout & layout) const
-{
-    sf::Text sfText;
-    sfText.setString(text);
-    sfText.setCharacterSize(characterSize);
-    sfText.setStyle((bold ? sf::Text::Bold : 0) |
-                 (IsItalic() ? sf::Text::Italic : 0) |
-                 (IsUnderlined() ? sf::Text::Underlined : 0) );
-    if ( font ) sfText.setFont(*font);
-    else sfText.setFont(*FontManager::Get()->GetFont(""));
-
-    return sf::Vector2f(sfText.getLocalBounds().width, sfText.getLocalBounds().height+ sfText.getLocalBounds().top);
-}
-
-void TextObject::LoadResources(gd::Project & project, gd::Layout & layout)
-{
-    font = FontManager::Get()->GetFont(fontName);
-}
-
-void TextObject::DoSerializeTo(gd::SerializerElement & element) const
-{
-    element.AddChild("string").SetValue(GetString());
-    element.AddChild("font").SetValue(GetFontFilename());
+void TextObject::DoSerializeTo(gd::SerializerElement& element) const {
+  // Allow users to rollback to 5.3.188 or older releases without loosing their configuration.
+  // TODO Remove this in a few releases.
+  // Compatibility with GD <= 5.3.188
+  {
+    element.AddChild("string").SetValue(GetText());
+    element.AddChild("font").SetValue(GetFontName());
+    element.AddChild("textAlignment").SetValue(GetTextAlignment());
     element.AddChild("characterSize").SetValue(GetCharacterSize());
-    element.AddChild("color").SetAttribute("r", (int)GetColorR())
-        .SetAttribute("g", (int)GetColorG())
-        .SetAttribute("b", (int)GetColorB());
-
+    auto colorComponents = GetColor().Split(';');
+    element.AddChild("color")
+        .SetAttribute("r", colorComponents.size() == 3 ? colorComponents[0].To<int>() : 0)
+        .SetAttribute("g", colorComponents.size() == 3 ? colorComponents[1].To<int>() : 0)
+        .SetAttribute("b", colorComponents.size() == 3 ? colorComponents[2].To<int>() : 0);
     element.SetAttribute("smoothed", smoothed);
     element.SetAttribute("bold", bold);
     element.SetAttribute("italic", italic);
     element.SetAttribute("underlined", underlined);
+  }
+  // end of compatibility code
+  
+  auto& content = element.AddChild("content");
+  content.AddChild("text").SetValue(GetText());
+  content.AddChild("font").SetValue(GetFontName());
+  content.AddChild("textAlignment").SetValue(GetTextAlignment());
+  content.AddChild("characterSize").SetValue(GetCharacterSize());
+  content.AddChild("color").SetValue(GetColor());
+
+  content.SetAttribute("smoothed", smoothed);
+  content.SetAttribute("bold", bold);
+  content.SetAttribute("italic", italic);
+  content.SetAttribute("underlined", underlined);
+  
+  content.SetAttribute("isOutlineEnabled", isOutlineEnabled);
+  content.SetAttribute("outlineThickness", outlineThickness);
+  content.SetAttribute("outlineColor", outlineColor);
+
+  content.SetAttribute("isShadowEnabled", isShadowEnabled);
+  content.SetAttribute("shadowColor", shadowColor);
+  content.SetAttribute("shadowOpacity", shadowOpacity);
+  content.SetAttribute("shadowAngle", shadowAngle);
+  content.SetAttribute("shadowDistance", shadowDistance);
+  content.SetAttribute("shadowBlurRadius", shadowBlurRadius);
 }
 
-void TextObject::ExposeResources(gd::ArbitraryResourceWorker & worker)
-{
-    worker.ExposeFile(fontName);
+void TextObject::ExposeResources(
+    gd::ArbitraryResourceWorker& worker) {
+  worker.ExposeFont(fontName);
 }
-
-bool TextObject::GenerateThumbnail(const gd::Project & project, wxBitmap & thumbnail) const
-{
-#if !defined(GD_NO_WX_GUI)
-    thumbnail = wxBitmap("CppPlatform/Extensions/texticon24.png", wxBITMAP_TYPE_ANY);
-#endif
-
-    return true;
-}
-
-void TextObject::EditObject( wxWindow* parent, gd::Project & game, gd::MainFrameWrapper & mainFrameWrapper )
-{
-#if !defined(GD_NO_WX_GUI)
-    wxLogNull logNo;
-    TextObjectEditor dialog(parent, game, *this, mainFrameWrapper);
-    dialog.ShowModal();
-#endif
-}
-#endif
-
-void TextObject::SetFontFilename(const gd::String & fontFilename)
-{
-    fontName = fontFilename;
-    #if defined(GD_IDE_ONLY)
-    fontName = gd::AbstractFileSystem::NormalizeSeparator(fontName);
-    #endif
-};
-
-/* RuntimeTextObject : */
-
-RuntimeTextObject::RuntimeTextObject(RuntimeScene & scene, const TextObject & textObject) :
-    RuntimeObject(scene, textObject),
-    opacity(255),
-    angle(0)
-{
-    ChangeFont(textObject.GetFontFilename());
-    SetSmooth(textObject.IsSmoothed());
-    SetColor(textObject.GetColorR(), textObject.GetColorG(), textObject.GetColorB());
-    SetString(textObject.GetString());
-    SetCharacterSize(textObject.GetCharacterSize());
-    SetAngle(0);
-    SetBold(textObject.IsBold());
-    SetItalic(textObject.IsItalic());
-    SetUnderlined(textObject.IsUnderlined());
-}
-
-bool RuntimeTextObject::Draw( sf::RenderTarget& renderTarget )
-{
-    if ( hidden ) return true; //Don't draw anything if hidden
-
-    renderTarget.draw( text );
-    return true;
-}
-
-void RuntimeTextObject::OnPositionChanged()
-{
-    text.setPosition( GetX()+text.getOrigin().x, GetY()+text.getOrigin().y );
-}
-
-/**
- * RuntimeTextObject provides a basic bounding box.
- */
-std::vector<Polygon2d> RuntimeTextObject::GetHitBoxes() const
-{
-    std::vector<Polygon2d> mask;
-    Polygon2d rectangle = Polygon2d::CreateRectangle(GetWidth(), GetHeight());
-    rectangle.Rotate(GetAngle()/180*3.14159);
-    rectangle.Move(GetX()+GetCenterX(), GetY()+GetCenterY());
-
-    mask.push_back(rectangle);
-    return mask;
-}
-
-/**
- * Get the real X position of the sprite
- */
-float RuntimeTextObject::GetDrawableX() const
-{
-    return text.getPosition().x-text.getOrigin().x;
-}
-
-/**
- * Get the real Y position of the text
- */
-float RuntimeTextObject::GetDrawableY() const
-{
-    return text.getPosition().y-text.getOrigin().y;
-}
-
-/**
- * Width is the width of the current sprite.
- */
-float RuntimeTextObject::GetWidth() const
-{
-    return text.getLocalBounds().width;
-}
-
-/**
- * Height is the height of the current sprite.
- */
-float RuntimeTextObject::GetHeight() const
-{
-    return text.getLocalBounds().height + text.getLocalBounds().top;
-}
-
-void RuntimeTextObject::SetString(const gd::String & str)
-{
-    text.setString(str);
-    text.setOrigin(text.getLocalBounds().width/2, text.getLocalBounds().height/2);
-}
-
-gd::String RuntimeTextObject::GetString() const
-{
-    return text.getString();
-}
-
-/**
- * Change the color filter of the sprite object
- */
-void RuntimeTextObject::SetColor( unsigned int r, unsigned int g, unsigned int b )
-{
-    text.setColor(sf::Color(r, g, b, opacity));
-}
-
-void RuntimeTextObject::SetColor(const gd::String & colorStr)
-{
-    std::vector < gd::String > colors = colorStr.Split(U';');
-
-    if ( colors.size() < 3 ) return; //La couleur est incorrecte
-
-    SetColor(  colors[0].To<int>(),
-               colors[1].To<int>(),
-               colors[2].To<int>() );
-}
-
-void RuntimeTextObject::SetOpacity(float val)
-{
-    if ( val > 255 ) val = 255;
-    else if ( val < 0 ) val = 0;
-
-    opacity = val;
-    const sf::Color & currentColor = text.getColor();
-    text.setColor(sf::Color(currentColor.r, currentColor.g, currentColor.b, opacity));
-}
-
-void RuntimeTextObject::ChangeFont(const gd::String & fontName_)
-{
-    if ( !text.getFont() || fontName_ != fontName )
-    {
-        fontName = fontName_;
-        text.setFont(*FontManager::Get()->GetFont(fontName));
-        text.setOrigin(text.getLocalBounds().width/2, text.getLocalBounds().height/2);
-        OnPositionChanged();
-        SetSmooth(smoothed); //Ensure texture smoothing is up to date.
-    }
-}
-
-void RuntimeTextObject::SetFontStyle(int style)
-{
-    text.setStyle(style);
-}
-
-int RuntimeTextObject::GetFontStyle()
-{
-    return text.getStyle();
-}
-
-bool RuntimeTextObject::HasFontStyle(sf::Text::Style style)
-{
-    return (text.getStyle() & style) != 0;
-}
-
-bool RuntimeTextObject::IsBold()
-{
-    return HasFontStyle(sf::Text::Bold);
-}
-
-void RuntimeTextObject::SetBold(bool bold)
-{
-    SetFontStyle((bold ? sf::Text::Bold : 0) |
-                 (IsItalic() ? sf::Text::Italic : 0) |
-                 (IsUnderlined() ? sf::Text::Underlined : 0) );
-}
-
-bool RuntimeTextObject::IsItalic()
-{
-    return HasFontStyle(sf::Text::Italic);
-}
-
-void RuntimeTextObject::SetItalic(bool italic)
-{
-    SetFontStyle((IsBold() ? sf::Text::Bold : 0) |
-                 (italic ? sf::Text::Italic : 0) |
-                 (IsUnderlined() ? sf::Text::Underlined : 0) );
-}
-
-bool RuntimeTextObject::IsUnderlined()
-{
-    return HasFontStyle(sf::Text::Underlined);
-}
-
-void RuntimeTextObject::SetUnderlined(bool underlined)
-{
-    SetFontStyle((IsBold() ? sf::Text::Bold : 0) |
-                 (IsItalic() ? sf::Text::Italic : 0) |
-                 (underlined ? sf::Text::Underlined : 0) );
-}
-
-void RuntimeTextObject::SetSmooth(bool smooth)
-{
-    smoothed = smooth;
-
-    if ( text.getFont() )
-        const_cast<sf::Texture&>(text.getFont()->getTexture(GetCharacterSize())).setSmooth(smooth);
-}
-
-#if defined(GD_IDE_ONLY)
-void RuntimeTextObject::GetPropertyForDebugger(std::size_t propertyNb, gd::String & name, gd::String & value) const
-{
-    if      ( propertyNb == 0 ) {name = _("Text");                     value = GetString();}
-    else if ( propertyNb == 1 ) {name = _("Font");                    value = GetFontFilename();}
-    else if ( propertyNb == 2 ) {name = _("Font Size");      value = gd::String::From(GetCharacterSize());}
-    else if ( propertyNb == 3 ) {name = _("Color");       value = gd::String::From(GetColorR())+";"+gd::String::From(GetColorG())+";"+gd::String::From(GetColorB());}
-    else if ( propertyNb == 4 ) {name = _("Opacity");       value = gd::String::From(GetOpacity());}
-    else if ( propertyNb == 5 ) {name = _("Smoothing");       value = smoothed ? _("Yes") : _("No");}
-}
-
-bool RuntimeTextObject::ChangeProperty(std::size_t propertyNb, gd::String newValue)
-{
-    if      ( propertyNb == 0 ) { SetString(newValue); return true; }
-    else if ( propertyNb == 1 ) { ChangeFont(newValue); }
-    else if ( propertyNb == 2 ) { SetCharacterSize(newValue.To<int>()); }
-    else if ( propertyNb == 3 )
-    {
-        gd::String r, gb, g, b;
-        {
-            size_t separationPos = newValue.find(";");
-
-            if ( separationPos > newValue.length())
-                return false;
-
-            r = newValue.substr(0, separationPos);
-            gb = newValue.substr(separationPos+1, newValue.length());
-        }
-
-        {
-            size_t separationPos = gb.find(";");
-
-            if ( separationPos > gb.length())
-                return false;
-
-            g = gb.substr(0, separationPos);
-            b = gb.substr(separationPos+1, gb.length());
-        }
-
-        SetColor(r.To<int>(), g.To<int>(), b.To<int>());
-    }
-    else if ( propertyNb == 4 ) { SetOpacity(newValue.To<float>()); }
-    else if ( propertyNb == 5 ) { SetSmooth(!(newValue == _("No"))); }
-
-    return true;
-}
-
-std::size_t RuntimeTextObject::GetNumberOfProperties() const
-{
-    return 6;
-}
-#endif

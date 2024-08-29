@@ -6,14 +6,11 @@
 
 #include "GDCore/String.h"
 
-#include <SFML/System/String.hpp>
+#include <algorithm>
+#include <string.h>
+
 #include "GDCore/CommonTools.h"
 #include "GDCore/Utf8/utf8proc.h"
-
-#if defined(GD_IDE_ONLY) && !defined(GD_NO_WX_GUI)
-#include <wx/string.h>
-#include <wx/variant.h>
-#endif
 
 namespace gd
 {
@@ -30,48 +27,14 @@ String::String(const char *characters) : m_string()
     *this = characters;
 }
 
-String::String(const sf::String &string) : m_string()
-{
-    *this = string;
-}
-
 String::String(const std::u32string &string) : m_string()
 {
     *this = string;
 }
 
-#if defined(GD_IDE_ONLY) && !defined(GD_NO_WX_GUI)
-
-String::String(const wxString &string) : m_string()
-{
-    *this = string;
-}
-
-#endif
-
 String& String::operator=(const char *characters)
 {
     m_string = std::string(characters);
-    return *this;
-}
-
-String& String::operator=(const sf::String &string)
-{
-    m_string.clear();
-
-    //In theory, an UTF8 character can be up to 6 bytes (even if in the current Unicode standard,
-    //the last character is 4 bytes long when encoded in UTF8).
-    //So, reserve the maximum possible size to avoid reallocations.
-    m_string.reserve( string.getSize() * 6 );
-
-    //Push_back all characters inside the string.
-    for( sf::String::ConstIterator it = string.begin(); it != string.end(); ++it )
-    {
-        push_back( *it );
-    }
-
-    m_string.shrink_to_fit();
-
     return *this;
 }
 
@@ -94,17 +57,6 @@ String& String::operator=(const std::u32string &string)
 
     return *this;
 }
-
-#if defined(GD_IDE_ONLY) && !defined(GD_NO_WX_GUI)
-
-String& String::operator=(const wxString &string)
-{
-    m_string =  std::string(string.ToUTF8().data());
-
-    return *this;
-}
-
-#endif
 
 String::size_type String::size() const
 {
@@ -134,7 +86,7 @@ String::const_iterator String::end() const
 String String::FromLocale( const std::string &localizedString )
 {
 #if defined(WINDOWS)
-    return FromSfString(sf::String(localizedString)); //Don't need to use the current locale, on Windows, std::locale is always the C locale
+    return FromUTF8(localizedString); //Don't need to use the current locale, on Windows, std::locale is always the C locale
 #elif defined(MACOS)
     return FromUTF8(localizedString); //Assume UTF8 is the current locale
 #elif defined(EMSCRIPTEN)
@@ -146,7 +98,7 @@ String String::FromLocale( const std::string &localizedString )
        std::locale("").name().find("UTF8") != std::string::npos)
         return FromUTF8(localizedString); //UTF8 is already the current locale
     else
-        return FromSfString(sf::String(localizedString, std::locale(""))); //Use the current locale (std::locale("")) for conversion
+        return FromUTF8(localizedString); //Use the current locale (std::locale("")) for conversion
 #endif
 }
 
@@ -156,11 +108,6 @@ String String::FromUTF32( const std::u32string &string )
     str = string; //operator=(const std::u32string&)
 
     return str;
-}
-
-String String::FromSfString( const sf::String &sfString )
-{
-    return String(sfString);
 }
 
 String String::FromUTF8( const std::string &utf8Str )
@@ -186,7 +133,7 @@ String String::FromWide( const std::wstring &wstr )
 std::string String::ToLocale() const
 {
 #if defined(WINDOWS)
-    return ToSfString().toAnsiString();
+    return m_string;
 #elif defined(MACOS)
     return m_string;
 #elif defined(EMSCRIPTEN)
@@ -198,7 +145,7 @@ std::string String::ToLocale() const
        std::locale("").name().find("UTF8") != std::string::npos)
         return m_string; //UTF8 is already the current locale on Linux
     else
-        return ToSfString().toAnsiString(std::locale("")); //Use the current locale for conversion
+        return m_string; //Use the current locale for conversion
 #endif
 }
 
@@ -211,20 +158,6 @@ std::u32string String::ToUTF32() const
     }
 
     return u32str;
-}
-
-sf::String String::ToSfString() const
-{
-    sf::String str;
-    for(const_iterator it = begin(); it != end(); ++it)
-        str += sf::String(static_cast<sf::Uint32>(*it));
-
-    return str;
-}
-
-String::operator sf::String() const
-{
-    return ToSfString();
 }
 
 std::string String::ToUTF8() const
@@ -244,25 +177,6 @@ std::wstring String::ToWide() const
 
     return wstr;
 }
-
-#if defined(GD_IDE_ONLY) && !defined(GD_NO_WX_GUI)
-
-String String::FromWxString( const wxString &wxStr)
-{
-    return String(wxStr);
-}
-
-wxString String::ToWxString() const
-{
-    return wxString::FromUTF8(m_string.c_str());
-}
-
-String::operator wxString() const
-{
-    return ToWxString();
-}
-
-#endif
 
 bool String::IsValid() const
 {
@@ -294,7 +208,7 @@ String& String::operator+=( const String &other )
 
 String& String::operator+=( const char *other )
 {
-    *this += gd::String(other);
+    m_string += other;
     return *this;
 }
 
@@ -303,16 +217,6 @@ String& String::operator+=( value_type character )
     push_back(character);
     return *this;
 }
-
-#if defined(GD_IDE_ONLY) && !defined(GD_NO_WX_GUI)
-
-String& String::operator+=( const wxString &other )
-{
-    *this += gd::String(other);
-    return *this;
-}
-
-#endif
 
 void String::push_back( String::value_type character )
 {
@@ -335,11 +239,72 @@ String& String::insert( size_type pos, const String &str )
     return *this;
 }
 
+String& String::replace_if(iterator i1, iterator i2, std::function<bool(char32_t)> p,  const String &str)
+{
+    String::size_type offset = 1;
+    iterator it = i1.base();
+    while(it < i2.base())
+    {
+      if (p(*it)) { replace(std::distance(begin(), it), offset, str); }
+      else { it++; }
+    }
+    return *this;
+}
+
+String &String::RemoveConsecutiveOccurrences(iterator i1,
+                                             iterator i2,
+                                             const char c) {
+    iterator end = i2;
+    for (iterator current_index = i1.base(); current_index < end.base();
+         current_index++) {
+      if (*current_index == c) {
+        iterator current_subindex = current_index;
+        current_subindex++;
+        while (current_subindex < end.base() && *current_subindex == c) {
+          current_subindex++;
+        }
+        difference_type difference_to_replace =
+            std::distance(current_index, current_subindex);
+        if (difference_to_replace > 1) {
+          replace(
+              std::distance(begin(), current_index), difference_to_replace, c);
+          std::advance(end, -(difference_to_replace - 1));
+        }
+      }
+    }
+    return *this;
+}
+
 String& String::replace( iterator i1, iterator i2, const String &str )
 {
     m_string.replace(i1.base(), i2.base(), str.m_string);
 
     return *this;
+}
+
+String& String::replace( iterator i1, iterator i2, size_type n, const char c )
+{
+    m_string.replace(i1.base(), i2.base(), n, c);
+
+    return *this;
+}
+
+String& String::replace( String::size_type pos, String::size_type len, const char c )
+{
+    if(pos > size())
+        throw std::out_of_range("[gd::String::replace] starting pos greater than size");
+
+    iterator i1 = begin();
+    std::advance( i1, pos );
+
+    iterator i2 = i1;
+    while(i2 != end() && len > 0) //Increment "len" times and stop if end() is reached
+    {
+        ++i2;
+        --len;
+    }
+
+    return replace( i1, i2, 1, c );
 }
 
 String& String::replace( String::size_type pos, String::size_type len, const String &str )
@@ -436,6 +401,11 @@ String String::LowerCase() const
     std::for_each( begin(), end(), [&](char32_t codepoint){ lowerCasedStr.push_back( utf8proc_tolower(codepoint) ); } );
 
     return lowerCasedStr;
+}
+
+String String::CapitalizeFirstLetter() const
+{
+  return size() < 1 ? *this : substr(0, 1).UpperCase() + substr(1);
 }
 
 String String::FindAndReplace(String search, String replacement, bool all) const
@@ -657,7 +627,7 @@ int String::compare( const String &other ) const
 namespace priv
 {
     /**
-     * As the the casefolded version of a string can have a different size, the positions
+     * As the casefolded version of a string can have a different size, the positions
      * in the two versions of the string are not the same.
      * \return where the **pos** position in the original string **str** is in the
      * casefolded version of **str**
@@ -671,7 +641,7 @@ namespace priv
     }
 
     /**
-     * As the the casefolded version of a string can have a different size, the positions
+     * As the casefolded version of a string can have a different size, the positions
      * in the two versions of the string are not the same.
      * \return where the **pos** position in the casefolded string of **str** is in the
      * original version **str**
@@ -721,22 +691,15 @@ String GD_CORE_API operator+(const char *lhs, const String &rhs)
     return str;
 }
 
-#if defined(GD_IDE_ONLY) && !defined(GD_NO_WX_GUI)
-
-String GD_CORE_API operator+(String lhs, const wxString &rhs)
+const String& GD_CORE_API operator||(const String& lhs, const String &rhs)
 {
-    lhs += String::FromWxString(rhs);
-    return lhs;
+    return lhs.empty() ? rhs : lhs;
 }
 
-String GD_CORE_API operator+(const wxString &lhs, const String &rhs)
+String GD_CORE_API operator||(String lhs, const char *rhs)
 {
-    String str(lhs);
-    str += rhs;
-    return str;
+    return lhs.empty() ? rhs : lhs;
 }
-
-#endif
 
 bool GD_CORE_API operator==( const String &lhs, const String &rhs )
 {
@@ -745,25 +708,13 @@ bool GD_CORE_API operator==( const String &lhs, const String &rhs )
 
 bool GD_CORE_API operator==( const String &lhs, const char *rhs )
 {
-    return (lhs == String(rhs));
+    return (strcmp(lhs.c_str(), rhs) == 0);
 }
 
 bool GD_CORE_API operator==( const char *lhs, const gd::String &rhs )
 {
-    return (String(lhs) == rhs);
+    return (strcmp(lhs, rhs.c_str()) == 0);
 }
-
-#if defined(GD_IDE_ONLY) && !defined(GD_NO_WX_GUI)
-bool GD_CORE_API operator==( const String &lhs, const wxString &rhs)
-{
-    return (lhs == String(rhs));
-}
-
-bool GD_CORE_API operator==( const wxString &lhs, const String &rhs)
-{
-    return (String(lhs) == rhs);
-}
-#endif
 
 bool GD_CORE_API operator!=( const String &lhs, const String &rhs )
 {
@@ -780,18 +731,6 @@ bool GD_CORE_API operator!=( const char *lhs, const String &rhs )
     return !(lhs == rhs);
 }
 
-#if defined(GD_IDE_ONLY) && !defined(GD_NO_WX_GUI)
-bool GD_CORE_API operator!=( const String &lhs, const wxString &rhs)
-{
-    return !(lhs == rhs);
-}
-
-bool GD_CORE_API operator!=( const wxString &lhs, const String &rhs)
-{
-    return !(lhs == rhs);
-}
-#endif
-
 bool GD_CORE_API operator<( const String &lhs, const String &rhs )
 {
     return (lhs.compare(rhs) < 0);
@@ -799,12 +738,12 @@ bool GD_CORE_API operator<( const String &lhs, const String &rhs )
 
 bool GD_CORE_API operator<( const String &lhs, const char *rhs )
 {
-    return (lhs < String(rhs));
+    return strcmp(lhs.c_str(), rhs) < 0;
 }
 
 bool GD_CORE_API operator<( const char *lhs, const String &rhs )
 {
-    return (String(lhs) < rhs);
+    return strcmp(lhs, rhs.c_str()) < 0;
 }
 
 bool GD_CORE_API operator<=( const String &lhs, const String &rhs )
@@ -814,12 +753,12 @@ bool GD_CORE_API operator<=( const String &lhs, const String &rhs )
 
 bool GD_CORE_API operator<=( const String &lhs, const char *rhs )
 {
-    return (lhs <= String(rhs));
+    return strcmp(lhs.c_str(), rhs) <= 0;
 }
 
 bool GD_CORE_API operator<=( const char *lhs, const String &rhs )
 {
-    return (String(lhs) <= rhs);
+    return strcmp(lhs, rhs.c_str()) <= 0;
 }
 
 bool GD_CORE_API operator>( const String &lhs, const String &rhs )
@@ -829,12 +768,12 @@ bool GD_CORE_API operator>( const String &lhs, const String &rhs )
 
 bool GD_CORE_API operator>( const String &lhs, const char *rhs )
 {
-    return (lhs > String(rhs));
+    return strcmp(lhs.c_str(), rhs) > 0;
 }
 
 bool GD_CORE_API operator>( const char *lhs, const String &rhs )
 {
-    return (String(lhs) > rhs);
+    return strcmp(lhs, rhs.c_str()) > 0;
 }
 
 bool GD_CORE_API operator>=( const String &lhs, const String &rhs )
@@ -844,12 +783,12 @@ bool GD_CORE_API operator>=( const String &lhs, const String &rhs )
 
 bool GD_CORE_API operator>=( const String &lhs, const char *rhs )
 {
-    return (lhs >= String(rhs));
+    return strcmp(lhs.c_str(), rhs) >= 0;
 }
 
 bool GD_CORE_API operator>=( const char *lhs, const String &rhs )
 {
-    return (String(lhs) >= rhs);
+    return strcmp(lhs, rhs.c_str()) >= 0;
 }
 
 std::ostream& GD_CORE_API operator<<(std::ostream& os, const String& str)

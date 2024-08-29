@@ -5,141 +5,106 @@ Copyright (c) 2008-2016 Florian Rival (Florian.Rival@gmail.com)
 This project is released under the MIT License.
 */
 
-#include "GDCpp/Extensions/ExtensionBase.h"
-#include "ObjectsLinksManager.h"
-#include "GDCore/Tools/Version.h"
-
 #include <iostream>
 
-/**
- * \brief This class declares information about the extension.
- */
-class Extension : public ExtensionBase
-{
-public:
+#include "GDCore/Extensions/PlatformExtension.h"
+#include "GDCore/Tools/Localization.h"
 
-    /**
-     * Constructor of an extension declares everything the extension contains: objects, actions, conditions and expressions.
-     */
-    Extension()
-    {
-        SetExtensionInformation("LinkedObjects",
-                              _("Linked objects"),
-                              _("Extension allowing to virtually link two objects."),
-                              "Florian Rival",
-                              "Open source (MIT License)");
+void DeclareLinkedObjectsExtension(gd::PlatformExtension& extension) {
+  extension
+      .SetExtensionInformation(
+          "LinkedObjects",
+          _("Linked objects"),
+          "These actions and conditions allow to virtually link two objects. "
+          "It's then useful in the events to quickly retrieve one or more "
+          "objects attached to another. For example, this can be used to link "
+          "some equipment objects with the character holding them. More "
+          "generally, this can be used to store and retrieve objects in a way "
+          "that is more efficient than using variables.",
+          "Florian Rival",
+          "Open source (MIT License)")
+      .SetExtensionHelpPath("/all-features/linked-objects")
+      .SetCategory("Advanced");
+  extension.AddInstructionOrExpressionGroupMetadata(_("Linked objects"))
+      .SetIcon("CppPlatform/Extensions/LinkedObjectsicon24.png");
 
-        #if defined(GD_IDE_ONLY)
+  extension
+      .AddAction("LinkObjects",
+                 _("Link two objects"),
+                 _("Link two objects together, so as to be able to get one "
+                   "from the other."),
+                 _("Link _PARAM1_ and _PARAM2_"),
+                 _("Objects"),
+                 "CppPlatform/Extensions/LinkedObjectsicon24.png",
+                 "CppPlatform/Extensions/LinkedObjectsicon24.png")
 
-        AddAction("LinkObjects",
-                       _("Link two objects"),
-                       _("Link two objects together, so as to be able to get one from the other."),
-                       _("Link _PARAM1_ and _PARAM2_"),
-                       _("Linked objects"),
-                       "CppPlatform/Extensions/LinkedObjectsicon24.png",
-                       "CppPlatform/Extensions/LinkedObjectsicon16.png")
+      .AddCodeOnlyParameter("currentScene", "")
+      .AddParameter("objectPtr", _("Object 1"))
+      .AddParameter("objectPtr", _("Object 2"))
 
-            .AddCodeOnlyParameter("currentScene", "")
-            .AddParameter("objectPtr", _("Object 1"))
-            .AddParameter("objectPtr", _("Object 2"))
+      .SetFunctionName("GDpriv::LinkedObjects::LinkObjects");
 
-            .SetFunctionName("GDpriv::LinkedObjects::LinkObjects").SetIncludeFile("LinkedObjects/LinkedObjectsTools.h");
+  extension
+      .AddAction("RemoveLinkBetween",
+                 _("Unlink two objects"),
+                 _("Unlink two objects."),
+                 _("Unlink _PARAM1_ and _PARAM2_"),
+                 _("Objects"),
+                 "CppPlatform/Extensions/LinkedObjectsicon24.png",
+                 "CppPlatform/Extensions/LinkedObjectsicon24.png")
 
-        AddAction("RemoveLinkBetween",
-                       _("Unlink two objects"),
-                       _("Unlink two objects."),
-                       _("Unlink _PARAM1_ and _PARAM2_"),
-                       _("Linked objects"),
-                       "CppPlatform/Extensions/LinkedObjectsicon24.png",
-                       "CppPlatform/Extensions/LinkedObjectsicon16.png")
+      .AddCodeOnlyParameter("currentScene", "")
+      .AddParameter("objectPtr", _("Object 1"))
+      .AddParameter("objectPtr", _("Object 2"))
 
-            .AddCodeOnlyParameter("currentScene", "")
-            .AddParameter("objectPtr", _("Object 1"))
-            .AddParameter("objectPtr", _("Object 2"))
+      .SetFunctionName("GDpriv::LinkedObjects::RemoveLinkBetween");
 
-            .SetFunctionName("GDpriv::LinkedObjects::RemoveLinkBetween").SetIncludeFile("LinkedObjects/LinkedObjectsTools.h");
+  extension
+      .AddAction("RemoveAllLinksOf",
+                 _("Unlink all objects from an object"),
+                 _("Unlink all objects from an object."),
+                 _("Unlink all objects from _PARAM1_"),
+                 _("Objects"),
+                 "CppPlatform/Extensions/LinkedObjectsicon24.png",
+                 "CppPlatform/Extensions/LinkedObjectsicon24.png")
 
-        AddAction("RemoveAllLinksOf",
-                       _("Unlink all objects from an object"),
-                       _("Unlink all objects from an object."),
-                       _("Unlink all objects from _PARAM1_"),
-                       _("Linked objects"),
-                       "CppPlatform/Extensions/LinkedObjectsicon24.png",
-                       "CppPlatform/Extensions/LinkedObjectsicon16.png")
+      .AddCodeOnlyParameter("currentScene", "")
+      .AddParameter("objectPtr", _("Object"))
 
-            .AddCodeOnlyParameter("currentScene", "")
-            .AddParameter("objectPtr", _("Object"))
+      .SetFunctionName("GDpriv::LinkedObjects::RemoveAllLinksOf");
 
-            .SetFunctionName("GDpriv::LinkedObjects::RemoveAllLinksOf").SetIncludeFile("LinkedObjects/LinkedObjectsTools.h");
+  extension
+      .AddCondition("PickObjectsLinkedTo",
+                    _("Take into account linked objects"),
+                    _("Take some objects linked to the object into account for "
+                      "next conditions and actions.\nThe condition will return "
+                      "false if no object was taken into account."),
+                    _("Take into account all \"_PARAM1_\" linked to _PARAM2_"),
+                    _("Objects"),
+                    "CppPlatform/Extensions/LinkedObjectsicon24.png",
+                    "CppPlatform/Extensions/LinkedObjectsicon24.png")
 
-        AddCondition("PickObjectsLinkedTo",
-                       _("Take into account linked objects"),
-                       _("Take some objects linked to the object into account for next conditions and actions.\nThe condition will return false if no object was taken into account."),
-                       _("Take into account all \"_PARAM1_\" linked to _PARAM2_"),
-                       _("Linked objects"),
-                       "CppPlatform/Extensions/LinkedObjectsicon24.png",
-                       "CppPlatform/Extensions/LinkedObjectsicon16.png")
+      .AddCodeOnlyParameter("currentScene", "")
+      .AddParameter("objectList", _("Pick these objects..."))
+      .AddParameter("objectPtr", _("...if they are linked to this object"))
+      .AddCodeOnlyParameter("eventsFunctionContext", "")
 
-            .AddCodeOnlyParameter("currentScene", "")
-            .AddParameter("objectList", _("Pick these objects..."))
-            .AddParameter("objectPtr", _("...if they are linked to this object"))
+      .SetFunctionName("GDpriv::LinkedObjects::PickObjectsLinkedTo");
 
-            .SetFunctionName("GDpriv::LinkedObjects::PickObjectsLinkedTo").SetIncludeFile("LinkedObjects/LinkedObjectsTools.h");
+  extension
+      .AddAction(
+          "PickObjectsLinkedTo",
+          _("Take into account linked objects"),
+          _("Take objects linked to the object into account for next actions."),
+          _("Take into account all \"_PARAM1_\" linked to _PARAM2_"),
+          _("Objects"),
+          "CppPlatform/Extensions/LinkedObjectsicon24.png",
+          "CppPlatform/Extensions/LinkedObjectsicon24.png")
 
+      .AddCodeOnlyParameter("currentScene", "")
+      .AddParameter("objectList", _("Pick these objects..."))
+      .AddParameter("objectPtr", _("...if they are linked to this object"))
+      .AddCodeOnlyParameter("eventsFunctionContext", "")
 
-        AddAction("PickObjectsLinkedTo",
-                       _("Take into account linked objects"),
-                       _("Take objects linked to the object into account for next actions."),
-                       _("Take into account all \"_PARAM1_\" linked to _PARAM2_"),
-                       _("Linked objects"),
-                       "CppPlatform/Extensions/LinkedObjectsicon24.png",
-                       "CppPlatform/Extensions/LinkedObjectsicon16.png")
-
-            .AddCodeOnlyParameter("currentScene", "")
-            .AddParameter("objectList", _("Pick these objects..."))
-            .AddParameter("objectPtr", _("...if they are linked to this object"))
-
-            .SetFunctionName("GDpriv::LinkedObjects::PickObjectsLinkedTo").SetIncludeFile("LinkedObjects/LinkedObjectsTools.h");
-
-        #endif
-
-        GD_COMPLETE_EXTENSION_COMPILATION_INFORMATION();
-    };
-
-    /**
-     * The extension must be aware of objects deletion
-     */
-    virtual bool ToBeNotifiedOnObjectDeletion() { return true; }
-
-    /**
-     * Be sure to remove all links when an object is deleted
-     */
-    virtual void ObjectDeletedFromScene(RuntimeScene & scene, RuntimeObject * object)
-    {
-        GDpriv::LinkedObjects::ObjectsLinksManager::managers[&scene].RemoveAllLinksOf(object);
-    }
-
-    /**
-     * Initialize manager of linked objects of scene
-     */
-    virtual void SceneLoaded(RuntimeScene & scene)
-    {
-        GDpriv::LinkedObjects::ObjectsLinksManager::managers[&scene].ClearAll();
-    }
-
-    /**
-     * Destroy manager of linked objects of scene
-     */
-    virtual void SceneUnloaded(RuntimeScene & scene)
-    {
-        GDpriv::LinkedObjects::ObjectsLinksManager::managers.erase(&scene);
-    }
-};
-
-/**
- * Used by GDevelop to create the extension class
- * -- Do not need to be modified. --
- */
-extern "C" ExtensionBase * GD_EXTENSION_API CreateGDExtension() {
-    return new Extension;
+      .SetFunctionName("GDpriv::LinkedObjects::PickObjectsLinkedTo");
 }

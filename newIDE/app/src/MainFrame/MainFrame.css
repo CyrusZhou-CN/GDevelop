@@ -1,0 +1,89 @@
+html {
+  /* Disable browser zooming/auto panning */
+  touch-action: none;
+
+  /* Prevent larger texts in landscape mode on Safari iOS */
+  -webkit-text-size-adjust: 100%;
+
+  /* Prevent callout when long pressing images by default on Safari iOS */
+  -webkit-touch-callout: none;
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.main-frame {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+
+  /* Support portrait and landscape right only */
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+
+  /* Smoother startup */
+  animation: fade-in 0.5s;
+}
+
+/* The part of the window which can be drag'n'dropped on desktop (Electron and installed PWA). */
+.title-bar-draggable-part {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+/* A container adding padding to fit on the screen, useful for dialogs on non square screens ("notch"). */
+.safe-area-aware-container {
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Add top margin to fit on screen, useful for drawers on non square screens ("notch"). */
+.safe-area-aware-top-margin {
+  margin-top: env(safe-area-inset-top);
+}
+
+/* Add left padding to fit on screen, useful for drawers on non square screens ("notch"). */
+.safe-area-aware-left-container {
+  padding-left: env(safe-area-inset-left);
+}
+
+/* Helper for avoiding the soft keyboard. See also `getAvoidSoftKeyboardStyle`. */
+.avoid-soft-keyboard {
+  transform: translateY(calc(-1 * var(--softKeyboardBottomOffset)));
+  transition: transform 0.2s linear;
+  will-change: transform;
+}
+
+/* Disable selections and web-ish cursors */
+:not(input):not(textarea):not(canvas):not(code),
+:not(input):not(textarea):not(canvas):not(code)::after,
+:not(input):not(textarea):not(canvas):not(code)::before {
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: default;
+}
+a:not([draggable=true]), img:not([draggable=true]) {
+    -webkit-user-drag: none;
+    user-drag: none; /* Technically not supported in Electron yet */
+}
+a[href^="http://"],
+a[href^="https://"],
+a[href^="ftp://"] {
+    -webkit-user-drag: auto;
+    user-drag: auto; /* Technically not supported in Electron yet */
+}
+
+/* Used for react-sortable-hoc SortableContainer, to make sure the
+ * dragged element is visible (and not hidden behind a drawer or dialog)
+ */
+.sortable-helper {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif; /* Font from the theme*/
+  z-index: 9999;
+}

@@ -1,17 +1,28 @@
-#Script launching the generation of the documentations of all modules
+# Script launching the generation of the documentations of all modules
+# Install globally doxgen before starting it.
+set -e
+
 echo Generating all docs...
+mkdir -p ../docs
 mkdir -p logs
 cd ..
 cd Core/docs
-doxygen > ../../scripts/logs/CoreDoxygenLog.txt 2> ../../scripts/logs/CoreDoxygenWarningLog.txt
+doxygen
+echo ℹ️ Generated Core docs
 cd ../..
 cd GDJS/docs
-doxygen > ../../scripts/logs/GDJSDoxygenLog.txt  2> ../../scripts/logs/GDJSDoxygenWarningLog.txt
+doxygen
+echo ℹ️ Generated GDJS docs
 cd ../..
-cd GDCpp/docs
-doxygen > ../../scripts/logs/GDCppDoxygenLog.txt 2> ../../scripts/logs/GDCppDoxygenWarningLog.txt
-cd ../..
-cd GDJS/docs
-yuidoc ../Runtime > ../../scripts/logs/GDJSYuidDocLog.txt  2> ../../scripts/logs/GDJSYuidDocWarningLog.txt
-cd ../..
+cd GDJS
+npm install
+npm run generate-doc
+echo ℹ️ Generated GDJS Runtime docs
+cd ..
+cd newIDE/app/scripts
+npm install
+node extract-extensions-document.js
+node extract-reference-document.js
+cd ../../..
+echo ℹ️ Generated wiki docs
 cd scripts

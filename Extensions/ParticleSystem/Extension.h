@@ -7,22 +7,13 @@ This project is released under the MIT License.
 
 #ifndef EXTENSION_H_INCLUDED
 #define EXTENSION_H_INCLUDED
-namespace gd { class ObjectMetadata; }
+#include "GDCore/Extensions/PlatformExtension.h"
+namespace gd {
+class ObjectMetadata;
+class PlatformExtension;
+}
 
-/**
- * \brief This class declares information about the extension.
- */
-class Extension : public ExtensionBase
-{
-public:
-    Extension();
-    virtual ~Extension() {};
+void DeclareParticleSystemExtension(gd::PlatformExtension& extension);
 
-private:
-    void ExtensionSubDeclaration1(gd::ObjectMetadata & objInfos);
-    void ExtensionSubDeclaration2(gd::ObjectMetadata & objInfos);
-    void ExtensionSubDeclaration3(gd::ObjectMetadata & objInfos);
-};
 
-#endif // EXTENSION_H_INCLUDED
-
+#endif  // EXTENSION_H_INCLUDED

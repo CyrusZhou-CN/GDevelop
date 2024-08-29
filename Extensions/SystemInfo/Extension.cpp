@@ -5,53 +5,89 @@ Copyright (c) 2016 Florian Rival (Florian.Rival@gmail.com)
 This project is released under the MIT License.
 */
 
-#include "GDCpp/Extensions/ExtensionBase.h"
-#include "GDCore/Tools/Version.h"
+#include "GDCore/Extensions/PlatformExtension.h"
+#include "GDCore/Tools/Localization.h"
 
-/**
- * \brief This class declares information about the extension.
- */
-class SystemInfoCppExtension : public ExtensionBase
-{
-public:
+void DeclareSystemInfoExtension(gd::PlatformExtension& extension) {
+  extension
+      .SetExtensionInformation(
+          "SystemInfo",
+          _("System information"),
+          _("Get information about the system and device running the game."),
+          "Florian Rival",
+          "Open source (MIT License)")
+      .SetCategory("Advanced");
+  extension.AddInstructionOrExpressionGroupMetadata(_("System information"))
+      .SetIcon("CppPlatform/Extensions/systeminfoicon.png");
 
-    /**
-     * Constructor of an extension declares everything the extension contains: objects, actions, conditions and expressions.
-     */
-    SystemInfoCppExtension()
-    {
-        SetExtensionInformation("SystemInfo",
-            _("System information"),
-            _("Provides information about the system running the game"),
-            "Florian Rival",
-            "Open source (MIT License)");
+  extension.AddCondition(
+      "IsMobile",
+      _("Is a mobile device"),
+      _("Check if the device running the game is a mobile device (phone or "
+        "tablet on iOS, Android or other mobile devices). The game itself "
+        "might be a web game or distributed as a native mobile app (to check "
+        "this precisely, use other conditions)."),
+      _("The device is a mobile device"),
+      "",
+      "CppPlatform/Extensions/systeminfoicon.png",
+      "CppPlatform/Extensions/systeminfoicon.png");
 
-        #if defined(GD_IDE_ONLY)
-        AddCondition("IsMobile",
-            _("Is a mobile device"),
-            _("Check if the device running the game is a mobile device"),
-            _("The device is a mobile device"),
-            _("System information"),
-            "CppPlatform/Extensions/systeminfoicon24.png",
-            "CppPlatform/Extensions/systeminfoicon16.png")
+  extension.AddCondition("IsNativeMobileApp",
+                         _("Is a native mobile app"),
+                         _("Check if the game is running as a native mobile "
+                           "app (iOS or Android app)."),
+                         _("The game is running as a native mobile app"),
+                         "",
+                         "CppPlatform/Extensions/systeminfoicon.png",
+                         "CppPlatform/Extensions/systeminfoicon.png");
 
-            .SetFunctionName("SystemInfo::IsMobile").SetIncludeFile("SystemInfo/SystemInfoTools.h");
-        #endif
+  extension
+      .AddCondition("IsNativeDesktopApp",
+                    _("Is a native desktop app"),
+                    _("Check if the game is running as a native desktop app."),
+                    _("The game is running as a native desktop app"),
+                    "",
+                    "CppPlatform/Extensions/systeminfoicon.png",
+                    "CppPlatform/Extensions/systeminfoicon.png")
+      .AddCodeOnlyParameter("currentScene", "");
 
-        GD_COMPLETE_EXTENSION_COMPILATION_INFORMATION();
-    };
-};
+  extension
+      .AddCondition("IsWebGLSupported",
+                    _("Is WebGL supported"),
+                    _("Check if GPU accelerated WebGL is supported on the "
+                      "target device."),
+                    _("WebGL is available"),
+                    "",
+                    "CppPlatform/Extensions/systeminfoicon.png",
+                    "CppPlatform/Extensions/systeminfoicon.png")
 
-#if defined(ANDROID)
-extern "C" ExtensionBase * CreateGDCppSystemInfoExtension() {
-    return new SystemInfoCppExtension;
+      .AddCodeOnlyParameter("currentScene", "")
+      .SetFunctionName("SystemInfo::IsWebGLSupported");
+
+  extension
+      .AddCondition(
+          "IsPreview",
+          _("Is the game running as a preview"),
+          _("Check if the game is currently being previewed in the editor. "
+            "This can be used to enable a \"Debug mode\" or do some work only "
+            "in previews."),
+          _("The game is being previewed in the editor"),
+          "",
+          "CppPlatform/Extensions/systeminfoicon.png",
+          "CppPlatform/Extensions/systeminfoicon.png")
+
+      .AddCodeOnlyParameter("currentScene", "");
+
+  extension
+      .AddCondition(
+          "HasTouchScreen",
+          _("Device has a touchscreen"),
+          _("Check if the device running the game has a touchscreen (typically "
+            "Android phones, iPhones, iPads, but also some laptops)."),
+          _("The device has a touchscreen"),
+          "",
+          "CppPlatform/Extensions/systeminfoicon.png",
+          "CppPlatform/Extensions/systeminfoicon.png")
+
+      .AddCodeOnlyParameter("currentScene", "");
 }
-#elif !defined(EMSCRIPTEN)
-/**
- * Used by GDevelop to create the extension class
- * -- Do not need to be modified. --
- */
-extern "C" ExtensionBase * GD_EXTENSION_API CreateGDExtension() {
-    return new SystemInfoCppExtension;
-}
-#endif

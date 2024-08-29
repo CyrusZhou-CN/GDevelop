@@ -5,140 +5,82 @@ Copyright (c) 2012-2016 Victor Levasseur (victorlevasseur01@orange.fr)
 This project is released under the MIT License.
 */
 
-#ifndef TILEDSPRITEOBJECT_H
-#define TILEDSPRITEOBJECT_H
-#include "GDCpp/Runtime/Project/Object.h"
-#include "GDCpp/Runtime/RuntimeObject.h"
+#ifndef PANELSPRITEOBJECT_H
+#define PANELSPRITEOBJECT_H
 #include <memory>
-class SFMLTextureWrapper;
-namespace gd { class ImageManager; }
-class RuntimeScene;
-namespace gd { class Object; }
-namespace gd { class ImageManager; }
-namespace gd { class InitialInstance; }
-#if defined(GD_IDE_ONLY)
-class wxBitmap;
-namespace gd { class Project; }
-class wxWindow;
-namespace gd { class MainFrameWrapper; }
-#endif
+
+#include "GDCore/Project/Object.h"
+namespace gd {
+class ObjectConfiguration;
+class InitialInstance;
+class Project;
+}  // namespace gd
 
 /**
  * PanelSprite Object
  */
-class GD_EXTENSION_API PanelSpriteObject : public gd::Object
-{
-public :
+class GD_EXTENSION_API PanelSpriteObject : public gd::ObjectConfiguration {
+ public:
+  PanelSpriteObject();
+  virtual ~PanelSpriteObject();
+  virtual std::unique_ptr<gd::ObjectConfiguration> Clone() const {
+    return std::unique_ptr<gd::ObjectConfiguration>(
+        new PanelSpriteObject(*this));
+  }
 
-    PanelSpriteObject(gd::String name_);
-    virtual ~PanelSpriteObject();
-    virtual gd::Object * Clone() const { return new PanelSpriteObject(*this);}
+  virtual void ExposeResources(gd::ArbitraryResourceWorker &worker);
 
-    #if defined(GD_IDE_ONLY)
-    virtual void LoadResources(gd::Project & project, gd::Layout & layout);
-    virtual void DrawInitialInstance(gd::InitialInstance & instance, sf::RenderTarget & renderTarget, gd::Project & project, gd::Layout & layout);
-    virtual sf::Vector2f GetInitialInstanceDefaultSize(gd::InitialInstance & instance, gd::Project & project, gd::Layout & layout) const;
-    virtual bool GenerateThumbnail(const gd::Project & project, wxBitmap & thumbnail) const;
-    virtual void ExposeResources(gd::ArbitraryResourceWorker & worker);
-    virtual void EditObject( wxWindow* parent, gd::Project & game_, gd::MainFrameWrapper & mainFrameWrapper_ );
-    #endif
+  double GetWidth() const { return width; };
+  double GetHeight() const { return height; };
 
-    float GetWidth() const { return width; };
-    float GetHeight() const { return height; };
+  void SetWidth(double newWidth) {
+    width = newWidth >= (leftMargin + rightMargin) ? newWidth
+                                                   : (leftMargin + rightMargin);
+  };
+  void SetHeight(double newHeight) {
+    height = newHeight >= (topMargin + bottomMargin)
+                 ? newHeight
+                 : (topMargin + bottomMargin);
+  };
 
-    void SetWidth(float newWidth) { width = newWidth >= (leftMargin + rightMargin) ? newWidth : (leftMargin + rightMargin); };
-    void SetHeight(float newHeight) { height = newHeight >= (topMargin + bottomMargin) ? newHeight : (topMargin + bottomMargin); };
+  double GetLeftMargin() const { return leftMargin; };
+  void SetLeftMargin(double newMargin) { leftMargin = newMargin; };
 
-    float GetLeftMargin() const { return leftMargin; };
-    void SetLeftMargin(float newMargin) { leftMargin = newMargin; };
+  double GetTopMargin() const { return topMargin; };
+  void SetTopMargin(double newMargin) { topMargin = newMargin; };
 
-    float GetTopMargin() const { return topMargin; };
-    void SetTopMargin(float newMargin) { topMargin = newMargin; };
+  double GetRightMargin() const { return rightMargin; };
+  void SetRightMargin(double newMargin) { rightMargin = newMargin; };
 
-    float GetRightMargin() const { return rightMargin; };
-    void SetRightMargin(float newMargin) { rightMargin = newMargin; };
+  double GetBottomMargin() const { return bottomMargin; };
+  void SetBottomMargin(double newMargin) { bottomMargin = newMargin; };
 
-    float GetBottomMargin() const { return bottomMargin; };
-    void SetBottomMargin(float newMargin) { bottomMargin = newMargin; };
+  bool IsTiled() const { return tiled; };
+  void SetTiled(bool enable = true) { tiled = enable; };
 
-    bool IsTiled() const { return tiled; };
-    void SetTiled(bool enable = true) { tiled = enable; };
+  void SetTexture(const gd::String &newTextureName) {
+    textureName = newTextureName;
+  };
+  const gd::String &GetTexture() const { return textureName; };
 
-    gd::String textureName;
+  gd::String textureName;  ///< deprecated. Use Get/SetTexture instead.
 
-private:
-    virtual void DoUnserializeFrom(gd::Project & project, const gd::SerializerElement & element);
-    #if defined(GD_IDE_ONLY)
-    virtual void DoSerializeTo(gd::SerializerElement & element) const;
-    #endif
+ private:
+  virtual void DoUnserializeFrom(gd::Project &project,
+                                 const gd::SerializerElement &element);
+#if defined(GD_IDE_ONLY)
+  virtual void DoSerializeTo(gd::SerializerElement &element) const;
+#endif
 
-    float width;
-    float height;
+  double width;
+  double height;
 
-    float leftMargin;
-    float topMargin;
-    float rightMargin;
-    float bottomMargin;
+  double leftMargin;
+  double topMargin;
+  double rightMargin;
+  double bottomMargin;
 
-    bool tiled;
-
-    std::shared_ptr<SFMLTextureWrapper> texture;
+  bool tiled;
 };
 
-class GD_EXTENSION_API RuntimePanelSpriteObject : public RuntimeObject
-{
-public :
-
-    RuntimePanelSpriteObject(RuntimeScene & scene, const PanelSpriteObject & panelSpriteObject);
-    virtual ~RuntimePanelSpriteObject() {};
-    virtual RuntimeObject * Clone() const { return new RuntimePanelSpriteObject(*this);}
-
-    virtual bool Draw(sf::RenderTarget & renderTarget);
-
-    virtual float GetWidth() const { return width; };
-    virtual float GetHeight() const { return height; };
-
-    virtual inline void SetWidth(float newWidth) { width = newWidth >= (leftMargin + rightMargin) ? newWidth : (leftMargin + rightMargin); };
-    virtual inline void SetHeight(float newHeight) { height = newHeight >= (topMargin + bottomMargin) ? newHeight : (topMargin + bottomMargin); };
-
-    virtual bool SetAngle(float newAngle) { angle = newAngle; return true; };
-    virtual float GetAngle() const {return angle;};
-
-    float GetLeftMargin() const { return leftMargin; };
-    void SetLeftMargin(float newMargin) { leftMargin = newMargin; };
-
-    float GetTopMargin() const { return topMargin; };
-    void SetTopMargin(float newMargin) { topMargin = newMargin; };
-
-    float GetRightMargin() const { return rightMargin; };
-    void SetRightMargin(float newMargin) { rightMargin = newMargin; };
-
-    float GetBottomMargin() const { return bottomMargin; };
-    void SetBottomMargin(float newMargin) { bottomMargin = newMargin; };
-
-    void ChangeAndReloadImage(const gd::String &texture, const RuntimeScene &scene);
-
-    gd::String textureName;
-
-    #if defined(GD_IDE_ONLY)
-    virtual void GetPropertyForDebugger (std::size_t propertyNb, gd::String & name, gd::String & value) const;
-    virtual bool ChangeProperty(std::size_t propertyNb, gd::String newValue);
-    virtual std::size_t GetNumberOfProperties() const;
-    #endif
-
-private:
-
-    float width;
-    float height;
-
-    float leftMargin;
-    float topMargin;
-    float rightMargin;
-    float bottomMargin;
-
-    float angle;
-
-    std::shared_ptr<SFMLTextureWrapper> texture;
-};
-
-#endif // TILEDSPRITEOBJECT_H
+#endif  // PANELSPRITEOBJECT_H

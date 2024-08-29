@@ -1,34 +1,36 @@
 /*
  * GDevelop JS Platform
- * Copyright 2008-2016 Florian Rival (Florian.Rival@gmail.com). All rights reserved.
- * This project is released under the MIT License.
+ * Copyright 2008-2016 Florian Rival (Florian.Rival@gmail.com). All rights
+ * reserved. This project is released under the MIT License.
  */
 #include "NetworkExtension.h"
+
+#include "GDCore/CommonTools.h"
+#include "GDCore/Events/CodeGeneration/EventsCodeGenerator.h"
 #include "GDCore/Extensions/Builtin/AllBuiltinExtensions.h"
 #include "GDCore/IDE/Project/ArbitraryResourceWorker.h"
-#include "GDCore/Events/CodeGeneration/EventsCodeGenerator.h"
-#include "GDCore/CommonTools.h"
 #include "GDCore/Tools/Localization.h"
 
-namespace gdjs
-{
+namespace gdjs {
 
-NetworkExtension::NetworkExtension()
-{
-    gd::BuiltinExtensionsImplementer::ImplementsNetworkExtension(*this);
+NetworkExtension::NetworkExtension() {
+  gd::BuiltinExtensionsImplementer::ImplementsNetworkExtension(*this);
 
-    SetExtensionInformation("BuiltinNetwork",
-                          _("Basic internet features"),
-                          _("Built-in extension providing network features."),
-                          "Florian Rival",
-                          "Open source (MIT License)");
+  GetAllActions()["SendRequest"].SetFunctionName(
+      "gdjs.evtTools.network.sendDeprecatedSynchronousRequest");
+  GetAllActions()["SendAsyncRequest"]
+      .SetFunctionName("gdjs.evtTools.network.sendAsyncRequest")
+      .SetAsyncFunctionName("gdjs.evtTools.network.sendAwaitableAsyncRequest");
+  GetAllActions()["EnableMetrics"].SetFunctionName(
+      "gdjs.evtTools.network.enableMetrics");
+  GetAllActions()["LaunchFile"].SetFunctionName("gdjs.evtTools.window.openURL");
 
-    GetAllActions()["SendRequest"].SetFunctionName("gdjs.evtTools.network.sendHttpRequest");
-    GetAllActions()["JSONToVariableStructure"].SetFunctionName("gdjs.evtTools.network.jsonToVariableStructure");
+  AddDependency()
+      .SetName("InAppBrowser Cordova plugin")
+      .SetDependencyType("cordova")
+      .SetExportName("cordova-plugin-inappbrowser");
 
-    GetAllStrExpressions()["ToJSON"].SetFunctionName("gdjs.evtTools.network.variableStructureToJSON");
-
-    StripUnimplementedInstructionsAndExpressions();
+  StripUnimplementedInstructionsAndExpressions();
 }
 
-}
+}  // namespace gdjs
