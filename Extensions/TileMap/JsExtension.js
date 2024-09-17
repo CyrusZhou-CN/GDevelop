@@ -1611,11 +1611,20 @@ module.exports = {
 
         this.tileMapPixiObject = new Tilemap.CompositeTilemap();
         this._pixiObject = this.tileMapPixiObject;
+        this._editableTileMap = null;
 
         // Implement `containsPoint` so that we can set `interactive` to true and
         // the Tilemap will properly emit events when hovered/clicked.
         // By default, this is not implemented in pixi-tilemap.
         this._pixiObject.containsPoint = (position) => {
+          if (!this._pixiObject) {
+            // Ease debugging by throwing now rather than waiting for an exception later.
+            throw new Error(
+              'containsPoint called on a destroyed PIXI object - this object was not properly removed from the PIXI container.'
+            );
+            return;
+          }
+
           // Turns the world position to the local object coordinates
           const localPosition = new PIXI.Point();
           this._pixiObject.worldTransform.applyInverse(position, localPosition);
@@ -1638,21 +1647,32 @@ module.exports = {
         super.onRemovedFromScene();
         // Keep textures because they are shared by all tile maps.
         this._pixiObject.destroy(false);
+
+        // Not strictly necessary, but helps finding wrong
+        // handling of this._pixiObject in its container.
+        this._pixiObject = null;
       }
 
-      onLoadingError() {
+      _replacePixiObject(newPixiObject) {
+        if (this._pixiObject !== null)
+          this._pixiContainer.removeChild(this._pixiObject);
+        this._pixiObject = newPixiObject;
+        this._pixiContainer.addChild(this._pixiObject);
+      }
+
+      _onLoadingError() {
         this.errorPixiObject =
           this.errorPixiObject ||
           new PIXI.Sprite(this._pixiResourcesLoader.getInvalidPIXITexture());
-        this._pixiContainer.addChild(this.errorPixiObject);
-        this._pixiObject = this.errorPixiObject;
+
+        this._replacePixiObject(this.errorPixiObject);
       }
 
-      onLoadingSuccess() {
+      _onLoadingSuccess() {
         if (this.errorPixiObject) {
-          this._pixiContainer.removeChild(this.errorPixiObject);
+          this._replacePixiObject(this.tileMapPixiObject);
+
           this.errorPixiObject = null;
-          this._pixiObject = this.tileMapPixiObject;
         }
       }
 
@@ -1667,35 +1687,27 @@ module.exports = {
        * This is used to reload the Tilemap
        */
       updateTileMap() {
+        const tilemapObjectProperties = this._associatedObjectConfiguration.getProperties();
+
         // Get the tileset resource to use
-        const tilemapAtlasImage = this._associatedObjectConfiguration
-          .getProperties()
+        const tilemapAtlasImage = tilemapObjectProperties
           .get('tilemapAtlasImage')
           .getValue();
-        const tilemapJsonFile = this._associatedObjectConfiguration
-          .getProperties()
+        const tilemapJsonFile = tilemapObjectProperties
           .get('tilemapJsonFile')
           .getValue();
-        const tilesetJsonFile = this._associatedObjectConfiguration
-          .getProperties()
+        const tilesetJsonFile = tilemapObjectProperties
           .get('tilesetJsonFile')
           .getValue();
         const layerIndex = parseInt(
-          this._associatedObjectConfiguration
-            .getProperties()
-            .get('layerIndex')
-            .getValue(),
+          tilemapObjectProperties.get('layerIndex').getValue(),
           10
         );
         const levelIndex = parseInt(
-          this._associatedObjectConfiguration
-            .getProperties()
-            .get('levelIndex')
-            .getValue(),
+          tilemapObjectProperties.get('levelIndex').getValue(),
           10
         );
-        const displayMode = this._associatedObjectConfiguration
-          .getProperties()
+        const displayMode = tilemapObjectProperties
           .get('displayMode')
           .getValue();
 
@@ -1731,10 +1743,12 @@ module.exports = {
             pako,
             (tileMap) => {
               if (!tileMap) {
-                this.onLoadingError();
+                this._onLoadingError();
                 // _loadTileMapWithCallback already log errors
                 return;
               }
+
+              this._editableTileMap = tileMap;
 
               /** @type {TileMapHelper.TileTextureCache} */
               manager.getOrLoadTextureCache(
@@ -1750,17 +1764,18 @@ module.exports = {
                 levelIndex,
                 (textureCache) => {
                   if (!textureCache) {
-                    this.onLoadingError();
+                    this._onLoadingError();
                     // getOrLoadTextureCache already log warns and errors.
                     return;
                   }
-                  this.onLoadingSuccess();
+                  this._onLoadingSuccess();
+                  if (!this._editableTileMap) return;
 
-                  this.width = tileMap.getWidth();
-                  this.height = tileMap.getHeight();
+                  this.width = this._editableTileMap.getWidth();
+                  this.height = this._editableTileMap.getHeight();
                   TilemapHelper.PixiTileMapHelper.updatePixiTileMap(
                     this.tileMapPixiObject,
-                    tileMap,
+                    this._editableTileMap,
                     textureCache,
                     displayMode,
                     layerIndex
@@ -1779,6 +1794,85 @@ module.exports = {
             loadTileMap();
           });
         }
+      }
+
+      /**
+       * This is called to update the PIXI object on the scene editor, without reloading the tilemap.
+       */
+      updatePixiTileMap() {
+        const tilemapObjectProperties = this._associatedObjectConfiguration.getProperties();
+
+        // Get the tileset resource to use
+        const tilemapAtlasImage = tilemapObjectProperties
+          .get('tilemapAtlasImage')
+          .getValue();
+        const tilemapJsonFile = tilemapObjectProperties
+          .get('tilemapJsonFile')
+          .getValue();
+        const tilesetJsonFile = tilemapObjectProperties
+          .get('tilesetJsonFile')
+          .getValue();
+        const layerIndex = parseInt(
+          tilemapObjectProperties.get('layerIndex').getValue(),
+          10
+        );
+        const levelIndex = parseInt(
+          tilemapObjectProperties.get('levelIndex').getValue(),
+          10
+        );
+        const displayMode = tilemapObjectProperties
+          .get('displayMode')
+          .getValue();
+
+        const tilemapResource = this._project
+          .getResourcesManager()
+          .getResource(tilemapJsonFile);
+
+        let metadata = {};
+        try {
+          const tilemapMetadataAsString = tilemapResource.getMetadata();
+          if (tilemapMetadataAsString)
+            metadata = JSON.parse(tilemapMetadataAsString);
+        } catch (error) {
+          console.warn('Malformed metadata in a tilemap object:', error);
+        }
+        const mapping = metadata.embeddedResourcesMapping || {};
+
+        /** @type {TileMapHelper.TileMapManager} */
+        const manager = TilemapHelper.TileMapManager.getManager(this._project);
+
+        /** @type {TileMapHelper.TileTextureCache} */
+        manager.getOrLoadTextureCache(
+          this._loadTileMapWithCallback.bind(this),
+          (textureName) =>
+            this._pixiResourcesLoader.getPIXITexture(
+              this._project,
+              mapping[textureName] || textureName
+            ),
+          tilemapAtlasImage,
+          tilemapJsonFile,
+          tilesetJsonFile,
+          levelIndex,
+          (textureCache) => {
+            if (!textureCache) {
+              this._onLoadingError();
+              // getOrLoadTextureCache already log warns and errors.
+              return;
+            }
+            this._onLoadingSuccess();
+            if (!this._editableTileMap) return;
+
+            this.width = this._editableTileMap.getWidth();
+            this.height = this._editableTileMap.getHeight();
+            TilemapHelper.PixiTileMapHelper.updatePixiTileMap(
+              this.tileMapPixiObject,
+              this._editableTileMap,
+              textureCache,
+              displayMode,
+              layerIndex
+            );
+          }
+        );
       }
 
       // GDJS doesn't use Promise to avoid allocation.
@@ -1851,6 +1945,30 @@ module.exports = {
         this._pixiObject.rotation = RenderedInstance.toRad(
           this._instance.getAngle()
         );
+
+        // Update the opacity, if needed.
+        // Do not hide completely an object so it can still be manipulated
+        const alphaForDisplay = Math.max(
+          this._instance.getOpacity() / 255,
+          0.5
+        );
+
+        if (
+          this._editableTileMap &&
+          this._pixiObject.alpha !== alphaForDisplay
+        ) {
+          this._pixiObject.alpha = alphaForDisplay;
+          for (const layer of this._editableTileMap.getLayers()) {
+            // Only update layers that are of type TileMapHelper.EditableTileMapLayer.
+            // @ts-ignore - only this type of layer has setAlpha.
+            if (layer.setAlpha) {
+              const editableLayer = /** @type {TileMapHelper.EditableTileMapLayer} */ (layer);
+              editableLayer.setAlpha(alphaForDisplay);
+            }
+          }
+          // Only update the tilemap if the alpha has changed.
+          this.updatePixiTileMap();
+        }
       }
 
       /**
@@ -1877,8 +1995,10 @@ module.exports = {
      * Renderer for instances of SimpleTileMap inside the IDE.
      */
     class RenderedSimpleTileMapInstance extends RenderedInstance {
+      _getStartedText = 'Select this instance\nto start painting';
+      _noAtlasText = 'Set up an atlas image\nin the tilemap object.';
       _placeholderTextPixiObject = new PIXI.Text(
-        'Select this instance\nto start painting',
+        '',
         new PIXI.TextStyle({
           fontFamily: 'Arial',
           fontSize: 16,
@@ -1920,6 +2040,14 @@ module.exports = {
         // the Tilemap will properly emit events when hovered/clicked.
         // By default, this is not implemented in pixi-tilemap.
         this._pixiObject.containsPoint = (position) => {
+          if (!this._pixiObject) {
+            // Ease debugging by throwing now rather than waiting for an exception later.
+            throw new Error(
+              'containsPoint called on a destroyed PIXI object - this object was not properly removed from the PIXI container.'
+            );
+            return;
+          }
+
           // Turns the world position to the local object coordinates
           const localPosition = new PIXI.Point();
           if (this.tileMapPixiObject.visible) {
@@ -1963,21 +2091,32 @@ module.exports = {
         super.onRemovedFromScene();
         // Keep textures because they are shared by all tile maps.
         this._pixiObject.destroy(false);
+
+        // Not strictly necessary, but helps finding wrong
+        // handling of this._pixiObject in its container.
+        this._pixiObject = null;
       }
 
-      onLoadingError() {
+      _replacePixiObject(newPixiObject) {
+        if (this._pixiObject !== null)
+          this._pixiContainer.removeChild(this._pixiObject);
+        this._pixiObject = newPixiObject;
+        this._pixiContainer.addChild(this._pixiObject);
+      }
+
+      _onLoadingError() {
         this.errorPixiObject =
           this.errorPixiObject ||
           new PIXI.Sprite(this._pixiResourcesLoader.getInvalidPIXITexture());
-        this._pixiContainer.addChild(this.errorPixiObject);
-        this._pixiObject = this.errorPixiObject;
+
+        this._replacePixiObject(this.errorPixiObject);
       }
 
-      onLoadingSuccess() {
+      _onLoadingSuccess() {
         if (this.errorPixiObject) {
-          this._pixiContainer.removeChild(this.errorPixiObject);
+          this._replacePixiObject(this.tileMapPixiObject);
+
           this.errorPixiObject = null;
-          this._pixiObject = this.tileMapPixiObject;
         }
       }
 
@@ -2008,6 +2147,8 @@ module.exports = {
           .getProperties()
           .get('atlasImage')
           .getValue();
+        if (!atlasImageResourceName) return;
+
         const tilemapAsJSObject = JSON.parse(
           this._instance.getRawStringProperty('tilemap') || '{}'
         );
@@ -2044,51 +2185,56 @@ module.exports = {
           const manager = TilemapHelper.TileMapManager.getManager(
             this._project
           );
-          manager.getOrLoadSimpleTileMap(
-            tilemapAsJSObject,
-            this._objectName,
-            tileSize,
-            columnCount,
-            rowCount,
-            (tileMap) => {
-              if (!tileMap) {
-                this.onLoadingError();
-                console.error('Could not parse tilemap.');
-                return;
-              }
-
-              this._editableTileMap = tileMap;
-
-              manager.getOrLoadSimpleTileMapTextureCache(
-                (textureName) =>
-                  this._pixiResourcesLoader.getPIXITexture(
-                    this._project,
-                    textureName
-                  ),
-                atlasImageResourceName,
-                tileSize,
-                columnCount,
-                rowCount,
-                (
-                  /** @type {TileMapHelper.TileTextureCache | null} */
-                  textureCache
-                ) => {
-                  this.onLoadingSuccess();
-                  if (!this._editableTileMap) return;
-
-                  this.width = this._editableTileMap.getWidth();
-                  this.height = this._editableTileMap.getHeight();
-                  TilemapHelper.PixiTileMapHelper.updatePixiTileMap(
-                    this.tileMapPixiObject,
-                    this._editableTileMap,
-                    textureCache,
-                    'all', // No notion of visibility on simple tile maps.
-                    0 // Only one layer is used on simple tile maps.
-                  );
+          try {
+            manager.getOrLoadSimpleTileMap(
+              tilemapAsJSObject,
+              this._objectName,
+              tileSize,
+              columnCount,
+              rowCount,
+              (tileMap) => {
+                if (!tileMap) {
+                  this._onLoadingError();
+                  console.error('Could not parse tilemap.');
+                  return;
                 }
-              );
-            }
-          );
+
+                this._editableTileMap = tileMap;
+
+                manager.getOrLoadSimpleTileMapTextureCache(
+                  (textureName) =>
+                    this._pixiResourcesLoader.getPIXITexture(
+                      this._project,
+                      textureName
+                    ),
+                  atlasImageResourceName,
+                  tileSize,
+                  columnCount,
+                  rowCount,
+                  (
+                    /** @type {TileMapHelper.TileTextureCache | null} */
+                    textureCache
+                  ) => {
+                    this._onLoadingSuccess();
+                    if (!this._editableTileMap) return;
+
+                    this.width = this._editableTileMap.getWidth();
+                    this.height = this._editableTileMap.getHeight();
+                    TilemapHelper.PixiTileMapHelper.updatePixiTileMap(
+                      this.tileMapPixiObject,
+                      this._editableTileMap,
+                      textureCache,
+                      'all', // No notion of visibility on simple tile maps.
+                      0 // Only one layer is used on simple tile maps.
+                    );
+                  }
+                );
+              }
+            );
+          } catch (error) {
+            this._onLoadingError();
+            console.error('Could not load tilemap:', error);
+          }
         };
 
         if (atlasTexture.valid) {
@@ -2101,6 +2247,9 @@ module.exports = {
         }
       }
 
+      /**
+       * This is called to update the PIXI object on the scene editor, without reloading the tilemap.
+       */
       updatePixiTileMap() {
         const atlasImageResourceName = this._associatedObjectConfiguration
           .getProperties()
@@ -2145,7 +2294,7 @@ module.exports = {
             /** @type {TileMapHelper.TileTextureCache | null} */
             textureCache
           ) => {
-            this.onLoadingSuccess();
+            this._onLoadingSuccess();
             if (!this._editableTileMap) return;
 
             this.width = this._editableTileMap.getWidth();
@@ -2165,13 +2314,21 @@ module.exports = {
        * This is called to update the PIXI object on the scene editor
        */
       update() {
+        const atlasImageResourceName = this._associatedObjectConfiguration
+          .getProperties()
+          .get('atlasImage')
+          .getValue();
+
         const isTileMapEmpty = this._editableTileMap
           ? this._editableTileMap.isEmpty()
           : false;
         let objectToChange;
-        if (isTileMapEmpty) {
-          this._placeholderPixiObject.visible = true;
+        if (isTileMapEmpty || !atlasImageResourceName) {
           this.tileMapPixiObject.visible = false;
+          this._placeholderPixiObject.visible = true;
+          this._placeholderTextPixiObject.text = !atlasImageResourceName
+            ? this._noAtlasText
+            : this._getStartedText;
           objectToChange = this._placeholderPixiObject;
         } else {
           this._placeholderPixiObject.visible = false;
@@ -2211,6 +2368,26 @@ module.exports = {
         objectToChange.rotation = RenderedInstance.toRad(
           this._instance.getAngle()
         );
+
+        // Update the opacity, if needed.
+        // Do not hide completely an object so it can still be manipulated
+        const alphaForDisplay = Math.max(
+          this._instance.getOpacity() / 255,
+          0.5
+        );
+
+        if (this._editableTileMap && objectToChange.alpha !== alphaForDisplay) {
+          objectToChange.alpha = alphaForDisplay;
+          for (const layer of this._editableTileMap.getLayers()) {
+            // Only update layers that are of type TileMapHelper.EditableTileMapLayer.
+            // @ts-ignore - only this type of layer has setAlpha.
+            if (layer.setAlpha) {
+              const editableLayer = /** @type {TileMapHelper.EditableTileMapLayer} */ (layer);
+              editableLayer.setAlpha(alphaForDisplay);
+            }
+          }
+          this.updatePixiTileMap();
+        }
       }
 
       /**
@@ -2253,12 +2430,21 @@ module.exports = {
         );
 
         this.tileMapPixiObject = new PIXI.Graphics();
+        this.tileMapPixiObject._0iAmTheTileMapPixiObject = true;
         this._pixiObject = this.tileMapPixiObject;
 
         // Implement `containsPoint` so that we can set `interactive` to true and
         // the Tilemap will properly emit events when hovered/clicked.
         // By default, this is not implemented in pixi-tilemap.
         this._pixiObject.containsPoint = (position) => {
+          if (!this._pixiObject) {
+            // Ease debugging by throwing now rather than waiting for an exception later.
+            throw new Error(
+              'containsPoint called on a destroyed PIXI object - this object was not properly removed from the PIXI container.'
+            );
+            return;
+          }
+
           // Turns the world position to the local object coordinates
           const localPosition = new PIXI.Point();
           this._pixiObject.worldTransform.applyInverse(position, localPosition);
@@ -2281,21 +2467,32 @@ module.exports = {
       onRemovedFromScene() {
         super.onRemovedFromScene();
         this._pixiObject.destroy();
+
+        // Not strictly necessary, but helps finding wrong
+        // handling of this._pixiObject in its container.
+        this._pixiObject = null;
       }
 
-      onLoadingError() {
+      _replacePixiObject(newPixiObject) {
+        if (this._pixiObject !== null)
+          this._pixiContainer.removeChild(this._pixiObject);
+        this._pixiObject = newPixiObject;
+        this._pixiContainer.addChild(this._pixiObject);
+      }
+
+      _onLoadingError() {
         this.errorPixiObject =
           this.errorPixiObject ||
           new PIXI.Sprite(this._pixiResourcesLoader.getInvalidPIXITexture());
-        this._pixiContainer.addChild(this.errorPixiObject);
-        this._pixiObject = this.errorPixiObject;
+
+        this._replacePixiObject(this.errorPixiObject);
       }
 
-      onLoadingSuccess() {
+      _onLoadingSuccess() {
         if (this.errorPixiObject) {
-          this._pixiContainer.removeChild(this.errorPixiObject);
+          this._replacePixiObject(this.tileMapPixiObject);
+
           this.errorPixiObject = null;
-          this._pixiObject = this.tileMapPixiObject;
         }
       }
 
@@ -2363,11 +2560,11 @@ module.exports = {
           pako,
           (tileMap) => {
             if (!tileMap) {
-              this.onLoadingError();
+              this._onLoadingError();
               // _loadTiledMapWithCallback already log errors
               return;
             }
-            this.onLoadingSuccess();
+            this._onLoadingSuccess();
 
             this.width = tileMap.getWidth();
             this.height = tileMap.getHeight();

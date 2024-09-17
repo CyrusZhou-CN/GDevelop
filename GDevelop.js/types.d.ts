@@ -807,6 +807,8 @@ export class Effect extends EmscriptenObject {
   getName(): string;
   setEffectType(effectType_: string): void;
   getEffectType(): string;
+  setFolded(val: boolean): void;
+  isFolded(): boolean;
   setDoubleParameter(name: string, value: number): void;
   getDoubleParameter(name: string): number;
   setStringParameter(name: string, value: string): void;
@@ -908,6 +910,8 @@ export class PropertyDescriptor extends EmscriptenObject {
   isAdvanced(): boolean;
   getMeasurementUnit(): MeasurementUnit;
   setMeasurementUnit(measurementUnit: MeasurementUnit): PropertyDescriptor;
+  hasImpactOnOtherProperties(): boolean;
+  setHasImpactOnOtherProperties(enable: boolean): PropertyDescriptor;
   getQuickCustomizationVisibility(): QuickCustomization_Visibility;
   setQuickCustomizationVisibility(visibility: QuickCustomization_Visibility): PropertyDescriptor;
   serializeTo(element: SerializerElement): void;
@@ -1088,8 +1092,16 @@ export class InitialInstance extends EmscriptenObject {
   setShouldKeepRatio(keepRatio: boolean): void;
   getZOrder(): number;
   setZOrder(zOrder: number): void;
+  getOpacity(): number;
+  setOpacity(opacity: number): void;
   getLayer(): string;
   setLayer(layer: string): void;
+  isFlippedX(): boolean;
+  setFlippedX(flippedX: boolean): void;
+  isFlippedY(): boolean;
+  setFlippedY(flippedY: boolean): void;
+  isFlippedZ(): boolean;
+  setFlippedZ(flippedZ: boolean): void;
   setHasCustomSize(enable: boolean): void;
   hasCustomSize(): boolean;
   setHasCustomDepth(enable: boolean): void;
