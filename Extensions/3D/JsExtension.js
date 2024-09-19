@@ -878,7 +878,8 @@ module.exports = {
             'The top of each image can touch the **top face** (Y) or the **front face** (Z).'
           )
         )
-        .setGroup(_('Face orientation'));
+        .setGroup(_('Face orientation'))
+        .setAdvanced(true);
 
       objectProperties
         .getOrCreate('width')
@@ -932,7 +933,8 @@ module.exports = {
             'The top of the image can touch the **top face** (Y) or the **bottom face** (X).'
           )
         )
-        .setGroup(_('Face orientation'));
+        .setGroup(_('Face orientation'))
+        .setAdvanced(true);
 
       objectProperties
         .getOrCreate('leftFaceResourceName')
@@ -1013,42 +1015,48 @@ module.exports = {
         .setValue(objectContent.frontFaceVisible ? 'true' : 'false')
         .setType('boolean')
         .setLabel(_('Show front face'))
-        .setGroup(_('Face visibility'));
+        .setGroup(_('Face visibility'))
+        .setAdvanced(true);
 
       objectProperties
         .getOrCreate('backFaceVisible')
         .setValue(objectContent.backFaceVisible ? 'true' : 'false')
         .setType('boolean')
         .setLabel(_('Show back face'))
-        .setGroup(_('Face visibility'));
+        .setGroup(_('Face visibility'))
+        .setAdvanced(true);
 
       objectProperties
         .getOrCreate('leftFaceVisible')
         .setValue(objectContent.leftFaceVisible ? 'true' : 'false')
         .setType('boolean')
         .setLabel(_('Show left face'))
-        .setGroup(_('Face visibility'));
+        .setGroup(_('Face visibility'))
+        .setAdvanced(true);
 
       objectProperties
         .getOrCreate('rightFaceVisible')
         .setValue(objectContent.rightFaceVisible ? 'true' : 'false')
         .setType('boolean')
         .setLabel(_('Show right face'))
-        .setGroup(_('Face visibility'));
+        .setGroup(_('Face visibility'))
+        .setAdvanced(true);
 
       objectProperties
         .getOrCreate('topFaceVisible')
         .setValue(objectContent.topFaceVisible ? 'true' : 'false')
         .setType('boolean')
         .setLabel(_('Show top face'))
-        .setGroup(_('Face visibility'));
+        .setGroup(_('Face visibility'))
+        .setAdvanced(true);
 
       objectProperties
         .getOrCreate('bottomFaceVisible')
         .setValue(objectContent.bottomFaceVisible ? 'true' : 'false')
         .setType('boolean')
         .setLabel(_('Show bottom face'))
-        .setGroup(_('Face visibility'));
+        .setGroup(_('Face visibility'))
+        .setAdvanced(true);
 
       objectProperties
         .getOrCreate('materialType')
@@ -2315,7 +2323,6 @@ module.exports = {
           pixiResourcesLoader
         );
 
-        const properties = associatedObjectConfiguration.getProperties();
         this._defaultWidth = 1;
         this._defaultHeight = 1;
         this._defaultDepth = 1;
@@ -3070,7 +3077,7 @@ module.exports = {
           threeGroup,
           pixiResourcesLoader
         );
-        const properties = associatedObjectConfiguration.getProperties();
+
         this._defaultWidth = 1;
         this._defaultHeight = 1;
         this._defaultDepth = 1;
@@ -3146,8 +3153,6 @@ module.exports = {
         this._threeModelGroup = new THREE.Group();
         this._threeModelGroup.rotation.order = 'ZYX';
         this._threeModelGroup.add(this._clonedModel3D);
-
-        const properties = this._associatedObjectConfiguration.getProperties();
 
         this._threeModelGroup.rotation.set(
           (this._rotationX * Math.PI) / 180,

@@ -9,6 +9,7 @@
 
 #include <map>
 #include <memory>
+#include <unordered_set>
 #include "GDCore/Project/Object.h"
 #include "GDCore/Project/Project.h"
 #include "GDCore/Project/EventsBasedObject.h"
@@ -98,6 +99,38 @@ class CustomObjectConfiguration : public gd::ObjectConfiguration {
    */
   SpriteAnimationList& GetAnimations();
 
+  enum EdgeAnchor {
+    NoAnchor = 0,
+    MinEdge = 1,
+    MaxEdge = 2,
+    Proportional = 3,
+    Center = 4,
+  };
+
+  static const gd::CustomObjectConfiguration::EdgeAnchor
+  GetEdgeAnchorFromString(const gd::String &value);
+
+  /**
+   * Check if a child object properties must be displayed as folded in the editor.
+   * This is only useful when the object can override its children configuration (which
+   * is something being deprecated).
+   */
+  bool IsChildObjectFolded(const gd::String& childName) const {
+    return unfoldedChildren.find(childName) == unfoldedChildren.end();
+  }
+
+  /**
+   * Set if a child object properties must be displayed as folded in the editor.
+   * This is only useful when the object can override its children configuration (which
+   * is something being deprecated).
+   */
+  void SetChildObjectFolded(const gd::String& childName, bool folded) {
+    if (!folded)
+      unfoldedChildren.insert(childName);
+    else
+      unfoldedChildren.erase(childName);
+  }
+
 protected:
   void DoSerializeTo(SerializerElement& element) const override;
   void DoUnserializeFrom(Project& project, const SerializerElement& element) override;
@@ -110,7 +143,8 @@ protected:
   const Project* project; ///< The project is used to get the
                           ///< EventBasedObject from the fullType.
   gd::SerializerElement objectContent;
-  
+  std::unordered_set<gd::String> unfoldedChildren;
+
   bool isMarkedAsOverridingEventsBasedObjectChildrenConfiguration;
   mutable std::map<gd::String, std::unique_ptr<gd::ObjectConfiguration>> childObjectConfigurations;
 

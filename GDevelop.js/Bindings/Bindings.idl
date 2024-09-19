@@ -874,6 +874,14 @@ interface ObjectJsImplementation {
     // void DoUnserializeFrom([Ref] Project project, [Const, Ref] SerializerElement element);
 };
 
+enum CustomObjectConfiguration_EdgeAnchor {
+    "CustomObjectConfiguration::NoAnchor",
+    "CustomObjectConfiguration::MinEdge",
+    "CustomObjectConfiguration::MaxEdge",
+    "CustomObjectConfiguration::Proportional",
+    "CustomObjectConfiguration::Center",
+};
+
 interface CustomObjectConfiguration {
     [Value] UniquePtrObjectConfiguration Clone();
 
@@ -896,6 +904,11 @@ interface CustomObjectConfiguration {
         DOMString value);
 
     [Ref] SpriteAnimationList GetAnimations();
+
+    boolean IsChildObjectFolded([Const] DOMString childName);
+    void SetChildObjectFolded([Const] DOMString childName, boolean folded);
+
+    CustomObjectConfiguration_EdgeAnchor STATIC_GetEdgeAnchorFromString([Const] DOMString value);
 };
 CustomObjectConfiguration implements ObjectConfiguration;
 
@@ -2974,8 +2987,10 @@ interface EventsBasedObject {
     boolean IsAnimatable();
     [Ref] EventsBasedObject MarkAsTextContainer(boolean isTextContainer);
     boolean IsTextContainer();
-    [Ref] EventsBasedObject MarkAsInnerAreaExpandingWithParent(boolean value);
+    [Ref] EventsBasedObject MarkAsInnerAreaFollowingParentSize(boolean value);
     boolean IsInnerAreaFollowingParentSize();
+    [Ref] EventsBasedObject MakAsUsingLegacyInstancesRenderer(boolean value);
+    boolean IsUsingLegacyInstancesRenderer();
 
     [Ref] InitialInstancesContainer GetInitialInstances();
     [Ref] LayersContainer GetLayers();
@@ -3559,21 +3574,18 @@ interface ShapePainterObject {
     void SetOutlineSize(double size);
     double GetOutlineSize();
 
+    void SetOutlineColor([Const] DOMString color);
+    [Const, Ref] DOMString GetOutlineColor();
+
     void SetOutlineOpacity(double val);
     double GetOutlineOpacity();
 
-    void SetOutlineColor(unsigned long r, unsigned long g, unsigned long b);
-    unsigned long GetOutlineColorR();
-    unsigned long GetOutlineColorG();
-    unsigned long GetOutlineColorB();
+    void SetFillColor([Const] DOMString color);
+    [Const, Ref] DOMString GetFillColor();
 
     void SetFillOpacity(double val);
     double GetFillOpacity();
 
-    void SetFillColor(unsigned long r,unsigned long g, unsigned long b);
-    unsigned long GetFillColorR();
-    unsigned long GetFillColorG();
-    unsigned long GetFillColorB();
     [Const, Value] DOMString GetAntialiasing();
     void SetAntialiasing([Const] DOMString value);
 
