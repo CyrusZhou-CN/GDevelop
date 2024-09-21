@@ -591,7 +591,7 @@ export const CompactObjectPropertiesEditor = ({
                 directlyStoreValueChangesWhileEditing
                 variablesContainer={object.getVariables()}
                 areObjectVariables
-                size="small"
+                size="compact"
                 onComputeAllVariableNames={() =>
                   object && layout
                     ? EventsRootVariablesFinder.findAllObjectVariables(
@@ -604,6 +604,9 @@ export const CompactObjectPropertiesEditor = ({
                 }
                 historyHandler={historyHandler}
                 toolbarIconStyle={styles.icon}
+                compactEmptyPlaceholderText={
+                  <Trans>There are no variables on this object.</Trans>
+                }
               />
             )}
           />
