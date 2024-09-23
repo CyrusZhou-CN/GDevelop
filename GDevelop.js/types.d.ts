@@ -731,10 +731,9 @@ export class ObjectJsImplementation extends ObjectConfiguration {
   updateProperty(name: string, value: string): boolean;
   getInitialInstanceProperties(instance: InitialInstance): MapStringPropertyDescriptor;
   updateInitialInstanceProperty(instance: InitialInstance, name: string, value: string): boolean;
-  getRawJSONContent(): string;
-  setRawJSONContent(newContent: string): ObjectJsImplementation;
   serializeTo(element: SerializerElement): void;
   unserializeFrom(project: Project, element: SerializerElement): void;
+  content: Record<string, any>;
 }
 
 export class CustomObjectConfiguration extends ObjectConfiguration {
@@ -1529,7 +1528,8 @@ export class ObjectMetadata extends EmscriptenObject {
   getOpenFullEditorLabel(): string;
 }
 
-export class QuickCustomization extends EmscriptenObject {static Default = 0;
+export class QuickCustomization extends EmscriptenObject {
+  static Default = 0;
   static Visible = 1;
   static Hidden = 2;
 }
@@ -2543,6 +2543,17 @@ export class Model3DObjectConfiguration extends ObjectConfiguration {
   hasNoAnimations(): boolean;
   swapAnimations(first: number, second: number): void;
   moveAnimation(oldIndex: number, newIndex: number): void;
+  getWidth(): number;
+  getHeight(): number;
+  getDepth(): number;
+  getRotationX(): number;
+  getRotationY(): number;
+  getRotationZ(): number;
+  getModelResourceName(): string;
+  getMaterialType(): string;
+  getOriginLocation(): string;
+  getCenterLocation(): string;
+  shouldKeepAspectRatio(): boolean;
 }
 
 export class SpineAnimation extends EmscriptenObject {
@@ -2566,6 +2577,8 @@ export class SpineObjectConfiguration extends ObjectConfiguration {
   hasNoAnimations(): boolean;
   swapAnimations(first: number, second: number): void;
   moveAnimation(oldIndex: number, newIndex: number): void;
+  getScale(): number;
+  getSpineResourceName(): string;
 }
 
 export class Vector2f extends EmscriptenObject {
