@@ -45,6 +45,7 @@ export type ValueFieldCommonProperties = {|
   hideLabel?: boolean,
   getExtraDescription?: Instance => string,
   hasImpactOnAllOtherFields?: boolean,
+  canBeUnlimitedUsingMinus1?: boolean,
   disabled?: (instances: Array<gdInitialInstance>) => boolean,
   onEditButtonBuildMenuTemplate?: (i18n: I18nType) => Array<MenuItemTemplate>,
   onEditButtonClick?: () => void,
@@ -198,7 +199,6 @@ type Props = {|
   mode?: 'column' | 'row',
   preventWrap?: boolean,
   removeSpacers?: boolean,
-  sectionTitleStyle?: 'level1' | 'level2',
 
   // If set, render the "extra" description content from fields
   // (see getExtraDescription).
@@ -362,7 +362,6 @@ const CompactPropertiesEditor = ({
   resourceManagementProps,
   preventWrap,
   removeSpacers,
-  sectionTitleStyle,
 }: Props) => {
   const forceUpdate = useForceUpdate();
 
@@ -417,26 +416,21 @@ const CompactPropertiesEditor = ({
         const { setValue } = field;
 
         return (
-          <CompactPropertiesEditorRowField
+          <CompactToggleField
             key={field.name}
             label={getFieldLabel({ instances, field })}
             markdownDescription={getFieldDescription(field)}
-            field={
-              <CompactToggleField
-                key={field.name}
-                id={field.name}
-                checked={getFieldValue({ instances, field })}
-                onCheck={newValue => {
-                  instances.forEach(i => setValue(i, newValue));
-                  onFieldChanged({
-                    instances,
-                    hasImpactOnAllOtherFields: field.hasImpactOnAllOtherFields,
-                  });
-                }}
-                disabled={getDisabled({ instances, field })}
-                fullWidth
-              />
-            }
+            id={field.name}
+            checked={getFieldValue({ instances, field })}
+            onCheck={newValue => {
+              instances.forEach(i => setValue(i, newValue));
+              onFieldChanged({
+                instances,
+                hasImpactOnAllOtherFields: field.hasImpactOnAllOtherFields,
+              });
+            }}
+            disabled={getDisabled({ instances, field })}
+            fullWidth
           />
         );
       } else if (field.valueType === 'number') {
@@ -477,6 +471,7 @@ const CompactPropertiesEditor = ({
           return (
             <CompactSemiControlledNumberField
               {...commonProps}
+              canBeUnlimitedUsingMinus1={field.canBeUnlimitedUsingMinus1}
               useLeftIconAsNumberControl
               renderLeftIcon={field.renderLeftIcon}
               leftIconTooltip={getFieldLabel({ instances, field })}
@@ -489,7 +484,12 @@ const CompactPropertiesEditor = ({
               key={key}
               label={getFieldLabel({ instances, field })}
               markdownDescription={getFieldDescription(field)}
-              field={<CompactSemiControlledNumberField {...otherCommonProps} />}
+              field={
+                <CompactSemiControlledNumberField
+                  canBeUnlimitedUsingMinus1={field.canBeUnlimitedUsingMinus1}
+                  {...otherCommonProps}
+                />
+              }
             />
           );
         }
@@ -988,12 +988,10 @@ const CompactPropertiesEditor = ({
 
         if (field.title) {
           return [
-            ...(sectionTitleStyle === 'level2'
-              ? renderSectionLevel2Title({
-                  title: field.title,
-                  name: field.name,
-                })
-              : renderSectionTitle({ title: field.title, name: field.name })),
+            ...renderSectionLevel2Title({
+              title: field.title,
+              name: field.name,
+            }),
             contentView,
           ];
         }
