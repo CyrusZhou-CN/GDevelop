@@ -131,6 +131,10 @@ type Props = {|
     extensionName: string,
     eventsBasedObjectName: string
   ) => void,
+  onOpenEventBasedObjectEditor: (
+    extensionName: string,
+    eventsBasedObjectName: string
+  ) => void,
 
   // Preview:
   hotReloadPreviewButtonProps: HotReloadPreviewButtonProps,
@@ -1398,6 +1402,12 @@ export default class SceneEditor extends React.Component<Props, State> {
         },
         accelerator: 'CmdOrCtrl+D',
       },
+      {
+        label: i18n._(t`Delete`),
+        click: () => this.deleteSelection(),
+        enabled: hasSelectedInstances,
+        accelerator: 'Delete',
+      },
       { type: 'separator' },
       {
         label: i18n._(t`Bring to front`),
@@ -1415,25 +1425,27 @@ export default class SceneEditor extends React.Component<Props, State> {
       },
       { type: 'separator' },
       {
-        label: i18n._(t`Extract as a custom object`),
-        click: () => this.setState({ extractAsCustomObjectDialogOpen: true }),
-        enabled: hasSelectedInstances,
+        label: i18n._(t`Extract`),
+        submenu: [
+          {
+            label: i18n._(t`Extract as a custom object`),
+            click: () =>
+              this.setState({ extractAsCustomObjectDialogOpen: true }),
+            enabled: hasSelectedInstances,
+          },
+          this.props.layout && {
+            label: i18n._(t`Extract as an external layout`),
+            click: () =>
+              this.setState({ extractAsExternalLayoutDialogOpen: true }),
+            enabled: hasSelectedInstances,
+          },
+        ].filter(Boolean),
       },
-      this.props.layout && {
-        label: i18n._(t`Extract as an external layout`),
-        click: () => this.setState({ extractAsExternalLayoutDialogOpen: true }),
-        enabled: hasSelectedInstances,
-      },
+      { type: 'separator' },
       {
         label: i18n._(t`Show/Hide instance properties`),
         click: () => this.toggleProperties(),
         enabled: hasSelectedInstances,
-      },
-      {
-        label: i18n._(t`Delete`),
-        click: () => this.deleteSelection(),
-        enabled: hasSelectedInstances,
-        accelerator: 'Delete',
       },
     ].filter(Boolean);
   };
@@ -1546,6 +1558,20 @@ export default class SceneEditor extends React.Component<Props, State> {
               enabled: objectMetadata.hasDefaultBehavior(
                 'EffectCapability::EffectBehavior'
               ),
+            }
+          : null,
+        object && project.hasEventsBasedObject(object.getType())
+          ? {
+              label: i18n._(t`Edit children`),
+              click: () =>
+                this.props.onOpenEventBasedObjectEditor(
+                  gd.PlatformExtension.getExtensionFromFullObjectType(
+                    object.getType()
+                  ),
+                  gd.PlatformExtension.getObjectNameFromFullObjectType(
+                    object.getType()
+                  )
+                ),
             }
           : null,
         { type: 'separator' },
@@ -1970,6 +1996,9 @@ export default class SceneEditor extends React.Component<Props, State> {
                 canObjectOrGroupBeGlobal={this.canObjectOrGroupBeGlobal}
                 updateBehaviorsSharedData={this.updateBehaviorsSharedData}
                 onEditObject={this.editObject}
+                onOpenEventBasedObjectEditor={
+                  this.props.onOpenEventBasedObjectEditor
+                }
                 onRenameObjectFolderOrObjectWithContextFinish={
                   this._onRenameObjectFolderOrObjectWithContextFinish
                 }
@@ -2265,6 +2294,10 @@ export default class SceneEditor extends React.Component<Props, State> {
                     {this.state.extractAsCustomObjectDialogOpen && (
                       <ExtractAsCustomObjectDialog
                         project={project}
+                        globalObjectsContainer={
+                          this.props.globalObjectsContainer
+                        }
+                        objectsContainer={this.props.objectsContainer}
                         initialInstances={this.props.initialInstances}
                         selectedInstances={this.instancesSelection.getSelectedInstances()}
                         onCancel={() =>

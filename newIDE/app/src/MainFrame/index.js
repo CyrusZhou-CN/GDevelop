@@ -2033,7 +2033,7 @@ const MainFrame = (props: Props) => {
     openExternalLayout(name);
   };
 
-  const onExtractAsEventBasedObject = (
+  const onOpenEventBasedObjectEditor = (
     extensionName: string,
     eventsBasedObjectName: string
   ) => {
@@ -2056,6 +2056,12 @@ const MainFrame = (props: Props) => {
     }
     const eventsBasedObject = eventsBasedObjects.get(eventsBasedObjectName);
     openCustomObjectEditor(eventsFunctionsExtension, eventsBasedObject);
+
+    // Trigger reloading of extensions as an extension was modified (or even added)
+    // to create the custom object.
+    eventsFunctionsExtensionsState.loadProjectEventsFunctionsExtensions(
+      currentProject
+    );
   };
 
   const onEventsBasedObjectChildrenEdited = React.useCallback(
@@ -3587,9 +3593,9 @@ const MainFrame = (props: Props) => {
                     onOpenPreferences: () => openPreferencesDialog(true),
                     onOpenAbout: () => openAboutDialog(true),
                     selectInAppTutorial: selectInAppTutorial,
-                    onLoadEventsFunctionsExtensions: () => {
+                    onLoadEventsFunctionsExtensions: async () => {
                       if (isProjectClosedSoAvoidReloadingExtensions) {
-                        return Promise.resolve();
+                        return;
                       }
                       return eventsFunctionsExtensionsState.loadProjectEventsFunctionsExtensions(
                         currentProject
@@ -3625,7 +3631,8 @@ const MainFrame = (props: Props) => {
                     },
                     openBehaviorEvents: openBehaviorEvents,
                     onExtractAsExternalLayout: onExtractAsExternalLayout,
-                    onExtractAsEventBasedObject: onExtractAsEventBasedObject,
+                    onExtractAsEventBasedObject: onOpenEventBasedObjectEditor,
+                    onOpenEventBasedObjectEditor: onOpenEventBasedObjectEditor,
                     onEventsBasedObjectChildrenEdited: onEventsBasedObjectChildrenEdited,
                     onSceneObjectEdited: onSceneObjectEdited,
                   })}
