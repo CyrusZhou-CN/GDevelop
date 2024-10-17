@@ -602,10 +602,12 @@ export class ObjectsContainersList extends EmscriptenObject {
   static makeNewObjectsContainersListForContainers(globalObjectsContainer: ObjectsContainer, objectsContainer: ObjectsContainer): ObjectsContainersList;
   getTypeOfObject(objectName: string): string;
   getTypeOfBehavior(name: string, searchInGroups: boolean): string;
-  getBehaviorsOfObject(name: string, searchInGroups: boolean): VectorString;
+  getBehaviorsOfObject(objectOrGroupName: string, searchInGroups: boolean): VectorString;
+  getBehaviorNamesInObjectOrGroup(objectOrGroupName: string, behaviorType: string, searchInGroups: boolean): VectorString;
   getAnimationNamesOfObject(name: string): VectorString;
   getTypeOfBehaviorInObjectOrGroup(objectOrGroupName: string, behaviorName: string, searchInGroups: boolean): string;
   hasObjectOrGroupNamed(name: string): boolean;
+  hasObjectNamed(name: string): boolean;
   hasObjectOrGroupWithVariableNamed(objectName: string, variableName: string): ObjectsContainersList_VariableExistence;
   getObjectsContainer(index: number): ObjectsContainer;
   getObjectsContainersCount(): number;

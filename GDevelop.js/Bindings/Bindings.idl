@@ -658,10 +658,15 @@ interface ObjectsContainersList {
 
   [Const, Value] DOMString GetTypeOfObject([Const] DOMString objectName);
   [Const, Value] DOMString GetTypeOfBehavior([Const] DOMString name, boolean searchInGroups);
-  [Value] VectorString GetBehaviorsOfObject([Const] DOMString name, boolean searchInGroups);
+  [Value] VectorString GetBehaviorsOfObject([Const] DOMString objectOrGroupName, boolean searchInGroups);
+  [Value] VectorString GetBehaviorNamesInObjectOrGroup(
+    [Const] DOMString objectOrGroupName,
+    [Const] DOMString behaviorType,
+    boolean searchInGroups);
   [Value] VectorString GetAnimationNamesOfObject([Const] DOMString name);
   [Const, Value] DOMString GetTypeOfBehaviorInObjectOrGroup([Const] DOMString objectOrGroupName, [Const] DOMString behaviorName, boolean searchInGroups);
   boolean HasObjectOrGroupNamed([Const] DOMString name);
+  boolean HasObjectNamed([Const] DOMString name);
   ObjectsContainersList_VariableExistence HasObjectOrGroupWithVariableNamed([Const] DOMString objectName, [Const] DOMString variableName);
 
   [Const, Ref] ObjectsContainer GetObjectsContainer(unsigned long index);
