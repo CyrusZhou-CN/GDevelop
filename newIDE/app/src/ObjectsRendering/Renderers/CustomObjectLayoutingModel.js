@@ -52,6 +52,13 @@ export interface PropertiesContainer {
   getProperties(): gdMapStringPropertyDescriptor;
 }
 
+const getDefaultAnchor = () => ({
+  leftEdgeAnchor: gd.CustomObjectConfiguration.NoAnchor,
+  topEdgeAnchor: gd.CustomObjectConfiguration.NoAnchor,
+  rightEdgeAnchor: gd.CustomObjectConfiguration.NoAnchor,
+  bottomEdgeAnchor: gd.CustomObjectConfiguration.NoAnchor,
+});
+
 /**
  * Build the layouts description from the custom object properties.
  */
@@ -59,14 +66,13 @@ export const getObjectAnchor = (
   eventBasedObject: gdEventsBasedObject,
   objectName: string
 ): ObjectAnchor => {
-  const childObject = eventBasedObject.getObjects().getObject(objectName);
+  const objects = eventBasedObject.getObjects();
+  if (!objects.hasObjectNamed(objectName)) {
+    return getDefaultAnchor();
+  }
+  const childObject = objects.getObject(objectName);
   if (!childObject.hasBehaviorNamed('Anchor')) {
-    return {
-      leftEdgeAnchor: gd.CustomObjectConfiguration.NoAnchor,
-      topEdgeAnchor: gd.CustomObjectConfiguration.NoAnchor,
-      rightEdgeAnchor: gd.CustomObjectConfiguration.NoAnchor,
-      bottomEdgeAnchor: gd.CustomObjectConfiguration.NoAnchor,
-    };
+    return getDefaultAnchor();
   }
   const properties = childObject.getBehavior('Anchor').getProperties();
   const leftEdgeAnchor = getPropertyValue(properties, 'leftEdgeAnchor');
@@ -358,8 +364,8 @@ export const getLayoutedRenderedInstance = <T: ChildRenderedInstance>(
   // Make sure to give a custom size to the instances only when it's necessary.
   // Some objects like TextObject may wrap text differently with a custom size.
   if (
-    (parentScaleX === 1 && parentScaleY === 1) ||
-    (!leftEdgeAnchor && !rightEdgeAnchor && !topEdgeAnchor && !bottomEdgeAnchor)
+    (parentScaleX === 1 || (!leftEdgeAnchor && !rightEdgeAnchor)) &&
+    (parentScaleY === 1 || (!topEdgeAnchor && !bottomEdgeAnchor))
   ) {
     layoutedInstance.x = initialInstance.getX();
     layoutedInstance.y = initialInstance.getY();
@@ -375,7 +381,9 @@ export const getLayoutedRenderedInstance = <T: ChildRenderedInstance>(
   const initialInstanceX = initialInstance.getX();
   const initialInstanceWidth = initialInstance.hasCustomSize()
     ? initialInstance.getCustomWidth()
-    : renderedInstance.getDefaultWidth();
+    : // The default width of Text object is dependent of the current wrapping width.
+      // It result in strange behaviors when text objects don't have a custom size.
+      renderedInstance.getDefaultWidth();
 
   if (parentScaleX === 1 || (!leftEdgeAnchor && !rightEdgeAnchor)) {
     layoutedInstance.x = initialInstanceX;
