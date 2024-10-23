@@ -72,7 +72,7 @@ const cellSpacing = 2;
 const getItemsColumns = (windowSize: WindowSizeType, isLandscape: boolean) => {
   switch (windowSize) {
     case 'small':
-      return isLandscape ? 4 : 1;
+      return isLandscape ? 4 : 2;
     case 'medium':
       return 3;
     case 'large':
@@ -449,7 +449,7 @@ const BuildSection = ({
     <SectionContainer
       showUrgentAnnouncements={shouldDisplayAnnouncements}
       renderFooter={
-        limits && hasTooManyCloudProjects
+        !isMobile && limits && hasTooManyCloudProjects
           ? () => (
               <Line>
                 <Column expand>
@@ -523,7 +523,7 @@ const BuildSection = ({
                   isMobile ? (
                     <Trans>Create</Trans>
                   ) : (
-                    <Trans>Create a project</Trans>
+                    <Trans>Create from scratch</Trans>
                   )
                 }
                 onClick={onOpenNewProjectSetupDialog}
@@ -618,6 +618,19 @@ const BuildSection = ({
                     }
                   />
                 ))}
+                {isMobile && limits && hasTooManyCloudProjects && (
+                  <MaxProjectCountAlertMessage
+                    margin="dense"
+                    limits={limits}
+                    onUpgrade={() =>
+                      openSubscriptionDialog({
+                        analyticsMetadata: {
+                          reason: 'Cloud Project limit reached',
+                        },
+                      })
+                    }
+                  />
+                )}
               </List>
             </Column>
           </Line>
