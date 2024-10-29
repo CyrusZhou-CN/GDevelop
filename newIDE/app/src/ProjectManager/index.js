@@ -19,13 +19,13 @@ import UnsavedChangesContext, {
 import ProjectManagerCommands from './ProjectManagerCommands';
 import { type HotReloadPreviewButtonProps } from '../HotReload/HotReloadPreviewButton';
 import { type ExtensionShortHeader } from '../Utils/GDevelopServices/Extension';
+import { type Game } from '../Utils/GDevelopServices/Game';
 import { type ResourceManagementProps } from '../ResourcesList/ResourceSource';
 import InstalledExtensionDetails from './InstalledExtensionDetails';
 import { useShouldAutofocusInput } from '../UI/Responsive/ScreenTypeMeasurer';
 import { addDefaultLightToAllLayers } from '../ProjectCreation/CreateProject';
 import ErrorBoundary from '../UI/ErrorBoundary';
 import useForceUpdate from '../Utils/UseForceUpdate';
-import useGamesList from '../GameDashboard/UseGamesList';
 import AuthenticatedUserContext from '../Profile/AuthenticatedUserContext';
 import { GameDetailsDialog } from '../GameDashboard/GameDetailsDialog';
 
@@ -417,6 +417,11 @@ type Props = {|
 
   // For resources:
   resourceManagementProps: ResourceManagementProps,
+
+  // Games
+  games: ?Array<Game>,
+  fetchGames: () => Promise<void>,
+  onGameUpdated: (game: Game) => void,
 |};
 
 const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
@@ -445,6 +450,9 @@ const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
       onInstallExtension,
       onShareProject,
       resourceManagementProps,
+      games,
+      fetchGames,
+      onGameUpdated,
     },
     ref
   ) => {
@@ -515,7 +523,6 @@ const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
       false
     );
     const projectUuid = project.getProjectUuid();
-    const { games, fetchGames, onGameUpdated } = useGamesList();
     const { profile } = React.useContext(AuthenticatedUserContext);
     const userId = profile ? profile.id : null;
     React.useEffect(
