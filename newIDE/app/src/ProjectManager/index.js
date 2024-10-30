@@ -19,7 +19,7 @@ import UnsavedChangesContext, {
 import ProjectManagerCommands from './ProjectManagerCommands';
 import { type HotReloadPreviewButtonProps } from '../HotReload/HotReloadPreviewButton';
 import { type ExtensionShortHeader } from '../Utils/GDevelopServices/Extension';
-import { type Game } from '../Utils/GDevelopServices/Game';
+import { type GamesList } from '../GameDashboard/UseGamesList';
 import { type ResourceManagementProps } from '../ResourcesList/ResourceSource';
 import InstalledExtensionDetails from './InstalledExtensionDetails';
 import { useShouldAutofocusInput } from '../UI/Responsive/ScreenTypeMeasurer';
@@ -419,9 +419,7 @@ type Props = {|
   resourceManagementProps: ResourceManagementProps,
 
   // Games
-  games: ?Array<Game>,
-  fetchGames: () => Promise<void>,
-  onGameUpdated: (game: Game) => void,
+  gamesList: GamesList,
 |};
 
 const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
@@ -450,9 +448,7 @@ const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
       onInstallExtension,
       onShareProject,
       resourceManagementProps,
-      games,
-      fetchGames,
-      onGameUpdated,
+      gamesList,
     },
     ref
   ) => {
@@ -470,6 +466,7 @@ const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
     const forceUpdate = useForceUpdate();
     const { isMobile } = useResponsiveWindowSize();
     const { showDeleteConfirmation } = useAlertDialog();
+    const { games, fetchGames, onGameUpdated } = gamesList;
 
     const forceUpdateList = React.useCallback(
       () => {
