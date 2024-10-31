@@ -4,7 +4,7 @@ import * as React from 'react';
 import { I18n } from '@lingui/react';
 import { Trans } from '@lingui/macro';
 import { type I18n as I18nType } from '@lingui/core';
-import { getGameUrl, type Game } from '../Utils/GDevelopServices/Game';
+import { type Game } from '../Utils/GDevelopServices/Game';
 import { GameThumbnail } from '../GameDashboard/GameThumbnail';
 import { useResponsiveWindowSize } from '../UI/Responsive/ResponsiveWindowMeasurer';
 import {
@@ -30,9 +30,10 @@ const styles = {
 type Props = {|
   game: Game,
   onEditGame: () => void,
+  gameUrl: ?string,
 |};
 
-const GameHeader = ({ game, onEditGame }: Props) => {
+const GameHeader = ({ game, onEditGame, gameUrl }: Props) => {
   const { isMobile } = useResponsiveWindowSize();
   const gdevelopTheme = React.useContext(GDevelopThemeContext);
 
@@ -113,8 +114,6 @@ const GameHeader = ({ game, onEditGame }: Props) => {
       />
     </LineStackLayout>
   );
-
-  const gameUrl = getGameUrl(game);
 
   if (isMobile) {
     return (
