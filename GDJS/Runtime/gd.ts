@@ -643,6 +643,9 @@ namespace gdjs {
   export const getAllAsynchronouslyLoadingLibraryPromise = (): Promise<
     any[]
   > => {
+    if (gdjs.Physics3DRuntimeBehavior) {
+      gdjs.Physics3DRuntimeBehavior.registerPhysics3DLibrary();
+    }
     return Promise.all(asynchronouslyLoadingLibraryPromises);
   };
 }
