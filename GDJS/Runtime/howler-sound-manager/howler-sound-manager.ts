@@ -419,10 +419,25 @@ namespace gdjs {
         document.addEventListener(
           'resume',
           function () {
-            for (let i = 0; i < that._pausedSounds.length; i++) {
-              const sound = that._pausedSounds[i];
-              if (!sound.stopped()) {
-                sound.play();
+            try {
+              for (let i = 0; i < that._pausedSounds.length; i++) {
+                const sound = that._pausedSounds[i];
+                if (!sound.stopped()) {
+                  sound.play();
+                }
+              }
+            } catch (error) {
+              if (
+                error.message &&
+                typeof error.message === 'string' &&
+                error.message.startsWith('Maximum call stack size exceeded')
+              ) {
+                console.warn(
+                  'An error occurred when resuming paused sounds while the game was in background:',
+                  error
+                );
+              } else {
+                throw error;
               }
             }
             that._pausedSounds.length = 0;
@@ -852,6 +867,14 @@ namespace gdjs {
           );
         }
       }
+    }
+
+    /**
+     * To be called when the game is disposed.
+     * Unloads all audio from memory, clear Howl cache and stop all audio.
+     */
+    dispose(): void {
+      this.unloadAll();
     }
   }
 

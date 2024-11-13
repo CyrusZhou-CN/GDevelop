@@ -120,7 +120,7 @@ const GetStartedSection = ({
     creatingOrLoggingInAccount,
     onLogin,
     onLoginWithProvider,
-    onCancelLogin,
+    onCancelLoginOrSignUp,
     onEditProfile,
     onCreateAccount,
     authenticationError,
@@ -258,7 +258,7 @@ const GetStartedSection = ({
   const shouldDisplayAnnouncements =
     !authenticatedUser.limits ||
     !authenticatedUser.limits.capabilities.classrooms ||
-    !authenticatedUser.limits.capabilities.classrooms.hideCommunityTab;
+    !authenticatedUser.limits.capabilities.classrooms.hidePlayTab;
 
   if (
     (creatingOrLoggingInAccount || loginState === 'loggingIn') &&
@@ -269,10 +269,7 @@ const GetStartedSection = ({
     !recommendationsGettingDelayPromise.current
   ) {
     return (
-      <SectionContainer
-        title={null} // Let the content handle the title.
-        flexBody
-      >
+      <SectionContainer flexBody>
         <ColumnStackLayout
           noMargin
           expand
@@ -298,7 +295,7 @@ const GetStartedSection = ({
                   <FlatButton
                     primary
                     label={<Trans>Cancel</Trans>}
-                    onClick={onCancelLogin}
+                    onClick={onCancelLoginOrSignUp}
                   />
                 </LineStackLayout>
               </Column>
@@ -311,10 +308,7 @@ const GetStartedSection = ({
 
   if (!isOnline || errorSendingSurvey) {
     return (
-      <SectionContainer
-        title={null} // Let the content handle the title.
-        flexBody
-      >
+      <SectionContainer flexBody>
         <ColumnStackLayout
           noMargin
           expand
@@ -364,10 +358,7 @@ const GetStartedSection = ({
 
   if (step === 'login') {
     return (
-      <SectionContainer
-        title={null} // Let the content handle the title.
-        flexBody
-      >
+      <SectionContainer flexBody>
         <ColumnStackLayout
           noMargin
           expand
@@ -428,10 +419,7 @@ const GetStartedSection = ({
 
   if (step === 'register') {
     return (
-      <SectionContainer
-        title={null} // Let the content handle the title.
-        flexBody
-      >
+      <SectionContainer flexBody>
         <ColumnStackLayout
           noMargin
           expand
@@ -499,10 +487,7 @@ const GetStartedSection = ({
   if (step === 'welcome') {
     const isNewUser = profile && Date.now() - profile.createdAt < ONE_WEEK;
     return (
-      <SectionContainer
-        title={null} // Let the content handle the title.
-        flexBody
-      >
+      <SectionContainer flexBody>
         <ColumnStackLayout
           noMargin
           expand
@@ -591,10 +576,7 @@ const GetStartedSection = ({
 
   if (step === 'surveyFinished') {
     return (
-      <SectionContainer
-        title={null} // Let the content handle the title.
-        flexBody
-      >
+      <SectionContainer flexBody>
         <ColumnStackLayout
           noMargin
           expand
@@ -627,7 +609,6 @@ const GetStartedSection = ({
     return (
       <>
         <SectionContainer
-          title={<Trans>Start making games</Trans>}
           flexBody
           showUrgentAnnouncements={shouldDisplayAnnouncements}
         >

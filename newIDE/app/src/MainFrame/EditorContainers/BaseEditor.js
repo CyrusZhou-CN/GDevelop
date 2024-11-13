@@ -13,6 +13,7 @@ import {
 } from '../../ProjectsStorage';
 import { type ExampleShortHeader } from '../../Utils/GDevelopServices/Example';
 import { type PrivateGameTemplateListingData } from '../../Utils/GDevelopServices/Shop';
+import { type GamesList } from '../../GameDashboard/UseGamesList';
 import { type ObjectWithContext } from '../../ObjectsList/EnumerateObjects';
 
 export type EditorContainerExtraProps = {|
@@ -76,6 +77,15 @@ export type RenderEditorContainerProps = {|
       | 'extension-events-editor'
       | 'external-events-editor'
   ) => void,
+  onRenamedEventsBasedObject: (
+    eventsFunctionsExtension: gdEventsFunctionsExtension,
+    oldName: string,
+    newName: string
+  ) => void,
+  onDeletedEventsBasedObject: (
+    eventsFunctionsExtension: gdEventsFunctionsExtension,
+    name: string
+  ) => void,
 
   // Project opening
   canOpen: boolean,
@@ -83,6 +93,10 @@ export type RenderEditorContainerProps = {|
   onOpenRecentFile: (file: FileMetadataAndStorageProviderName) => Promise<void>,
   onOpenProjectManager: () => void,
   askToCloseProject: () => Promise<boolean>,
+  closeProject: () => Promise<void>,
+
+  // Games
+  gamesList: GamesList,
 
   // Other dialogs opening:
   onOpenExampleStore: () => void,
@@ -112,6 +126,7 @@ export type RenderEditorContainerProps = {|
     newProjectSetup: NewProjectSetup,
     i18n: I18nType
   ) => Promise<void>,
+  onOpenTemplateFromTutorial: (tutorialId: string) => Promise<void>,
 
   // Project save
   onSave: () => Promise<void>,
@@ -126,6 +141,14 @@ export type RenderEditorContainerProps = {|
   ) => void,
 
   onExtractAsExternalLayout: (name: string) => void,
+  onExtractAsEventBasedObject: (
+    extensionName: string,
+    eventsBasedObjectName: string
+  ) => void,
+  onOpenEventBasedObjectEditor: (
+    extensionName: string,
+    eventsBasedObjectName: string
+  ) => void,
 |};
 
 export type RenderEditorContainerPropsWithRef = {|

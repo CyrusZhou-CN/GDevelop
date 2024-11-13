@@ -71,11 +71,11 @@ const PreferencesDialog = ({
     setIsAlwaysOnTopInPreview,
     setEventsSheetCancelInlineParameter,
     setShowCommunityExtensions,
-    setShowEventBasedObjectsEditor,
     setShowInAppTutorialDeveloperMode,
     setOpenDiagnosticReportAutomatically,
     setShowDeprecatedInstructionWarning,
     setUse3DEditor,
+    setShowBasicProfilingCounters,
     setNewProjectsDefaultFolder,
     setUseShortcutToClosePreviewWindow,
     setWatchProjectFolderFilesForLocalProjects,
@@ -450,6 +450,12 @@ const PreferencesDialog = ({
             }
           />
           <Toggle
+            onToggle={(e, check) => setShowBasicProfilingCounters(check)}
+            toggled={values.showBasicProfilingCounters}
+            labelPosition="right"
+            label={<Trans>Display profiling information in scene editor</Trans>}
+          />
+          <Toggle
             onToggle={(e, check) => setUse3DEditor(check)}
             toggled={values.use3DEditor}
             labelPosition="right"
@@ -507,16 +513,6 @@ const PreferencesDialog = ({
           <Text size="block-title">
             <Trans>Contributor options</Trans>
           </Text>
-          <Toggle
-            onToggle={(e, check) => setShowEventBasedObjectsEditor(check)}
-            toggled={values.showEventBasedObjectsEditor}
-            labelPosition="right"
-            label={
-              <Trans>
-                Show custom objects in the extension editor (experimental)
-              </Trans>
-            }
-          />
           <Toggle
             onToggle={(e, check) => setShowInAppTutorialDeveloperMode(check)}
             toggled={values.showInAppTutorialDeveloperMode}

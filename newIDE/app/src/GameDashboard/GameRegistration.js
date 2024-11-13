@@ -17,12 +17,19 @@ import MarketingPlansDialog from '../MarketingPlans/MarketingPlansDialog';
 import { useGameManager } from '../Utils/UseGameAndBuildsManager';
 import RightLoader from '../UI/RightLoader';
 
+const styles = {
+  buttonContainer: {
+    flexShrink: 0, // To avoid the button content to be on multiple lines.
+  },
+};
+
 export type GameRegistrationProps = {|
   project: ?gdProject,
   suggestAdditionalActions?: boolean,
   hideLoader?: boolean,
-  hideLogin?: boolean,
   onGameRegistered?: () => void | Promise<void>,
+  customRegistrationMessage?: React.Node,
+  icon?: React.Node,
 |};
 
 export type GameAvailabilityError = 'not-found' | 'not-owned' | 'unexpected';
@@ -32,6 +39,7 @@ export const GameRegistration = ({
   suggestAdditionalActions,
   hideLoader,
   onGameRegistered,
+  customRegistrationMessage,
 }: GameRegistrationProps) => {
   const {
     onOpenLoginDialog,
@@ -139,6 +147,7 @@ export const GameRegistration = ({
       <CreateProfile
         onOpenLoginDialog={onOpenLoginDialog}
         onOpenCreateAccountDialog={onOpenCreateAccountDialog}
+        message={customRegistrationMessage}
       />
     );
   }
@@ -148,18 +157,23 @@ export const GameRegistration = ({
       <AlertMessage
         kind="info"
         renderRightButton={() => (
-          <RaisedButton
-            label={<Trans>Register the project</Trans>}
-            disabled={registrationInProgress}
-            primary
-            onClick={onRegisterGame}
-          />
+          <div style={styles.buttonContainer}>
+            <RaisedButton
+              label={<Trans>Register the project</Trans>}
+              disabled={registrationInProgress}
+              primary
+              onClick={onRegisterGame}
+            />
+          </div>
         )}
       >
-        <Trans>
-          The project currently opened is not registered online. Register it now
-          to get access to leaderboards, player accounts, analytics and more!
-        </Trans>
+        {customRegistrationMessage || (
+          <Trans>
+            The project currently opened is not registered online. Register it
+            now to get access to leaderboards, player accounts, analytics and
+            more!
+          </Trans>
+        )}
       </AlertMessage>
     );
   } else if (gameAvailabilityError === 'not-owned') {
@@ -189,7 +203,7 @@ export const GameRegistration = ({
             <Text size="block-title">
               <Trans>Taking your game further</Trans>
             </Text>
-            <Column noMargin>
+            <Column>
               <Toggle
                 onToggle={() =>
                   onToggleGameStatsEmail(!profile.getGameStatsEmail)

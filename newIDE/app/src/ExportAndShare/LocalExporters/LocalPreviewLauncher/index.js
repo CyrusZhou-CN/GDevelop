@@ -11,6 +11,7 @@ import assignIn from 'lodash/assignIn';
 import {
   type PreviewOptions,
   type PreviewLauncherProps,
+  type CaptureOptions,
 } from '../../PreviewLauncher.flow';
 import SubscriptionChecker, {
   type SubscriptionCheckerInterface,
@@ -43,6 +44,7 @@ type State = {|
   hideMenuBar: boolean,
   alwaysOnTop: boolean,
   numberOfWindows: number,
+  captureOptions: ?CaptureOptions,
 |};
 
 export default class LocalPreviewLauncher extends React.Component<
@@ -63,12 +65,20 @@ export default class LocalPreviewLauncher extends React.Component<
     hideMenuBar: true,
     alwaysOnTop: true,
     numberOfWindows: 1,
+    captureOptions: null,
   };
   _networkPreviewSubscriptionChecker: ?SubscriptionCheckerInterface = null;
   _hotReloadSubscriptionChecker: ?SubscriptionCheckerInterface = null;
 
   _openPreviewBrowserWindow = () => {
-    const { previewGamePath, previewBrowserWindowOptions } = this.state;
+    const {
+      previewGamePath,
+      previewBrowserWindowOptions,
+      captureOptions,
+      alwaysOnTop,
+      hideMenuBar,
+      numberOfWindows,
+    } = this.state;
     if (!previewBrowserWindowOptions || !previewGamePath) return;
 
     if (!ipcRenderer) return;
@@ -76,9 +86,17 @@ export default class LocalPreviewLauncher extends React.Component<
     ipcRenderer.invoke('preview-open', {
       previewBrowserWindowOptions,
       previewGameIndexHtmlPath: `file://${previewGamePath}/index.html`,
-      alwaysOnTop: this.state.alwaysOnTop,
-      hideMenuBar: this.state.hideMenuBar,
-      numberOfWindows: this.state.numberOfWindows,
+      alwaysOnTop,
+      hideMenuBar,
+      numberOfWindows,
+      captureOptions,
+    });
+
+    ipcRenderer.removeAllListeners('preview-window-closed');
+    ipcRenderer.on('preview-window-closed', async event => {
+      if (captureOptions) {
+        await this.props.onCaptureFinished(captureOptions);
+      }
     });
   };
 
@@ -112,6 +130,7 @@ export default class LocalPreviewLauncher extends React.Component<
         hideMenuBar: !options.getIsMenuBarHiddenInPreview(),
         alwaysOnTop: options.getIsAlwaysOnTopInPreview(),
         numberOfWindows: options.numberOfWindows,
+        captureOptions: options.captureOptions,
       },
       () => {
         if (!options.networkPreview) {
@@ -273,6 +292,19 @@ export default class LocalPreviewLauncher extends React.Component<
                 previewOptions.authenticatedPlayer.playerToken
               );
             }
+            if (previewOptions.captureOptions) {
+              if (previewOptions.captureOptions.screenshots) {
+                previewOptions.captureOptions.screenshots.forEach(
+                  screenshot => {
+                    previewExportOptions.addScreenshotCapture(
+                      screenshot.delayTimeInSeconds,
+                      screenshot.signedUrl,
+                      screenshot.publicUrl
+                    );
+                  }
+                );
+              }
+            }
 
             exporter.exportProjectForPixiPreview(previewExportOptions);
             previewExportOptions.delete();
@@ -333,6 +365,7 @@ export default class LocalPreviewLauncher extends React.Component<
           id="Preview over wifi"
           title={<Trans>Preview over wifi</Trans>}
           mode="try"
+          isNotShownDuringInAppTutorial
         />
         <SubscriptionChecker
           ref={subscriptionChecker =>
@@ -343,6 +376,7 @@ export default class LocalPreviewLauncher extends React.Component<
             <Trans>Live preview (apply changes to the running preview)</Trans>
           }
           mode="try"
+          isNotShownDuringInAppTutorial
         />
         <LocalNetworkPreviewDialog
           open={networkPreviewDialogOpen}

@@ -3,7 +3,7 @@ import { Trans, t } from '@lingui/macro';
 
 import * as React from 'react';
 import Avatar from '@material-ui/core/Avatar';
-import { Column } from '../UI/Grid';
+import { Column, Line } from '../UI/Grid';
 import {
   ColumnStackLayout,
   LineStackLayout,
@@ -187,10 +187,10 @@ const ProfileDetails = ({
   return (
     <I18n>
       {({ i18n }) => (
-        <ResponsiveLineStackLayout>
+        <ResponsiveLineStackLayout noResponsiveLandscape>
           <Avatar src={getGravatarUrl(email || '', { size: 40 })} />
           <ColumnStackLayout noMargin expand>
-            <ResponsiveLineStackLayout justifyContent="space-between" noMargin>
+            <Line justifyContent="space-between" noMargin>
               <Text
                 size="block-title"
                 allowBrowserAutoTranslate={!profile.username}
@@ -201,7 +201,7 @@ const ProfileDetails = ({
                 {profile.username ||
                   i18n._(t`Edit your profile to pick a username!`)}
               </Text>
-            </ResponsiveLineStackLayout>
+            </Line>
             {email && (
               <Column noMargin>
                 <Text noMargin size="body-small">
@@ -267,99 +267,97 @@ const ProfileDetails = ({
               </Text>
             </Column>
             {!hideSocials && (
-              <>
-                <ColumnStackLayout noMargin>
-                  <Text noMargin size="body-small">
-                    <Trans>Socials</Trans>
-                  </Text>
-                  <CommunityLinksLines
-                    communityLinks={[
-                      {
-                        text: !githubUsername ? (
-                          <MarkdownText
-                            translatableSource={communityLinksConfig.githubUsername.getRewardMessage(
-                              false,
-                              githubStarAchievement &&
-                                githubStarAchievement.rewardValueInCredits
-                                ? githubStarAchievement.rewardValueInCredits.toString()
-                                : '-'
-                            )}
-                          />
-                        ) : (
-                          githubUsername
-                        ),
-                        isNotFilled: !githubUsername,
-                        icon: communityLinksConfig.githubUsername.icon,
-                      },
-                      {
-                        text: !twitterUsername ? (
-                          <MarkdownText
-                            translatableSource={communityLinksConfig.twitterUsername.getRewardMessage(
-                              false,
-                              twitterFollowAchievement &&
-                                twitterFollowAchievement.rewardValueInCredits
-                                ? twitterFollowAchievement.rewardValueInCredits.toString()
-                                : '-'
-                            )}
-                          />
-                        ) : (
-                          twitterUsername
-                        ),
-                        isNotFilled: !twitterUsername,
-                        icon: communityLinksConfig.twitterUsername.icon,
-                      },
-                      {
-                        text: !tiktokUsername ? (
-                          <MarkdownText
-                            translatableSource={communityLinksConfig.tiktokUsername.getRewardMessage(
-                              false,
-                              tiktokFollowAchievement &&
-                                tiktokFollowAchievement.rewardValueInCredits
-                                ? tiktokFollowAchievement.rewardValueInCredits.toString()
-                                : '-'
-                            )}
-                          />
-                        ) : (
-                          tiktokUsername
-                        ),
-                        isNotFilled: !tiktokUsername,
-                        icon: communityLinksConfig.tiktokUsername.icon,
-                      },
-                      {
-                        text: personalWebsiteLink,
-                        icon: communityLinksConfig.personalWebsiteLink.icon,
-                      },
-                      {
-                        text: personalWebsite2Link,
-                        icon: communityLinksConfig.personalWebsite2Link.icon,
-                      },
-                      {
-                        text: facebookUsername,
-                        icon: communityLinksConfig.facebookUsername.icon,
-                      },
-                      {
-                        text: youtubeUsername,
-                        icon: communityLinksConfig.youtubeUsername.icon,
-                      },
-                      {
-                        text: instagramUsername,
-                        icon: communityLinksConfig.instagramUsername.icon,
-                      },
-                      {
-                        text: redditUsername,
-                        icon: communityLinksConfig.redditUsername.icon,
-                      },
-                      {
-                        text: snapchatUsername,
-                        icon: communityLinksConfig.snapchatUsername.icon,
-                      },
-                      {
-                        text: discordServerLink,
-                        icon: communityLinksConfig.discordServerLink.icon,
-                      },
-                    ]}
-                  />
-                </ColumnStackLayout>
+              <ColumnStackLayout noMargin>
+                <Text noMargin size="body-small">
+                  <Trans>Socials</Trans>
+                </Text>
+                <CommunityLinksLines
+                  communityLinks={[
+                    {
+                      text: !githubUsername ? (
+                        <MarkdownText
+                          translatableSource={communityLinksConfig.githubUsername.getRewardMessage(
+                            false,
+                            githubStarAchievement &&
+                              githubStarAchievement.rewardValueInCredits
+                              ? githubStarAchievement.rewardValueInCredits.toString()
+                              : '-'
+                          )}
+                        />
+                      ) : (
+                        githubUsername
+                      ),
+                      isNotFilled: !githubUsername,
+                      icon: communityLinksConfig.githubUsername.icon,
+                    },
+                    {
+                      text: !twitterUsername ? (
+                        <MarkdownText
+                          translatableSource={communityLinksConfig.twitterUsername.getRewardMessage(
+                            false,
+                            twitterFollowAchievement &&
+                              twitterFollowAchievement.rewardValueInCredits
+                              ? twitterFollowAchievement.rewardValueInCredits.toString()
+                              : '-'
+                          )}
+                        />
+                      ) : (
+                        twitterUsername
+                      ),
+                      isNotFilled: !twitterUsername,
+                      icon: communityLinksConfig.twitterUsername.icon,
+                    },
+                    {
+                      text: !tiktokUsername ? (
+                        <MarkdownText
+                          translatableSource={communityLinksConfig.tiktokUsername.getRewardMessage(
+                            false,
+                            tiktokFollowAchievement &&
+                              tiktokFollowAchievement.rewardValueInCredits
+                              ? tiktokFollowAchievement.rewardValueInCredits.toString()
+                              : '-'
+                          )}
+                        />
+                      ) : (
+                        tiktokUsername
+                      ),
+                      isNotFilled: !tiktokUsername,
+                      icon: communityLinksConfig.tiktokUsername.icon,
+                    },
+                    {
+                      text: personalWebsiteLink,
+                      icon: communityLinksConfig.personalWebsiteLink.icon,
+                    },
+                    {
+                      text: personalWebsite2Link,
+                      icon: communityLinksConfig.personalWebsite2Link.icon,
+                    },
+                    {
+                      text: facebookUsername,
+                      icon: communityLinksConfig.facebookUsername.icon,
+                    },
+                    {
+                      text: youtubeUsername,
+                      icon: communityLinksConfig.youtubeUsername.icon,
+                    },
+                    {
+                      text: instagramUsername,
+                      icon: communityLinksConfig.instagramUsername.icon,
+                    },
+                    {
+                      text: redditUsername,
+                      icon: communityLinksConfig.redditUsername.icon,
+                    },
+                    {
+                      text: snapchatUsername,
+                      icon: communityLinksConfig.snapchatUsername.icon,
+                    },
+                    {
+                      text: discordServerLink,
+                      icon: communityLinksConfig.discordServerLink.icon,
+                    },
+                  ]}
+                />
                 <Column noMargin>
                   <Text noMargin size="body-small">
                     <Trans>Donate link</Trans>
@@ -368,9 +366,13 @@ const ProfileDetails = ({
                     {donateLink || <Trans>No link defined.</Trans>}
                   </Text>
                 </Column>
-              </>
+              </ColumnStackLayout>
             )}
-            <ResponsiveLineStackLayout justifyContent="flex-start" noMargin>
+            <ResponsiveLineStackLayout
+              justifyContent="flex-start"
+              noMargin
+              noResponsiveLandscape
+            >
               <RaisedButton
                 label={<Trans>Edit my profile</Trans>}
                 primary

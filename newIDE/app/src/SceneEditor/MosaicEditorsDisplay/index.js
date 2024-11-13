@@ -28,9 +28,11 @@ import {
   type SceneEditorsDisplayProps,
   type SceneEditorsDisplayInterface,
 } from '../EditorsDisplay.flow';
-import CompactInstancePropertiesEditorContainer, {
-  type CompactInstancePropertiesEditorInterface,
-} from '../../InstancesEditor/CompactInstancePropertiesEditor';
+import {
+  InstanceOrObjectPropertiesEditorContainer,
+  type InstanceOrObjectPropertiesEditorInterface,
+} from '../../SceneEditor/InstanceOrObjectPropertiesEditorContainer';
+import { useDoNowOrAfterRender } from '../../Utils/UseDoNowOrAfterRender';
 
 const initialMosaicEditorNodes = {
   direction: 'row',
@@ -81,9 +83,11 @@ const MosaicEditorsDisplay = React.forwardRef<
 >((props, ref) => {
   const {
     project,
+    resourceManagementProps,
     layout,
     eventsFunctionsExtension,
     eventsBasedObject,
+    updateBehaviorsSharedData,
     layersContainer,
     globalObjectsContainer,
     objectsContainer,
@@ -99,7 +103,7 @@ const MosaicEditorsDisplay = React.forwardRef<
   } = React.useContext(PreferencesContext);
   const selectedInstances = props.instancesSelection.getSelectedInstances();
 
-  const instancesPropertiesEditorRef = React.useRef<?CompactInstancePropertiesEditorInterface>(
+  const instanceOrObjectPropertiesEditorRef = React.useRef<?InstanceOrObjectPropertiesEditorInterface>(
     null
   );
   const layersListRef = React.useRef<?LayersListInterface>(null);
@@ -108,10 +112,13 @@ const MosaicEditorsDisplay = React.forwardRef<
   const objectsListRef = React.useRef<?ObjectsListInterface>(null);
   const editorMosaicRef = React.useRef<?EditorMosaicInterface>(null);
   const objectGroupsListRef = React.useRef<?ObjectGroupsListInterface>(null);
+  const objectsListDoNowOrAfterRender = useDoNowOrAfterRender<?ObjectsListInterface>(
+    objectsListRef
+  );
 
-  const forceUpdateInstancesPropertiesEditor = React.useCallback(() => {
-    if (instancesPropertiesEditorRef.current)
-      instancesPropertiesEditorRef.current.forceUpdate();
+  const forceUpdatePropertiesEditor = React.useCallback(() => {
+    if (instanceOrObjectPropertiesEditorRef.current)
+      instanceOrObjectPropertiesEditorRef.current.forceUpdate();
   }, []);
   const forceUpdateInstancesList = React.useCallback(() => {
     if (instancesListRef.current) instancesListRef.current.forceUpdate();
@@ -137,11 +144,6 @@ const MosaicEditorsDisplay = React.forwardRef<
 
     return editorRef.current.getInstanceSize(instance);
   }, []);
-  const openNewObjectDialog = React.useCallback(() => {
-    if (!objectsListRef.current) return;
-
-    objectsListRef.current.openNewObjectDialog();
-  }, []);
   const toggleEditorView = React.useCallback((editorId: EditorId) => {
     if (!editorMosaicRef.current) return;
     const config = defaultPanelConfigByEditor[editorId];
@@ -164,13 +166,27 @@ const MosaicEditorsDisplay = React.forwardRef<
     if (start) editor.restartSceneRendering();
     else editor.pauseSceneRendering();
   }, []);
+  const openNewObjectDialog = React.useCallback(
+    () => {
+      if (!isEditorVisible('objects-list')) {
+        // Objects list is not opened. Open it now.
+        toggleEditorView('objects-list');
+      }
+
+      // Open the new object dialog when the objects list is opened.
+      objectsListDoNowOrAfterRender((objectsList: ?ObjectsListInterface) => {
+        if (objectsList) objectsList.openNewObjectDialog();
+      });
+    },
+    [isEditorVisible, toggleEditorView, objectsListDoNowOrAfterRender]
+  );
 
   React.useImperativeHandle(ref, () => {
     const { current: editor } = editorRef;
     return {
       getName: () => 'mosaic',
       forceUpdateInstancesList,
-      forceUpdateInstancesPropertiesEditor,
+      forceUpdatePropertiesEditor,
       forceUpdateObjectsList,
       forceUpdateObjectGroupsList,
       scrollObjectGroupsListToObjectGroup,
@@ -220,25 +236,21 @@ const MosaicEditorsDisplay = React.forwardRef<
     (instances: Array<gdInitialInstance>, multiSelect: boolean) => {
       onSelectInstances(instances, multiSelect);
       forceUpdateInstancesList();
-      forceUpdateInstancesPropertiesEditor();
+      forceUpdatePropertiesEditor();
     },
-    [
-      forceUpdateInstancesList,
-      forceUpdateInstancesPropertiesEditor,
-      onSelectInstances,
-    ]
+    [forceUpdateInstancesList, forceUpdatePropertiesEditor, onSelectInstances]
   );
 
-  const selectedObjectNames = props.selectedObjectFolderOrObjectsWithContext
+  const selectedObjects = props.selectedObjectFolderOrObjectsWithContext
     .map(objectFolderOrObjectWithContext => {
       const { objectFolderOrObject } = objectFolderOrObjectWithContext;
-
       if (!objectFolderOrObject) return null; // Protect ourselves from an unexpected null value.
-
       if (objectFolderOrObject.isFolder()) return null;
-      return objectFolderOrObject.getObject().getName();
+      return objectFolderOrObject.getObject();
     })
     .filter(Boolean);
+
+  const selectedObjectNames = selectedObjects.map(object => object.getName());
 
   const editors = {
     properties: {
@@ -247,24 +259,30 @@ const MosaicEditorsDisplay = React.forwardRef<
       renderEditor: () => (
         <I18n>
           {({ i18n }) => (
-            <CompactInstancePropertiesEditorContainer
+            <InstanceOrObjectPropertiesEditorContainer
               i18n={i18n}
               project={project}
+              resourceManagementProps={resourceManagementProps}
               layout={layout}
+              eventsFunctionsExtension={eventsFunctionsExtension}
+              onUpdateBehaviorsSharedData={updateBehaviorsSharedData}
               objectsContainer={objectsContainer}
               globalObjectsContainer={globalObjectsContainer}
               layersContainer={layersContainer}
               projectScopedContainersAccessor={projectScopedContainersAccessor}
               instances={selectedInstances}
+              objects={selectedObjects}
               editInstanceVariables={props.editInstanceVariables}
-              onEditObjectByName={props.editObjectByName}
+              editObjectInPropertiesPanel={props.editObjectInPropertiesPanel}
+              onEditObject={props.onEditObject}
               onInstancesModified={forceUpdateInstancesList}
               onGetInstanceSize={getInstanceSize}
-              ref={instancesPropertiesEditorRef}
+              ref={instanceOrObjectPropertiesEditorRef}
               unsavedChanges={props.unsavedChanges}
               historyHandler={props.historyHandler}
               tileMapTileSelection={props.tileMapTileSelection}
               onSelectTileMapTile={props.onSelectTileMapTile}
+              lastSelectionType={props.lastSelectionType}
             />
           )}
         </I18n>
@@ -285,7 +303,7 @@ const MosaicEditorsDisplay = React.forwardRef<
           onEditLayer={props.editLayer}
           onRemoveLayer={props.onRemoveLayer}
           onLayerRenamed={props.onLayerRenamed}
-          onCreateLayer={forceUpdateInstancesPropertiesEditor}
+          onCreateLayer={forceUpdatePropertiesEditor}
           layersContainer={layersContainer}
           unsavedChanges={props.unsavedChanges}
           ref={layersListRef}
@@ -359,6 +377,7 @@ const MosaicEditorsDisplay = React.forwardRef<
               project={project}
               layout={layout}
               eventsBasedObject={eventsBasedObject}
+              projectScopedContainersAccessor={projectScopedContainersAccessor}
               globalObjectsContainer={globalObjectsContainer}
               objectsContainer={objectsContainer}
               initialInstances={initialInstances}
@@ -370,6 +389,7 @@ const MosaicEditorsDisplay = React.forwardRef<
                 props.selectedObjectFolderOrObjectsWithContext
               }
               onEditObject={props.onEditObject}
+              onOpenEventBasedObjectEditor={props.onOpenEventBasedObjectEditor}
               onExportAssets={props.onExportAssets}
               onDeleteObjects={(objectWithContext, cb) =>
                 props.onDeleteObjects(i18n, objectWithContext, cb)

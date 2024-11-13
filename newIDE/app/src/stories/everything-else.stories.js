@@ -1239,7 +1239,7 @@ storiesOf('PropertiesEditor', module)
         {
           name: 'Object name',
           valueType: 'string',
-          disabled: true,
+          disabled: () => true,
           getValue: instance => 'Disabled field',
           setValue: (instance, newValue) => {},
         },
@@ -1305,7 +1305,7 @@ storiesOf('PropertiesEditor', module)
         {
           name: 'Object name',
           valueType: 'string',
-          disabled: true,
+          disabled: () => true,
           getValue: instance => 'Disabled field',
           setValue: (instance, newValue) => {},
           getDescription: () =>
@@ -2268,8 +2268,9 @@ storiesOf('InstructionOrObjectSelector', module)
                 }}
                 currentTab={value}
                 onChangeTab={onChange}
-                globalObjectsContainer={testProject.project.getObjects()}
-                objectsContainer={testProject.testLayout.getObjects()}
+                projectScopedContainersAccessor={
+                  testProject.testSceneProjectScopedContainersAccessor
+                }
                 isCondition
                 chosenInstructionType={'KeyPressed'}
                 onChooseInstruction={action('instruction chosen')}
@@ -2301,8 +2302,9 @@ storiesOf('InstructionOrObjectSelector', module)
                 }}
                 currentTab={value}
                 onChangeTab={onChange}
-                globalObjectsContainer={testProject.project.getObjects()}
-                objectsContainer={testProject.testLayout.getObjects()}
+                projectScopedContainersAccessor={
+                  testProject.testSceneProjectScopedContainersAccessor
+                }
                 isCondition
                 chosenInstructionType={''}
                 onChooseInstruction={action('instruction chosen')}
@@ -2467,8 +2469,9 @@ storiesOf('ObjectSelector', module)
       render={(value, onChange) => (
         <ObjectSelector
           project={testProject.project}
-          globalObjectsContainer={testProject.project.getObjects()}
-          objectsContainer={testProject.testLayout.getObjects()}
+          projectScopedContainersAccessor={
+            testProject.testSceneProjectScopedContainersAccessor
+          }
           value={value}
           onChange={onChange}
           onChoose={action('onChoose in ObjectSelector')}
@@ -2486,8 +2489,9 @@ storiesOf('ObjectSelector', module)
       render={(value, onChange) => (
         <ObjectSelector
           project={testProject.project}
-          globalObjectsContainer={testProject.project.getObjects()}
-          objectsContainer={testProject.testLayout.getObjects()}
+          projectScopedContainersAccessor={
+            testProject.testSceneProjectScopedContainersAccessor
+          }
           value={value}
           onChange={onChange}
           onChoose={action('onChoose in ObjectSelector')}

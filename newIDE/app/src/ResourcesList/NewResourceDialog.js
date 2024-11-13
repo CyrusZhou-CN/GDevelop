@@ -16,6 +16,7 @@ import Text from '../UI/Text';
 import Toggle from '../UI/Toggle';
 import { type StorageProvider, type FileMetadata } from '../ProjectsStorage';
 import { useResponsiveWindowSize } from '../UI/Responsive/ResponsiveWindowMeasurer';
+import { ResourceStoreContext } from '../AssetStore/ResourceStore/ResourceStoreContext';
 
 type Props = {|
   project: gdProject,
@@ -39,9 +40,14 @@ export const NewResourceDialog = ({
   onChooseResources,
 }: Props) => {
   const { isMobile } = useResponsiveWindowSize();
+  const { searchResults } = React.useContext(ResourceStoreContext);
   const storageProvider = React.useMemo(() => getStorageProvider(), [
     getStorageProvider,
   ]);
+  const [
+    selectedResourceIndex,
+    setSelectedResourceIndex,
+  ] = React.useState<?number>(null);
   const preferences = React.useContext(PreferencesContext);
   const possibleResourceSources = resourceSources
     .filter(({ kind }) => kind === options.resourceKind)
@@ -126,10 +132,25 @@ export const NewResourceDialog = ({
       actions={[
         <FlatButton
           key="close"
-          label={<Trans>Close</Trans>}
+          label={<Trans>Cancel</Trans>}
           primary
           onClick={onClose}
         />,
+        standaloneTabResourceSources.map(source => {
+          if (
+            currentTab !== 'standalone-' + source.name ||
+            !source.renderPrimaryAction
+          )
+            return null;
+          const selectedResource =
+            searchResults && typeof selectedResourceIndex === 'number'
+              ? searchResults[selectedResourceIndex]
+              : null;
+          return source.renderPrimaryAction({
+            resource: selectedResource,
+            onChooseResources,
+          });
+        }),
       ]}
       secondaryActions={[
         importTabAdvancedResourceSources.length > 0 ? (
@@ -145,19 +166,21 @@ export const NewResourceDialog = ({
       ]}
       onRequestClose={onClose}
       fixedContent={
-        <Tabs
-          value={currentTab}
-          onChange={setCurrentTab}
-          options={[
-            ...standaloneTabResourceSources.map(({ name, displayName }) => ({
-              label: i18n._(displayName),
-              value: 'standalone-' + name,
-            })),
-            { label: <Trans>Choose a file</Trans>, value: 'import' },
-          ]}
-          // Enforce scroll on very small screens, because the tabs have long names.
-          variant={isMobile ? 'scrollable' : undefined}
-        />
+        standaloneTabResourceSources.length ? (
+          <Tabs
+            value={currentTab}
+            onChange={setCurrentTab}
+            options={[
+              ...standaloneTabResourceSources.map(({ name, displayName }) => ({
+                label: i18n._(displayName),
+                value: 'standalone-' + name,
+              })),
+              { label: <Trans>Choose a file</Trans>, value: 'import' },
+            ]}
+            // Enforce scroll on very small screens, because the tabs have long names.
+            variant={isMobile ? 'scrollable' : undefined}
+          />
+        ) : null
       }
     >
       {standaloneTabResourceSources.map(source => {
@@ -168,6 +191,8 @@ export const NewResourceDialog = ({
           options,
           project,
           fileMetadata,
+          selectedResourceIndex,
+          onSelectResource: setSelectedResourceIndex,
           getStorageProvider,
           getLastUsedPath: preferences.getLastUsedPath,
           setLastUsedPath: preferences.setLastUsedPath,

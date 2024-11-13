@@ -7,7 +7,10 @@ import { QuickPublish } from '../../../QuickCustomization/QuickPublish';
 import {
   fakeNotAuthenticatedUser,
   fakeSilverAuthenticatedUser,
+  fakeAuthenticatedUserWithNoSubscriptionAndCredits,
+  tenCloudProjects,
 } from '../../../fixtures/GDevelopServicesTestData';
+import FixedHeightFlexContainer from '../../FixedHeightFlexContainer';
 import AuthenticatedUserContext from '../../../Profile/AuthenticatedUserContext';
 import {
   fakeBrowserOnlineWebExportPipeline,
@@ -21,6 +24,9 @@ import {
 } from '../../../fixtures/GDevelopServicesTestData/FakeGameAndBuildsManager';
 import EventsFunctionsExtensionsContext from '../../../EventsFunctionsExtensionsLoader/EventsFunctionsExtensionsContext';
 import { fakeEventsFunctionsExtensionsState } from '../../FakeEventsFunctionsExtensionsContext';
+import { GDevelopGameApi } from '../../../Utils/GDevelopServices/ApiConfigs';
+import { client as gameApiClient } from '../../../Utils/GDevelopServices/Game';
+import MockAdapter from 'axios-mock-adapter';
 
 export default {
   title: 'QuickCustomization/QuickPublish',
@@ -44,140 +50,259 @@ const erroringOnlineWebExporter: Exporter = {
   exportPipeline: fakeErroringBrowserOnlineWebExportPipeline,
 };
 
-export const NotAuthenticated = () => {
+const Template = ({ children }: { children: React.Node }) => {
+  const fakeGame = fakeGameAndBuildsManager.game;
+  if (!fakeGame)
+    throw new Error(
+      'Game was expected to be defined in `fakeGameAndBuildsManager`.'
+    );
+
+  const axiosMock = new MockAdapter(gameApiClient, { delayResponse: 500 });
+  axiosMock
+    .onPatch(`${GDevelopGameApi.baseUrl}/game/${fakeGame.id}`)
+    .reply(200, fakeGame)
+    .onAny()
+    .reply(501);
+
   return (
     <EventsFunctionsExtensionsContext.Provider
       value={fakeEventsFunctionsExtensionsState}
     >
+      <FixedHeightFlexContainer height={600}>
+        {children}
+      </FixedHeightFlexContainer>
+    </EventsFunctionsExtensionsContext.Provider>
+  );
+};
+
+export const NotAuthenticated = () => {
+  return (
+    <Template>
       <AuthenticatedUserContext.Provider value={fakeNotAuthenticatedUser}>
         <QuickPublish
           project={testProject.project}
           gameAndBuildsManager={fakeEmptyGameAndBuildsManager}
           isSavingProject={false}
+          isRequiredToSaveAsNewCloudProject={() => true}
           onSaveProject={async () => {}}
           onlineWebExporter={onlineWebExporter}
           setIsNavigationDisabled={() => {}}
-          shouldAutomaticallyStartExport={false}
           onClose={action('onClose')}
           onContinueQuickCustomization={action('onContinueQuickCustomization')}
-          onTryAnotherGame={action('onTryAnotherGame')}
+          gameScreenshotUrls={[]}
+          onScreenshotsClaimed={action('onScreenshotsClaimed')}
+          onLaunchPreview={action('onLaunchPreview')}
         />
       </AuthenticatedUserContext.Provider>
-    </EventsFunctionsExtensionsContext.Provider>
+    </Template>
   );
 };
 
-export const Authenticated = () => {
+export const NotAuthenticatedWithScreenshot = () => {
   return (
-    <EventsFunctionsExtensionsContext.Provider
-      value={fakeEventsFunctionsExtensionsState}
-    >
+    <Template>
+      <AuthenticatedUserContext.Provider value={fakeNotAuthenticatedUser}>
+        <QuickPublish
+          project={testProject.project}
+          gameAndBuildsManager={fakeEmptyGameAndBuildsManager}
+          isSavingProject={false}
+          isRequiredToSaveAsNewCloudProject={() => true}
+          onSaveProject={async () => {}}
+          onlineWebExporter={onlineWebExporter}
+          setIsNavigationDisabled={() => {}}
+          onClose={action('onClose')}
+          onContinueQuickCustomization={action('onContinueQuickCustomization')}
+          gameScreenshotUrls={[
+            'https://i.ytimg.com/vi/PguDpz7TC7g/hqdefault.jpg',
+          ]}
+          onScreenshotsClaimed={action('onScreenshotsClaimed')}
+          onLaunchPreview={action('onLaunchPreview')}
+        />
+      </AuthenticatedUserContext.Provider>
+    </Template>
+  );
+};
+
+export const AuthenticatedWithAvailableCloudProjectsRoom = () => {
+  return (
+    <Template>
       <AuthenticatedUserContext.Provider value={fakeSilverAuthenticatedUser}>
         <QuickPublish
           project={testProject.project}
           gameAndBuildsManager={fakeEmptyGameAndBuildsManager}
           isSavingProject={false}
+          isRequiredToSaveAsNewCloudProject={() => true}
           onSaveProject={async () => {}}
           onlineWebExporter={onlineWebExporter}
           setIsNavigationDisabled={() => {}}
-          shouldAutomaticallyStartExport={false}
           onClose={action('onClose')}
           onContinueQuickCustomization={action('onContinueQuickCustomization')}
-          onTryAnotherGame={action('onTryAnotherGame')}
+          gameScreenshotUrls={[]}
+          onScreenshotsClaimed={action('onScreenshotsClaimed')}
+          onLaunchPreview={action('onLaunchPreview')}
         />
       </AuthenticatedUserContext.Provider>
-    </EventsFunctionsExtensionsContext.Provider>
+    </Template>
   );
 };
 
-export const AuthenticatedStartsAutomatically = () => {
+export const AuthenticatedWithTooManyCloudProjects = () => {
   return (
-    <EventsFunctionsExtensionsContext.Provider
-      value={fakeEventsFunctionsExtensionsState}
-    >
-      <AuthenticatedUserContext.Provider value={fakeSilverAuthenticatedUser}>
+    <Template>
+      <AuthenticatedUserContext.Provider
+        value={{
+          ...fakeAuthenticatedUserWithNoSubscriptionAndCredits,
+          // We have more projects than the maximum allowed, so we must tell the user
+          // that the project can't be saved yet with their current subscription.
+          cloudProjects: tenCloudProjects,
+        }}
+      >
         <QuickPublish
           project={testProject.project}
-          gameAndBuildsManager={fakeEmptyGameAndBuildsManager}
+          gameAndBuildsManager={fakeGameAndBuildsManager}
           isSavingProject={false}
+          isRequiredToSaveAsNewCloudProject={() => true}
           onSaveProject={async () => {}}
           onlineWebExporter={onlineWebExporter}
           setIsNavigationDisabled={() => {}}
-          shouldAutomaticallyStartExport={true}
           onClose={action('onClose')}
           onContinueQuickCustomization={action('onContinueQuickCustomization')}
-          onTryAnotherGame={action('onTryAnotherGame')}
+          gameScreenshotUrls={[]}
+          onScreenshotsClaimed={action('onScreenshotsClaimed')}
+          onLaunchPreview={action('onLaunchPreview')}
         />
       </AuthenticatedUserContext.Provider>
-    </EventsFunctionsExtensionsContext.Provider>
+    </Template>
   );
 };
 
-export const AuthenticatedStartsAutomaticallyAndFails = () => {
+export const AuthenticatedWithCloudProjectsMaximumReachedButSavedAlready = () => {
   return (
-    <EventsFunctionsExtensionsContext.Provider
-      value={fakeEventsFunctionsExtensionsState}
-    >
-      <AuthenticatedUserContext.Provider value={fakeSilverAuthenticatedUser}>
+    <Template>
+      <AuthenticatedUserContext.Provider
+        value={{
+          ...fakeAuthenticatedUserWithNoSubscriptionAndCredits,
+          // We have more projects than the maximum allowed, but the project is already saved
+          // so there are no problems.
+          cloudProjects: tenCloudProjects,
+        }}
+      >
         <QuickPublish
           project={testProject.project}
-          gameAndBuildsManager={fakeEmptyGameAndBuildsManager}
+          gameAndBuildsManager={fakeGameAndBuildsManager}
           isSavingProject={false}
+          isRequiredToSaveAsNewCloudProject={() =>
+            // Indicates that the project is already saved, there will be
+            // no need to save it as a new cloud project.
+            false
+          }
           onSaveProject={async () => {}}
-          onlineWebExporter={erroringOnlineWebExporter}
+          onlineWebExporter={onlineWebExporter}
           setIsNavigationDisabled={() => {}}
-          shouldAutomaticallyStartExport={true}
           onClose={action('onClose')}
           onContinueQuickCustomization={action('onContinueQuickCustomization')}
-          onTryAnotherGame={action('onTryAnotherGame')}
+          gameScreenshotUrls={[]}
+          onScreenshotsClaimed={action('onScreenshotsClaimed')}
+          onLaunchPreview={action('onLaunchPreview')}
         />
       </AuthenticatedUserContext.Provider>
-    </EventsFunctionsExtensionsContext.Provider>
+    </Template>
   );
 };
 
-export const AuthenticatedExistingGame = () => {
+export const AuthenticatedAndLoadingUserCloudProjects = () => {
   return (
-    <EventsFunctionsExtensionsContext.Provider
-      value={fakeEventsFunctionsExtensionsState}
-    >
+    <Template>
+      <AuthenticatedUserContext.Provider
+        value={{
+          ...fakeAuthenticatedUserWithNoSubscriptionAndCredits,
+          cloudProjects: null,
+        }}
+      >
+        <QuickPublish
+          project={testProject.project}
+          gameAndBuildsManager={fakeGameAndBuildsManager}
+          isSavingProject={false}
+          isRequiredToSaveAsNewCloudProject={() => true}
+          onSaveProject={async () => {}}
+          onlineWebExporter={onlineWebExporter}
+          setIsNavigationDisabled={() => {}}
+          onClose={action('onClose')}
+          onContinueQuickCustomization={action('onContinueQuickCustomization')}
+          gameScreenshotUrls={[]}
+          onScreenshotsClaimed={action('onScreenshotsClaimed')}
+          onLaunchPreview={action('onLaunchPreview')}
+        />
+      </AuthenticatedUserContext.Provider>
+    </Template>
+  );
+};
+
+export const AuthenticatedAndFails = () => {
+  return (
+    <Template>
       <AuthenticatedUserContext.Provider value={fakeSilverAuthenticatedUser}>
         <QuickPublish
           project={testProject.project}
           gameAndBuildsManager={fakeGameAndBuildsManager}
           isSavingProject={false}
+          isRequiredToSaveAsNewCloudProject={() => true}
+          onSaveProject={async () => {}}
+          onlineWebExporter={erroringOnlineWebExporter}
+          setIsNavigationDisabled={() => {}}
+          onClose={action('onClose')}
+          onContinueQuickCustomization={action('onContinueQuickCustomization')}
+          gameScreenshotUrls={[]}
+          onScreenshotsClaimed={action('onScreenshotsClaimed')}
+          onLaunchPreview={action('onLaunchPreview')}
+        />
+      </AuthenticatedUserContext.Provider>
+    </Template>
+  );
+};
+
+export const AuthenticatedExistingGame = () => {
+  return (
+    <Template>
+      <AuthenticatedUserContext.Provider value={fakeSilverAuthenticatedUser}>
+        <QuickPublish
+          project={testProject.project}
+          gameAndBuildsManager={fakeGameAndBuildsManager}
+          isSavingProject={false}
+          isRequiredToSaveAsNewCloudProject={() => true}
           onSaveProject={async () => {}}
           onlineWebExporter={onlineWebExporter}
           setIsNavigationDisabled={() => {}}
-          shouldAutomaticallyStartExport={false}
           onClose={action('onClose')}
           onContinueQuickCustomization={action('onContinueQuickCustomization')}
-          onTryAnotherGame={action('onTryAnotherGame')}
+          gameScreenshotUrls={[]}
+          onScreenshotsClaimed={action('onScreenshotsClaimed')}
+          onLaunchPreview={action('onLaunchPreview')}
         />
       </AuthenticatedUserContext.Provider>
-    </EventsFunctionsExtensionsContext.Provider>
+    </Template>
   );
 };
 
 export const AuthenticatedNotOwnedGame = () => {
   return (
-    <EventsFunctionsExtensionsContext.Provider
-      value={fakeEventsFunctionsExtensionsState}
-    >
+    <Template>
       <AuthenticatedUserContext.Provider value={fakeSilverAuthenticatedUser}>
         <QuickPublish
           project={testProject.project}
           gameAndBuildsManager={fakeNotOwnedGameAndBuildsManager}
           isSavingProject={false}
+          isRequiredToSaveAsNewCloudProject={() => true}
           onSaveProject={async () => {}}
           onlineWebExporter={onlineWebExporter}
           setIsNavigationDisabled={() => {}}
-          shouldAutomaticallyStartExport={false}
           onClose={action('onClose')}
           onContinueQuickCustomization={action('onContinueQuickCustomization')}
-          onTryAnotherGame={action('onTryAnotherGame')}
+          gameScreenshotUrls={[]}
+          onScreenshotsClaimed={action('onScreenshotsClaimed')}
+          onLaunchPreview={action('onLaunchPreview')}
         />
       </AuthenticatedUserContext.Provider>
-    </EventsFunctionsExtensionsContext.Provider>
+    </Template>
   );
 };

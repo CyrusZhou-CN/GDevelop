@@ -15,12 +15,12 @@ import PlaceholderError from '../../../../UI/PlaceholderError';
 import PlaceholderLoader from '../../../../UI/PlaceholderLoader';
 import { sendTutorialOpened } from '../../../../Utils/Analytics/EventSender';
 import Window from '../../../../Utils/Window';
-import { secondsToMinutesAndSeconds } from '../../../../Utils/DateDisplay';
 import { type ImageTileComponent } from '../../../../UI/ImageTileGrid';
 import Paper from '../../../../UI/Paper';
 import { selectMessageByLocale } from '../../../../Utils/i18n/MessageByLocale';
 import ErrorBoundary from '../../../../UI/ErrorBoundary';
 import { type Limits } from '../../../../Utils/GDevelopServices/Usage';
+import { formatDuration } from '../../../../Utils/Duration';
 
 export const TUTORIAL_CATEGORY_TEXTS = {
   'full-game': {
@@ -96,14 +96,12 @@ export const formatTutorialToImageTileComponent = ({
 
       sendTutorialOpened(tutorial.id);
       Window.openExternalURL(
-        selectMessageByLocale(i18n, tutorial.linkByLocale) || tutorial.link
+        selectMessageByLocale(i18n, tutorial.linkByLocale)
       );
     },
-    imageUrl:
-      selectMessageByLocale(i18n, tutorial.thumbnailUrlByLocale) ||
-      tutorial.thumbnailUrl,
+    imageUrl: selectMessageByLocale(i18n, tutorial.thumbnailUrlByLocale),
     overlayText: tutorial.duration
-      ? secondsToMinutesAndSeconds(tutorial.duration)
+      ? formatDuration(tutorial.duration)
       : '\u{1F4D8}',
     overlayTextPosition: 'bottomRight',
   };
@@ -121,6 +119,7 @@ type Props = {|
   onTabChange: (tab: HomeTab) => void,
   selectInAppTutorial: (tutorialId: string) => void,
   initialCategory: TutorialCategory | null,
+  onOpenTemplateFromTutorial: string => Promise<void>,
 |};
 
 const LearnSection = ({
@@ -128,6 +127,7 @@ const LearnSection = ({
   onTabChange,
   selectInAppTutorial,
   initialCategory,
+  onOpenTemplateFromTutorial,
 }: Props) => {
   const {
     tutorials,
@@ -183,6 +183,7 @@ const LearnSection = ({
       onBack={() => setSelectedCategory(null)}
       category={selectedCategory}
       tutorials={tutorials}
+      onOpenTemplateFromTutorial={onOpenTemplateFromTutorial}
     />
   );
 };

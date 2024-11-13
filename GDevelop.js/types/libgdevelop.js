@@ -46,6 +46,7 @@ declare class libGDevelop {
   VectorInt: Class<gdVectorInt>;
   VectorVariable: Class<gdVectorVariable>;
   VectorObjectFolderOrObject: Class<gdVectorObjectFolderOrObject>;
+  VectorScreenshot: Class<gdVectorScreenshot>;
   MapStringString: Class<gdMapStringString>;
   MapStringBoolean: Class<gdMapStringBoolean>;
   MapStringDouble: Class<gdMapStringDouble>;
@@ -92,6 +93,7 @@ declare class libGDevelop {
   gdObject: Class<gdObject>;
   UniquePtrObject: Class<gdUniquePtrObject>;
   ObjectJsImplementation: Class<gdObjectJsImplementation>;
+  CustomObjectConfiguration_EdgeAnchor: Class<CustomObjectConfiguration_EdgeAnchor>;
   CustomObjectConfiguration: Class<gdCustomObjectConfiguration>;
   Layout: Class<gdLayout>;
   ExternalEvents: Class<gdExternalEvents>;
@@ -150,6 +152,9 @@ declare class libGDevelop {
   ObjectMetadata: Class<gdObjectMetadata>;
   QuickCustomization_Visibility: Class<QuickCustomization_Visibility>;
   QuickCustomization: Class<gdQuickCustomization>;
+  QuickCustomizationVisibilitiesContainer: Class<gdQuickCustomizationVisibilitiesContainer>;
+  Screenshot: Class<gdScreenshot>;
+  CaptureOptions: Class<gdCaptureOptions>;
   BehaviorMetadata: Class<gdBehaviorMetadata>;
   EffectMetadata: Class<gdEffectMetadata>;
   EventMetadata: Class<gdEventMetadata>;
@@ -219,8 +224,6 @@ declare class libGDevelop {
   ProjectResourcesAdder: Class<gdProjectResourcesAdder>;
   ArbitraryEventsWorker: Class<gdArbitraryEventsWorker>;
   ArbitraryObjectsWorker: Class<gdArbitraryObjectsWorker>;
-  EventsLeaderboardsLister: Class<gdEventsLeaderboardsLister>;
-  EventsLeaderboardsRenamer: Class<gdEventsLeaderboardsRenamer>;
   EventsParametersLister: Class<gdEventsParametersLister>;
   EventsPositionFinder: Class<gdEventsPositionFinder>;
   EventsTypesLister: Class<gdEventsTypesLister>;

@@ -2,6 +2,7 @@
 import * as React from 'react';
 import { action } from '@storybook/addon-actions';
 import paperDecorator from '../../PaperDecorator';
+import alertDecorator from '../../AlertDecorator';
 import LearnSection from '../../../MainFrame/EditorContainers/HomePage/LearnSection';
 import PreferencesContext, {
   initialPreferences,
@@ -13,31 +14,66 @@ import AuthenticatedUserContext from '../../../Profile/AuthenticatedUserContext'
 import {
   fakeAuthenticatedTeacherFromEducationPlan,
   fakeAuthenticatedUserWithEducationPlan,
+  fakeAuthenticatedUserWithNoSubscription,
+  fakeNotAuthenticatedUser,
 } from '../../../fixtures/GDevelopServicesTestData';
+import i18nProviderDecorator from '../../I18nProviderDecorator';
 
 export default {
   title: 'HomePage/LearnSection',
   component: LearnSection,
-  decorators: [paperDecorator, inAppTutorialDecorator],
+  decorators: [
+    paperDecorator,
+    alertDecorator,
+    inAppTutorialDecorator,
+    i18nProviderDecorator,
+  ],
 };
 
 export const Default = () => (
-  <PreferencesContext.Provider value={initialPreferences}>
-    <TutorialContext.Provider
-      value={{
-        tutorials: fakeTutorials,
-        fetchTutorials: () => {},
-        error: null,
-      }}
-    >
-      <LearnSection
-        initialCategory={null}
-        onOpenExampleStore={action('onOpenExampleStore')}
-        onTabChange={() => {}}
-        selectInAppTutorial={action('selectInAppTutorial')}
-      />
-    </TutorialContext.Provider>
-  </PreferencesContext.Provider>
+  <AuthenticatedUserContext.Provider
+    value={fakeAuthenticatedUserWithNoSubscription}
+  >
+    <PreferencesContext.Provider value={initialPreferences}>
+      <TutorialContext.Provider
+        value={{
+          tutorials: fakeTutorials,
+          fetchTutorials: () => {},
+          error: null,
+        }}
+      >
+        <LearnSection
+          initialCategory={null}
+          onOpenExampleStore={action('onOpenExampleStore')}
+          onTabChange={() => {}}
+          selectInAppTutorial={action('selectInAppTutorial')}
+          onOpenTemplateFromTutorial={action('onOpenTemplateFromTutorial')}
+        />
+      </TutorialContext.Provider>
+    </PreferencesContext.Provider>
+  </AuthenticatedUserContext.Provider>
+);
+
+export const NotAuthenticated = () => (
+  <AuthenticatedUserContext.Provider value={fakeNotAuthenticatedUser}>
+    <PreferencesContext.Provider value={initialPreferences}>
+      <TutorialContext.Provider
+        value={{
+          tutorials: fakeTutorials,
+          fetchTutorials: () => {},
+          error: null,
+        }}
+      >
+        <LearnSection
+          initialCategory={null}
+          onOpenExampleStore={action('onOpenExampleStore')}
+          onTabChange={() => {}}
+          selectInAppTutorial={action('selectInAppTutorial')}
+          onOpenTemplateFromTutorial={action('onOpenTemplateFromTutorial')}
+        />
+      </TutorialContext.Provider>
+    </PreferencesContext.Provider>
+  </AuthenticatedUserContext.Provider>
 );
 
 export const EducationSubscriber = () => (
@@ -57,6 +93,7 @@ export const EducationSubscriber = () => (
           onOpenExampleStore={action('onOpenExampleStore')}
           onTabChange={() => {}}
           selectInAppTutorial={action('selectInAppTutorial')}
+          onOpenTemplateFromTutorial={action('onOpenTemplateFromTutorial')}
         />
       </TutorialContext.Provider>
     </PreferencesContext.Provider>
@@ -80,6 +117,7 @@ export const EducationTeacher = () => (
           onOpenExampleStore={action('onOpenExampleStore')}
           onTabChange={() => {}}
           selectInAppTutorial={action('selectInAppTutorial')}
+          onOpenTemplateFromTutorial={action('onOpenTemplateFromTutorial')}
         />
       </TutorialContext.Provider>
     </PreferencesContext.Provider>
@@ -100,6 +138,7 @@ export const Loading = () => (
         onOpenExampleStore={action('onOpenExampleStore')}
         onTabChange={() => {}}
         selectInAppTutorial={action('selectInAppTutorial')}
+        onOpenTemplateFromTutorial={action('onOpenTemplateFromTutorial')}
       />
     </TutorialContext.Provider>
   </PreferencesContext.Provider>

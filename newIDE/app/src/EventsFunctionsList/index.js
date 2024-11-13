@@ -539,6 +539,7 @@ const EventsFunctionsList = React.forwardRef<
       onDeleteEventsBasedObject,
       onRenameEventsBasedObject,
       onEventsBasedObjectRenamed,
+      onEventsBasedObjectPasted,
       onAddEventsBasedObject,
       selectedEventsFunction,
       selectedEventsBasedBehavior,
@@ -557,7 +558,6 @@ const EventsFunctionsList = React.forwardRef<
 
     const preferences = React.useContext(PreferencesContext);
     const gdevelopTheme = React.useContext(GDevelopThemeContext);
-    const { getShowEventBasedObjectsEditor } = preferences;
     const { currentlyRunningInAppTutorial } = React.useContext(
       InAppTutorialContext
     );
@@ -998,6 +998,7 @@ const EventsFunctionsList = React.forwardRef<
         onDeleteEventsBasedObject,
         onRenameEventsBasedObject,
         onEventsBasedObjectRenamed,
+        onEventsBasedObjectPasted,
         onAddEventsBasedObject,
         addNewEventsFunction,
         selectedEventsBasedBehavior,
@@ -1022,6 +1023,7 @@ const EventsFunctionsList = React.forwardRef<
         onDeleteEventsBasedObject,
         onRenameEventsBasedObject,
         onEventsBasedObjectRenamed,
+        onEventsBasedObjectPasted,
         onAddEventsBasedObject,
         addNewEventsFunction,
         selectedEventsBasedBehavior,
@@ -1089,30 +1091,28 @@ const EventsFunctionsList = React.forwardRef<
               ];
             },
           },
-          getShowEventBasedObjectsEditor()
-            ? {
-                isRoot: true,
-                content: new LabelTreeViewItemContent(
-                  extensionObjectsRootFolderId,
-                  i18n._(t`Objects`),
-                  {
-                    icon: <Add />,
-                    label: i18n._(t`Add an object`),
-                    click: addNewEventsBasedObject,
-                  }
-                ),
-                getChildren(i18n: I18nType): ?Array<TreeViewItem> {
-                  return objectTreeViewItems.length === 0
-                    ? [
-                        new PlaceHolderTreeViewItem(
-                          extensionObjectsEmptyPlaceholderId,
-                          i18n._(t`Start by adding a new object.`)
-                        ),
-                      ]
-                    : objectTreeViewItems;
-                },
+          {
+            isRoot: true,
+            content: new LabelTreeViewItemContent(
+              extensionObjectsRootFolderId,
+              i18n._(t`Objects`),
+              {
+                icon: <Add />,
+                label: i18n._(t`Add an object`),
+                click: addNewEventsBasedObject,
               }
-            : null,
+            ),
+            getChildren(i18n: I18nType): ?Array<TreeViewItem> {
+              return objectTreeViewItems.length === 0
+                ? [
+                    new PlaceHolderTreeViewItem(
+                      extensionObjectsEmptyPlaceholderId,
+                      i18n._(t`Start by adding a new object.`)
+                    ),
+                  ]
+                : objectTreeViewItems;
+            },
+          },
           {
             isRoot: true,
             content: new LabelTreeViewItemContent(
@@ -1190,7 +1190,6 @@ const EventsFunctionsList = React.forwardRef<
         ].filter(Boolean);
       },
       [
-        getShowEventBasedObjectsEditor,
         addNewEventsBasedObject,
         addNewEventsBehavior,
         onSelectExtensionProperties,

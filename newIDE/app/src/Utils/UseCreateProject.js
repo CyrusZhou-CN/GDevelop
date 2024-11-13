@@ -33,6 +33,7 @@ import {
 } from './GDevelopServices/Shop';
 import { createPrivateGameTemplateUrl } from './GDevelopServices/Asset';
 import { getDefaultRegisterGamePropertiesFromProject } from './UseGameAndBuildsManager';
+import { TutorialContext } from '../Tutorial/TutorialContext';
 
 type Props = {|
   beforeCreatingProject: () => void,
@@ -56,6 +57,7 @@ type Props = {|
   ensureResourcesAreMoved: (
     options: MoveAllProjectResourcesOptionsWithoutProgress
   ) => Promise<void>,
+  onGameRegistered: () => Promise<void>,
 |};
 
 /**
@@ -71,6 +73,7 @@ const useCreateProject = ({
   openFromFileMetadata,
   onProjectSaved,
   ensureResourcesAreMoved,
+  onGameRegistered,
 }: Props) => {
   const authenticatedUser = React.useContext(AuthenticatedUserContext);
   const profile = authenticatedUser.profile;
@@ -80,6 +83,7 @@ const useCreateProject = ({
   const { getInAppTutorialShortHeader } = React.useContext(
     InAppTutorialContext
   );
+  const { tutorials } = React.useContext(TutorialContext);
 
   const initialiseProjectProperties = (
     project: gdProject,
@@ -161,6 +165,7 @@ const useCreateProject = ({
                 project: currentProject,
               })
             );
+            await onGameRegistered();
           } catch (error) {
             // Do not prevent the user from opening the game if the registration failed.
             console.error(
@@ -259,6 +264,7 @@ const useCreateProject = ({
       ensureResourcesAreMoved,
       onSuccessOrError,
       unsavedChanges,
+      onGameRegistered,
     ]
   );
 
@@ -346,6 +352,33 @@ const useCreateProject = ({
     [beforeCreatingProject, createProject, getInAppTutorialShortHeader]
   );
 
+  const createProjectFromTutorial = React.useCallback(
+    async (tutorialId: string, newProjectSetup: NewProjectSetup) => {
+      beforeCreatingProject();
+      if (!tutorials) {
+        throw new Error(`Tutorials could not be loaded`);
+      }
+      const selectedTutorial = tutorials.find(
+        tutorial => tutorial.id === tutorialId
+      );
+      if (!selectedTutorial) {
+        throw new Error(`No tutorial found for id "${tutorialId}"`);
+      }
+      const { templateUrl } = selectedTutorial;
+      if (!templateUrl) {
+        throw new Error(`No template URL for the tutorial "${tutorialId}"`);
+      }
+      const newProjectSource = await createNewProjectFromTutorialTemplate(
+        templateUrl,
+        tutorialId
+      );
+      await createProject(newProjectSource, newProjectSetup, {
+        openAllScenes: true,
+      });
+    },
+    [beforeCreatingProject, createProject, tutorials]
+  );
+
   const createProjectWithLogin = React.useCallback(
     async (newProjectSetup: NewProjectSetup) => {
       beforeCreatingProject();
@@ -371,6 +404,7 @@ const useCreateProject = ({
     createProjectFromExample,
     createProjectFromPrivateGameTemplate,
     createProjectFromInAppTutorial,
+    createProjectFromTutorial,
     createProjectWithLogin,
     createProjectFromAIGeneration,
   };

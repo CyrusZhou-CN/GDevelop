@@ -3,13 +3,14 @@
  * Copyright 2008-2016 Florian Rival (Florian.Rival@gmail.com). All rights
  * reserved. This project is released under the MIT License.
  */
-#ifndef GDCORE_BEHAVIORCONFIGURATIONCONTAINER_H
-#define GDCORE_BEHAVIORCONFIGURATIONCONTAINER_H
+#pragma once
 
 #include <map>
 #include <memory>
-#include "GDCore/Serialization/Serializer.h"
+
 #include "GDCore/Project/QuickCustomization.h"
+#include "GDCore/Project/QuickCustomizationVisibilitiesContainer.h"
+#include "GDCore/Serialization/Serializer.h"
 #include "GDCore/String.h"
 
 namespace gd {
@@ -17,6 +18,7 @@ class PropertyDescriptor;
 class SerializerElement;
 class Project;
 class Layout;
+class ArbitraryResourceWorker;
 }  // namespace gd
 
 namespace gd {
@@ -32,12 +34,21 @@ namespace gd {
  */
 class GD_CORE_API BehaviorConfigurationContainer {
  public:
-  BehaviorConfigurationContainer() : folded(false), quickCustomizationVisibility(QuickCustomization::Visibility::Default){};
+  BehaviorConfigurationContainer()
+      : folded(false),
+        quickCustomizationVisibility(QuickCustomization::Visibility::Default),
+        propertiesQuickCustomizationVisibilities() {};
   BehaviorConfigurationContainer(const gd::String& name_,
                                  const gd::String& type_)
-      : name(name_), type(type_), folded(false), quickCustomizationVisibility(QuickCustomization::Visibility::Default){};
+      : name(name_),
+        type(type_),
+        folded(false),
+        quickCustomizationVisibility(QuickCustomization::Visibility::Default),
+        propertiesQuickCustomizationVisibilities() {};
   virtual ~BehaviorConfigurationContainer();
-  virtual BehaviorConfigurationContainer* Clone() const { return new BehaviorConfigurationContainer(*this); }
+  virtual BehaviorConfigurationContainer* Clone() const {
+    return new BehaviorConfigurationContainer(*this);
+  }
 
   /**
    * \brief Return the name identifying the behavior
@@ -68,7 +79,6 @@ class GD_CORE_API BehaviorConfigurationContainer {
    */
   std::map<gd::String, gd::PropertyDescriptor> GetProperties() const;
 
-
   /**
    * \brief Called when the IDE wants to update a custom property of the
    * behavior
@@ -84,9 +94,7 @@ class GD_CORE_API BehaviorConfigurationContainer {
    * \brief Called to initialize the content with the default properties
    * for the behavior.
    */
-  virtual void InitializeContent() {
-    InitializeContent(content);
-  };
+  virtual void InitializeContent() { InitializeContent(content); };
 
   /**
    * \brief Serialize the behavior content.
@@ -115,15 +123,54 @@ class GD_CORE_API BehaviorConfigurationContainer {
    */
   bool IsFolded() const { return folded; }
 
-  void SetQuickCustomizationVisibility(QuickCustomization::Visibility visibility) {
+  /**
+   * @brief Set if the whole behavior should be visible or not in the Quick
+   * Customization.
+   */
+  void SetQuickCustomizationVisibility(
+      QuickCustomization::Visibility visibility) {
     quickCustomizationVisibility = visibility;
   }
 
+  /**
+   * @brief Get if the whole behavior should be visible or not in the Quick
+   * Customization.
+   */
   QuickCustomization::Visibility GetQuickCustomizationVisibility() const {
     return quickCustomizationVisibility;
   }
 
-protected:
+  /**
+   * @brief Get the map of properties and their visibility in the Quick
+   * Customization.
+   */
+  QuickCustomizationVisibilitiesContainer&
+  GetPropertiesQuickCustomizationVisibilities() {
+    return propertiesQuickCustomizationVisibilities;
+  }
+
+  /**
+   * @brief Get the map of properties and their visibility in the Quick
+   * Customization.
+   */
+  const QuickCustomizationVisibilitiesContainer&
+  GetPropertiesQuickCustomizationVisibilities() const {
+    return propertiesQuickCustomizationVisibilities;
+  }
+
+  /**
+   * \brief Called ( e.g. during compilation ) so as to inventory internal
+   * resources and sometimes update their filename. Implementation example:
+   * \code
+   * worker.ExposeImage(myImage);
+   * worker.ExposeFile(myResourceFile);
+   * \endcode
+   *
+   * \see ArbitraryResourceWorker
+   */
+  void ExposeResources(gd::ArbitraryResourceWorker& worker);
+
+ protected:
   /**
    * \brief Called when the IDE wants to know about the custom properties of the
    * behavior.
@@ -159,7 +206,7 @@ protected:
    * \brief Called to initialize the content with the default properties
    * for the behavior.
    */
-  virtual void InitializeContent(gd::SerializerElement& behaviorContent){};
+  virtual void InitializeContent(gd::SerializerElement& behaviorContent) {};
 
  private:
   gd::String name;  ///< Name of the behavior
@@ -169,8 +216,8 @@ protected:
   gd::SerializerElement content;  // Storage for the behavior properties
   bool folded;
   QuickCustomization::Visibility quickCustomizationVisibility;
+  QuickCustomizationVisibilitiesContainer
+      propertiesQuickCustomizationVisibilities;
 };
 
 }  // namespace gd
-
-#endif  // GDCORE_BEHAVIORCONFIGURATIONCONTAINER_H

@@ -8,6 +8,8 @@ import { type Filters } from './Filters';
 import { type UserPublicProfile } from './User';
 import { t } from '@lingui/macro';
 
+export type GameUploadType = 'game-thumbnail' | 'game-screenshot';
+
 export type CachedGameSlug = {
   username: string,
   gameSlug: string,
@@ -32,29 +34,59 @@ export type PublicGame = {
   playWithMobile: boolean,
   orientation: string,
   thumbnailUrl?: string,
+  screenshotUrls?: Array<string>,
   cachedLastWeekSessionsCount?: number,
   cachedLastYearSessionsCount?: number,
   categories?: string[],
   userSlug?: string,
   gameSlug?: string,
+  displayAdsOnGamePage: boolean,
+  acceptsGameComments?: boolean,
   discoverable?: boolean,
   donateLink: ?string,
 };
 
-export type Game = {
+export type Game = {|
   id: string,
   gameName: string,
+  categories?: string[],
   authorName: string, // this corresponds to the publisher name
   createdAt: number,
   publicWebBuildId?: ?string,
   description?: string,
   thumbnailUrl?: string,
+  screenshotUrls?: Array<string>,
+  cachedTotalSessionsCount?: number,
+  cachedLastYearSessionsCount?: number,
+  cachedLastWeekSessionsCount?: number,
   discoverable?: boolean,
   acceptsBuildComments?: boolean,
   acceptsGameComments?: boolean,
   displayAdsOnGamePage?: boolean,
   cachedCurrentSlug?: CachedGameSlug,
-};
+  orientation?: string,
+  playWithKeyboard: boolean,
+  playWithMobile: boolean,
+  playWithGamepad: boolean,
+|};
+
+export type GameUpdatePayload = {|
+  gameName?: string,
+  categories?: string[],
+  authorName?: string,
+  publicWebBuildId?: ?string,
+  description?: string,
+  playWithKeyboard?: boolean,
+  playWithGamepad?: boolean,
+  playWithMobile?: boolean,
+  orientation?: string,
+  thumbnailUrl?: ?string,
+  screenshotUrls?: ?Array<string>,
+  discoverable?: boolean,
+  acceptsBuildComments?: boolean,
+  acceptsGameComments?: boolean,
+  displayAdsOnGamePage?: boolean,
+|};
 
 export type GameCategory = {
   name: string,
@@ -301,26 +333,12 @@ export const updateGame = async (
     playWithMobile,
     orientation,
     thumbnailUrl,
+    screenshotUrls,
     discoverable,
     acceptsBuildComments,
     acceptsGameComments,
     displayAdsOnGamePage,
-  }: {|
-    gameName?: string,
-    categories?: string[],
-    authorName?: string,
-    publicWebBuildId?: ?string,
-    description?: string,
-    playWithKeyboard?: boolean,
-    playWithGamepad?: boolean,
-    playWithMobile?: boolean,
-    orientation?: string,
-    thumbnailUrl?: ?string,
-    discoverable?: boolean,
-    acceptsBuildComments?: boolean,
-    acceptsGameComments?: boolean,
-    displayAdsOnGamePage?: boolean,
-  |}
+  }: GameUpdatePayload
 ): Promise<Game> => {
   const authorizationHeader = await getAuthorizationHeader();
   const response = await client.patch(
@@ -336,6 +354,7 @@ export const updateGame = async (
       playWithMobile,
       orientation,
       thumbnailUrl,
+      screenshotUrls,
       discoverable,
       acceptsBuildComments,
       acceptsGameComments,
@@ -522,6 +541,31 @@ export const listMarketingPlans = async (): Promise<MarketingPlan[]> => {
   return response.data;
 };
 
+export const getRecommendedMarketingPlan = async (
+  getAuthorizationHeader: () => Promise<string>,
+  { gameId, userId }: {| gameId: string, userId: string |}
+): Promise<MarketingPlan> => {
+  const authorizationHeader = await getAuthorizationHeader();
+
+  const response = await client.get('/marketing-plan', {
+    headers: {
+      Authorization: authorizationHeader,
+    },
+    params: {
+      gameId,
+      userId,
+    },
+  });
+
+  if (!Array.isArray(response.data)) {
+    throw new Error(
+      'Invalid response from the game API marketing plan listing endpoint'
+    );
+  }
+
+  return response.data[0];
+};
+
 export const getGameCommentQualityRatingsLeaderboards = async (): Promise<
   Array<GameLeaderboard>
 > => {
@@ -534,4 +578,33 @@ export const getGameCommentQualityRatingsLeaderboards = async (): Promise<
   }
 
   return response.data;
+};
+
+export const createGameResourceSignedUrls = async ({
+  uploadType,
+  files,
+}: {|
+  uploadType: GameUploadType,
+  files: Array<{|
+    contentType: string,
+  |}>,
+|}): Promise<{|
+  signedUrls: Array<{|
+    signedUrl: string,
+    publicUrl: string,
+  |}>,
+|}> => {
+  const response = await client.post(`/resource-signed-url`, {
+    uploadType,
+    files,
+  });
+
+  return response.data;
+};
+
+export const getGameMainImageUrl = (game: Game | PublicGame): ?string => {
+  if (game.thumbnailUrl) return game.thumbnailUrl;
+  if (game.screenshotUrls && game.screenshotUrls.length)
+    return game.screenshotUrls[game.screenshotUrls.length - 1];
+  return null;
 };

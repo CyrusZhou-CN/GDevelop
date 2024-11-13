@@ -37,8 +37,7 @@ BehaviorMetadata::BehaviorMetadata(
       className(className_),
       iconFilename(icon24x24),
       instance(instance_),
-      sharedDatasInstance(sharedDatasInstance_),
-      quickCustomizationVisibility(QuickCustomization::Visibility::Default) {
+      sharedDatasInstance(sharedDatasInstance_) {
   SetFullName(gd::String(fullname_));
   SetDescription(gd::String(description_));
   SetDefaultName(gd::String(defaultName_));
@@ -441,12 +440,18 @@ std::map<gd::String, gd::PropertyDescriptor> BehaviorMetadata::GetSharedProperti
 
 const std::vector<gd::String>& BehaviorMetadata::GetRequiredBehaviorTypes() const {
   requiredBehaviors.clear();
-  for (auto& property : Get().GetProperties()) {
+  if (!instance) {
+    return requiredBehaviors;
+  }
+  for (auto& property : instance->GetProperties()) {
     const String& propertyName = property.first;
     const gd::PropertyDescriptor& propertyDescriptor = property.second;
 
     if (propertyDescriptor.GetType() == "Behavior") {
-      requiredBehaviors.push_back(propertyDescriptor.GetExtraInfo()[0]);
+      const auto& extraInfos = propertyDescriptor.GetExtraInfo();
+      if (extraInfos.size() > 0) {
+        requiredBehaviors.push_back(extraInfos[0]);
+      }
     }
   }
   return requiredBehaviors;

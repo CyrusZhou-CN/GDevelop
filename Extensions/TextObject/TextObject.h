@@ -21,11 +21,17 @@ class GD_EXTENSION_API TextObject : public gd::ObjectConfiguration {
  public:
   TextObject();
   virtual ~TextObject();
-  virtual std::unique_ptr<gd::ObjectConfiguration> Clone() const {
+  virtual std::unique_ptr<gd::ObjectConfiguration> Clone() const override {
     return gd::make_unique<TextObject>(*this);
   }
 
-  virtual void ExposeResources(gd::ArbitraryResourceWorker& worker);
+  virtual void ExposeResources(gd::ArbitraryResourceWorker& worker) override;
+
+  virtual std::map<gd::String, gd::PropertyDescriptor> GetProperties()
+      const override;
+
+  virtual bool UpdateProperty(const gd::String& name,
+                              const gd::String& value) override;
 
   /** \brief Change the text.
    */
@@ -54,6 +60,11 @@ class GD_EXTENSION_API TextObject : public gd::ObjectConfiguration {
   inline const gd::String& GetTextAlignment() const { return textAlignment; };
   void SetTextAlignment(const gd::String& textAlignment_) {
     textAlignment = textAlignment_;
+  };
+
+  inline const gd::String& GetVerticalTextAlignment() const { return verticalTextAlignment; };
+  void SetVerticalTextAlignment(const gd::String& verticalTextAlignment_) {
+    verticalTextAlignment = verticalTextAlignment_;
   };
 
   bool IsBold() const { return bold; };
@@ -104,8 +115,8 @@ class GD_EXTENSION_API TextObject : public gd::ObjectConfiguration {
 
  private:
   virtual void DoUnserializeFrom(gd::Project& project,
-                                 const gd::SerializerElement& element);
-  virtual void DoSerializeTo(gd::SerializerElement& element) const;
+                                 const gd::SerializerElement& element) override;
+  virtual void DoSerializeTo(gd::SerializerElement& element) const override;
 
   gd::String text;
   double characterSize;
@@ -114,6 +125,7 @@ class GD_EXTENSION_API TextObject : public gd::ObjectConfiguration {
   bool bold, italic, underlined;
   gd::String color;
   gd::String textAlignment;
+  gd::String verticalTextAlignment;
 
   bool isOutlineEnabled;
   double outlineThickness;

@@ -290,6 +290,14 @@ namespace gdjs {
       return this._runtimeScene;
     }
 
+    getOwner(): gdjs.CustomRuntimeObject {
+      return this._customObject;
+    }
+
+    getAsyncTasksManager(): AsyncTasksManager {
+      return this._runtimeScene.getAsyncTasksManager();
+    }
+
     getUnrotatedViewportMinX(): float {
       return this._customObject.getInnerAreaMinX();
     }

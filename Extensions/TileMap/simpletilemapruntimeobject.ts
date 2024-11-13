@@ -89,6 +89,7 @@ namespace gdjs {
 
     updatePreRender(instanceContainer: gdjs.RuntimeInstanceContainer): void {
       if (this._isTileMapDirty) {
+        let shouldContinue = true;
         this._tileMapManager.getOrLoadSimpleTileMapTextureCache(
           (textureName) => {
             return (this.getInstanceContainer()
@@ -108,8 +109,16 @@ namespace gdjs {
               return;
             }
             this._renderer.refreshPixiTileMap(textureCache);
+          },
+          (error) => {
+            shouldContinue = false;
+            console.error(
+              `Could not load texture cache for atlas ${this._atlasImage} during prerender. The tilemap might be badly configured or an issues happened with the loaded atlas image:`,
+              error
+            );
           }
         );
+        if (!shouldContinue) return;
         if (this._collisionTileMap) {
           const tileMap = this._renderer.getTileMap();
           if (tileMap) this._collisionTileMap.updateFromTileMap(tileMap);
@@ -186,10 +195,13 @@ namespace gdjs {
       // 2. Update the renderer so that it updates the tilemap object
       // (used for width and position calculations).
       this._loadInitialTileMap((tileMap: TileMapHelper.EditableTileMap) => {
-        // 3. Set custom dimensions if applicable.
+        // 3. Set custom dimensions & opacity if applicable.
         if (initialInstanceData.customSize) {
           this.setWidth(initialInstanceData.width);
           this.setHeight(initialInstanceData.height);
+        }
+        if (initialInstanceData.opacity !== undefined) {
+          this.setOpacity(initialInstanceData.opacity);
         }
 
         // 4. Update position (calculations based on renderer's dimensions).
@@ -215,6 +227,12 @@ namespace gdjs {
       tileMapLoadingCallback: (tileMap: TileMapHelper.EditableTileMap) => void
     ): void {
       if (!this._initialTileMapAsJsObject) return;
+      if (this._columnCount <= 0 || this._rowCount <= 0) {
+        console.error(
+          `Tilemap object ${this.name} is not configured properly.`
+        );
+        return;
+      }
 
       this._tileMapManager.getOrLoadSimpleTileMap(
         this._initialTileMapAsJsObject,
@@ -263,6 +281,12 @@ namespace gdjs {
               }
               this._renderer.updatePixiTileMap(tileMap, textureCache);
               tileMapLoadingCallback(tileMap);
+            },
+            (error) => {
+              console.error(
+                `Could not load texture cache for atlas ${this._atlasImage} during initial loading. The tilemap might be badly configured or an issues happened with the loaded atlas image:`,
+                error
+              );
             }
           );
         }

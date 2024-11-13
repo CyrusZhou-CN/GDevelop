@@ -44,6 +44,7 @@ import PasteIcon from '../UI/CustomSvgIcons/Clipboard';
 import CopyIcon from '../UI/CustomSvgIcons/Copy';
 import ResponsiveFlatButton from '../UI/ResponsiveFlatButton';
 import { useResponsiveWindowSize } from '../UI/Responsive/ResponsiveWindowMeasurer';
+import QuickCustomizationPropertiesVisibilityDialog from '../QuickCustomization/QuickCustomizationPropertiesVisibilityDialog';
 
 const gd: libGDevelop = global.gd;
 
@@ -76,6 +77,9 @@ type BehaviorConfigurationEditorProps = {|
   canPasteBehaviors: boolean,
   pasteBehaviors: () => Promise<void>,
   openExtension: (behaviorType: string) => void,
+  openBehaviorPropertiesQuickCustomizationDialog: (
+    behaviorName: string
+  ) => void,
 |};
 
 const BehaviorConfigurationEditor = React.forwardRef<
@@ -95,6 +99,7 @@ const BehaviorConfigurationEditor = React.forwardRef<
       canPasteBehaviors,
       pasteBehaviors,
       openExtension,
+      openBehaviorPropertiesQuickCustomizationDialog,
     },
     ref
   ) => {
@@ -209,6 +214,18 @@ const BehaviorConfigurationEditor = React.forwardRef<
                       },
                     ]
                   : []),
+                ...(!Window.isDev()
+                  ? []
+                  : [
+                      { type: 'separator' },
+                      {
+                        label: i18n._(t`Quick Customization settings`),
+                        click: () =>
+                          openBehaviorPropertiesQuickCustomizationDialog(
+                            behaviorName
+                          ),
+                      },
+                    ]),
               ]}
             />,
           ]}
@@ -267,69 +284,54 @@ const BehaviorConfigurationEditor = React.forwardRef<
   }
 );
 
-type Props = {|
-  project: gdProject,
-  eventsFunctionsExtension: gdEventsFunctionsExtension | null,
-  object: gdObject,
-  onUpdateBehaviorsSharedData: () => void,
-  onSizeUpdated?: ?() => void,
-  resourceManagementProps: ResourceManagementProps,
-  onBehaviorsUpdated: () => void,
-  openBehaviorEvents: (
-    extensionName: string,
-    behaviorName: string
-  ) => Promise<void>,
+type UseManageBehaviorsState = {|
+  // Operations:
+  changeBehaviorName: (behavior: gdBehavior, newName: string) => void,
+  removeBehavior: (behaviorName: string) => void,
+  copyBehavior: (behaviorName: string) => void,
+  copyAllBehaviors: () => void,
+  pasteBehaviors: () => Promise<void>,
+  openNewBehaviorDialog: () => void,
+  resetJustAddedBehaviorName: () => void,
+
+  // Visual state:
+  newBehaviorDialog: React.Node,
+  justAddedBehaviorName: ?string,
 |};
 
-const BehaviorsEditor = (props: Props) => {
-  const { isMobile } = useResponsiveWindowSize();
-  const scrollView = React.useRef<?ScrollViewInterface>(null);
+/**
+ * A hook allowing to add/remove/modify behaviors of an object.
+ */
+export const useManageObjectBehaviors = ({
+  project,
+  object,
+  eventsFunctionsExtension,
+  onUpdate,
+  onSizeUpdated,
+  onBehaviorsUpdated,
+  onUpdateBehaviorsSharedData,
+}: {
+  project: gdProject,
+  object: gdObject,
+  eventsFunctionsExtension: gdEventsFunctionsExtension | null,
+  onUpdate: () => void,
+  onSizeUpdated?: ?() => void,
+  onBehaviorsUpdated?: ?() => void,
+  onUpdateBehaviorsSharedData: () => void,
+}): UseManageBehaviorsState => {
   const [
     justAddedBehaviorName,
     setJustAddedBehaviorName,
   ] = React.useState<?string>(null);
-  const justAddedBehaviorAccordionElement = React.useRef<?BehaviorConfigurationEditorInterface>(
-    null
-  );
-
-  React.useEffect(
-    () => {
-      if (
-        scrollView.current &&
-        justAddedBehaviorAccordionElement.current &&
-        justAddedBehaviorName
-      ) {
-        scrollView.current.scrollTo(justAddedBehaviorAccordionElement.current);
-        setJustAddedBehaviorName(null);
-        justAddedBehaviorAccordionElement.current = null;
-      }
-    },
-    [justAddedBehaviorName]
-  );
-
   const [newBehaviorDialogOpen, setNewBehaviorDialogOpen] = React.useState(
     false
   );
 
-  const showBehaviorOverridingConfirmation = useBehaviorOverridingAlertDialog();
+  const openNewBehaviorDialog = React.useCallback(() => {
+    setNewBehaviorDialogOpen(true);
+  }, []);
 
-  const {
-    object,
-    project,
-    eventsFunctionsExtension,
-    onSizeUpdated,
-    onBehaviorsUpdated,
-    onUpdateBehaviorsSharedData,
-    openBehaviorEvents,
-  } = props;
-  // As for now, any default behavior is hidden,
-  // it avoids to get behavior metadata to check the "hidden" flag.
-  const allVisibleBehaviors = object
-    .getAllBehaviorNames()
-    .toJSArray()
-    .map(behaviorName => object.getBehavior(behaviorName))
-    .filter(behavior => !behavior.isDefaultBehavior());
-  const forceUpdate = useForceUpdate();
+  const showBehaviorOverridingConfirmation = useBehaviorOverridingAlertDialog();
 
   const addBehavior = React.useCallback(
     (type: string, defaultName: string) => {
@@ -349,13 +351,13 @@ const BehaviorsEditor = (props: Props) => {
         setJustAddedBehaviorName(defaultName);
       }
 
-      forceUpdate();
+      onUpdate();
       if (onSizeUpdated) onSizeUpdated();
       onUpdateBehaviorsSharedData();
       if (onBehaviorsUpdated) onBehaviorsUpdated();
     },
     [
-      forceUpdate,
+      onUpdate,
       object,
       onBehaviorsUpdated,
       onSizeUpdated,
@@ -364,7 +366,7 @@ const BehaviorsEditor = (props: Props) => {
     ]
   );
 
-  const onChangeBehaviorName = React.useCallback(
+  const changeBehaviorName = React.useCallback(
     (behavior: gdBehavior, newName: string) => {
       // TODO: This is disabled for now as there is no proper refactoring
       // of events after a behavior renaming. Once refactoring is available,
@@ -374,13 +376,13 @@ const BehaviorsEditor = (props: Props) => {
 
       if (object.hasBehaviorNamed(newName)) return;
       object.renameBehavior(behavior.getName(), newName);
-      forceUpdate();
+      onUpdate();
       if (onBehaviorsUpdated) onBehaviorsUpdated();
     },
-    [forceUpdate, object, onBehaviorsUpdated]
+    [onUpdate, object, onBehaviorsUpdated]
   );
 
-  const onRemoveBehavior = React.useCallback(
+  const removeBehavior = React.useCallback(
     (behaviorName: string) => {
       let message =
         "Are you sure you want to remove this behavior? This can't be undone.";
@@ -416,9 +418,9 @@ const BehaviorsEditor = (props: Props) => {
           serializedBehavior: serializeToJSObject(behavior),
         },
       ]);
-      forceUpdate();
+      onUpdate();
     },
-    [forceUpdate, object]
+    [onUpdate, object]
   );
 
   const copyAllBehaviors = React.useCallback(
@@ -437,9 +439,9 @@ const BehaviorsEditor = (props: Props) => {
           };
         }).filter(Boolean)
       );
-      forceUpdate();
+      onUpdate();
     },
-    [forceUpdate, object]
+    [onUpdate, object]
   );
 
   const pasteBehaviors = React.useCallback(
@@ -539,7 +541,7 @@ const BehaviorsEditor = (props: Props) => {
         }
       }
 
-      forceUpdate();
+      onUpdate();
       if (firstAddedBehaviorName) {
         setJustAddedBehaviorName(firstAddedBehaviorName);
         if (onSizeUpdated) onSizeUpdated();
@@ -552,7 +554,7 @@ const BehaviorsEditor = (props: Props) => {
       }
     },
     [
-      forceUpdate,
+      onUpdate,
       object,
       onBehaviorsUpdated,
       onSizeUpdated,
@@ -561,6 +563,115 @@ const BehaviorsEditor = (props: Props) => {
       showBehaviorOverridingConfirmation,
     ]
   );
+
+  const newBehaviorDialog = newBehaviorDialogOpen && (
+    <NewBehaviorDialog
+      open
+      objectType={object.getType()}
+      objectBehaviorsTypes={listObjectBehaviorsTypes(object)}
+      onClose={() => setNewBehaviorDialogOpen(false)}
+      onChoose={addBehavior}
+      project={project}
+      eventsFunctionsExtension={eventsFunctionsExtension}
+    />
+  );
+
+  const resetJustAddedBehaviorName = React.useCallback(() => {
+    setJustAddedBehaviorName(null);
+  }, []);
+
+  return {
+    changeBehaviorName,
+    removeBehavior,
+    copyBehavior,
+    copyAllBehaviors,
+    pasteBehaviors,
+    newBehaviorDialog,
+    openNewBehaviorDialog,
+    justAddedBehaviorName,
+    resetJustAddedBehaviorName,
+  };
+};
+
+type Props = {|
+  project: gdProject,
+  eventsFunctionsExtension: gdEventsFunctionsExtension | null,
+  object: gdObject,
+  onUpdateBehaviorsSharedData: () => void,
+  onSizeUpdated?: ?() => void,
+  resourceManagementProps: ResourceManagementProps,
+  onBehaviorsUpdated: () => void,
+  openBehaviorEvents: (
+    extensionName: string,
+    behaviorName: string
+  ) => Promise<void>,
+|};
+
+const BehaviorsEditor = (props: Props) => {
+  const { isMobile } = useResponsiveWindowSize();
+  const scrollView = React.useRef<?ScrollViewInterface>(null);
+  const justAddedBehaviorAccordionElement = React.useRef<?BehaviorConfigurationEditorInterface>(
+    null
+  );
+
+  const {
+    object,
+    project,
+    eventsFunctionsExtension,
+    onSizeUpdated,
+    onBehaviorsUpdated,
+    onUpdateBehaviorsSharedData,
+    openBehaviorEvents,
+  } = props;
+  const forceUpdate = useForceUpdate();
+
+  const [
+    selectedQuickCustomizationPropertiesBehavior,
+    setSelectedQuickCustomizationPropertiesBehavior,
+  ] = React.useState<?gdBehavior>(null);
+
+  const {
+    changeBehaviorName,
+    removeBehavior,
+    copyBehavior,
+    copyAllBehaviors,
+    pasteBehaviors,
+    newBehaviorDialog,
+    openNewBehaviorDialog,
+    justAddedBehaviorName,
+    resetJustAddedBehaviorName,
+  } = useManageObjectBehaviors({
+    project,
+    object,
+    eventsFunctionsExtension,
+    onUpdate: forceUpdate,
+    onSizeUpdated,
+    onBehaviorsUpdated,
+    onUpdateBehaviorsSharedData,
+  });
+
+  React.useEffect(
+    () => {
+      if (
+        scrollView.current &&
+        justAddedBehaviorAccordionElement.current &&
+        justAddedBehaviorName
+      ) {
+        scrollView.current.scrollTo(justAddedBehaviorAccordionElement.current);
+        resetJustAddedBehaviorName();
+        justAddedBehaviorAccordionElement.current = null;
+      }
+    },
+    [justAddedBehaviorName, resetJustAddedBehaviorName]
+  );
+
+  // As for now, any default behavior is hidden,
+  // it avoids to get behavior metadata to check the "hidden" flag.
+  const allVisibleBehaviors = object
+    .getAllBehaviorNames()
+    .toJSArray()
+    .map(behaviorName => object.getBehavior(behaviorName))
+    .filter(behavior => !behavior.isDefaultBehavior());
 
   const openExtension = React.useCallback(
     (behaviorType: string) => {
@@ -580,6 +691,16 @@ const BehaviorsEditor = (props: Props) => {
       openBehaviorEvents(extensionName, behaviorName);
     },
     [openBehaviorEvents, project]
+  );
+
+  const openBehaviorPropertiesQuickCustomizationDialog = React.useCallback(
+    (behaviorName: string) => {
+      if (!object.hasBehaviorNamed(behaviorName)) return;
+      const behavior = object.getBehavior(behaviorName);
+
+      setSelectedQuickCustomizationPropertiesBehavior(behavior);
+    },
+    [object]
   );
 
   const isClipboardContainingBehaviors = Clipboard.has(
@@ -603,7 +724,7 @@ const BehaviorsEditor = (props: Props) => {
             actionLabel={
               isMobile ? <Trans>Add</Trans> : <Trans>Add a behavior</Trans>
             }
-            onAction={() => setNewBehaviorDialogOpen(true)}
+            onAction={openNewBehaviorDialog}
             secondaryActionIcon={<PasteIcon />}
             secondaryActionLabel={
               isClipboardContainingBehaviors ? <Trans>Paste</Trans> : null
@@ -632,10 +753,13 @@ const BehaviorsEditor = (props: Props) => {
                   object={object}
                   behavior={behavior}
                   copyBehavior={copyBehavior}
-                  onRemoveBehavior={onRemoveBehavior}
+                  onRemoveBehavior={removeBehavior}
                   onBehaviorsUpdated={onBehaviorsUpdated}
-                  onChangeBehaviorName={onChangeBehaviorName}
+                  onChangeBehaviorName={changeBehaviorName}
                   openExtension={openExtension}
+                  openBehaviorPropertiesQuickCustomizationDialog={
+                    openBehaviorPropertiesQuickCustomizationDialog
+                  }
                   canPasteBehaviors={isClipboardContainingBehaviors}
                   pasteBehaviors={pasteBehaviors}
                   resourceManagementProps={props.resourceManagementProps}
@@ -681,7 +805,7 @@ const BehaviorsEditor = (props: Props) => {
                     )
                   }
                   primary
-                  onClick={() => setNewBehaviorDialogOpen(true)}
+                  onClick={openNewBehaviorDialog}
                   icon={<Add />}
                   id="add-behavior-button"
                 />
@@ -690,16 +814,16 @@ const BehaviorsEditor = (props: Props) => {
           </Column>
         </React.Fragment>
       )}
-
-      {newBehaviorDialogOpen && (
-        <NewBehaviorDialog
-          open={newBehaviorDialogOpen}
-          objectType={object.getType()}
-          objectBehaviorsTypes={listObjectBehaviorsTypes(object)}
-          onClose={() => setNewBehaviorDialogOpen(false)}
-          onChoose={addBehavior}
-          project={project}
-          eventsFunctionsExtension={eventsFunctionsExtension}
+      {newBehaviorDialog}
+      {!!selectedQuickCustomizationPropertiesBehavior && (
+        <QuickCustomizationPropertiesVisibilityDialog
+          open={!!selectedQuickCustomizationPropertiesBehavior}
+          onClose={() => setSelectedQuickCustomizationPropertiesBehavior(null)}
+          propertyNames={selectedQuickCustomizationPropertiesBehavior
+            .getProperties()
+            .keys()
+            .toJSArray()}
+          propertiesQuickCustomizationVisibilities={selectedQuickCustomizationPropertiesBehavior.getPropertiesQuickCustomizationVisibilities()}
         />
       )}
     </Column>

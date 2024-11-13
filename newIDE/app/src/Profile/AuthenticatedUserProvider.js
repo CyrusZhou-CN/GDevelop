@@ -5,6 +5,7 @@ import {
   getUserUsages,
   getUserSubscription,
   getUserLimits,
+  getUserEarningsBalance,
 } from '../Utils/GDevelopServices/Usage';
 import {
   getUserBadges,
@@ -34,6 +35,7 @@ import AuthenticatedUserContext, {
   initialAuthenticatedUser,
   type AuthenticatedUser,
   authenticatedUserLoggedOutAttributes,
+  authenticatedUserPropertiesLoadingState,
 } from './AuthenticatedUserContext';
 import CreateAccountDialog from './CreateAccountDialog';
 import EditProfileDialog from './EditProfileDialog';
@@ -180,7 +182,7 @@ export default class AuthenticatedUserProvider extends React.Component<
         'Fetching user profile as authenticated user found at startup...'
       );
       this._automaticallyUpdateUserProfile = false;
-      await this._fetchUserProfileWithoutThrowingErrors();
+      await this._fetchUserProfileWithoutThrowingErrors({ resetState: true });
       this._automaticallyUpdateUserProfile = true;
     } else {
       console.info('No authenticated user found at startup.');
@@ -199,7 +201,7 @@ export default class AuthenticatedUserProvider extends React.Component<
         ...initialAuthenticatedUser,
         onLogin: this._doLogin,
         onLoginWithProvider: this._doLoginWithProvider,
-        onCancelLogin: this._cancelLogin,
+        onCancelLoginOrSignUp: this._cancelLoginOrSignUp,
         onLogout: this._doLogout,
         onCreateAccount: this._doCreateAccount,
         onEditProfile: this._doEdit,
@@ -218,6 +220,7 @@ export default class AuthenticatedUserProvider extends React.Component<
         onRefreshLimits: this._fetchUserLimits,
         onRefreshGameTemplatePurchases: this._fetchUserGameTemplatePurchases,
         onRefreshAssetPackPurchases: this._fetchUserAssetPackPurchases,
+        onRefreshEarningsBalance: this._fetchEarningsBalance,
         onRefreshNotifications: this._fetchUserNotifications,
         onPurchaseSuccessful: this._fetchUserProducts,
         onSendEmailVerification: this._doSendEmailVerification,
@@ -288,6 +291,7 @@ export default class AuthenticatedUserProvider extends React.Component<
             authenticated: false,
             profile: null,
             usages: null,
+            userEarningsBalance: null,
             limits: null,
             subscription: null,
           },
@@ -309,9 +313,14 @@ export default class AuthenticatedUserProvider extends React.Component<
     }
   };
 
-  _fetchUserProfileWithoutThrowingErrors = async () => {
+  _fetchUserProfileWithoutThrowingErrors = async (
+    options: ?{
+      dontNotifyAboutEmailVerification?: boolean,
+      resetState?: boolean,
+    }
+  ) => {
     try {
-      await this._fetchUserProfile();
+      await this._fetchUserProfile(options);
     } catch (error) {
       console.error(
         'Error while fetching the user profile - but ignoring it.',
@@ -320,16 +329,36 @@ export default class AuthenticatedUserProvider extends React.Component<
     }
   };
 
-  _fetchUserProfile = async () => {
+  _fetchUserProfile = async (
+    options: ?{
+      dontNotifyAboutEmailVerification?: boolean,
+      /**
+       * By default, fetching the user does not reset their attributes to a null state
+       * to avoid the UI displaying loaders everywhere. This boolean should be set
+       * to true when such a result is expected (during login for instance).
+       */
+      resetState?: boolean,
+    }
+  ) => {
     const { authentication } = this.props;
 
-    this.setState(({ authenticatedUser }) => ({
-      authenticatedUser: {
+    this.setState(({ authenticatedUser }) => {
+      let newAuthenticatedUser: AuthenticatedUser = {
         ...authenticatedUser,
         loginState: 'loggingIn',
         cloudProjectsFetchingErrorLabel: null,
-      },
-    }));
+      };
+      if (options && options.resetState) {
+        newAuthenticatedUser = {
+          ...newAuthenticatedUser,
+          ...authenticatedUserPropertiesLoadingState,
+        };
+      }
+
+      return {
+        authenticatedUser: newAuthenticatedUser,
+      };
+    });
 
     // First ensure the Firebase authenticated user is up to date
     // (and let the error propagate if any).
@@ -387,6 +416,21 @@ export default class AuthenticatedUserProvider extends React.Component<
         })),
       error => {
         console.error('Error while loading user limits:', error);
+      }
+    );
+    getUserEarningsBalance(
+      authentication.getAuthorizationHeader,
+      firebaseUser.uid
+    ).then(
+      userEarningsBalance =>
+        this.setState(({ authenticatedUser }) => ({
+          authenticatedUser: {
+            ...authenticatedUser,
+            userEarningsBalance,
+          },
+        })),
+      error => {
+        console.error('Error while loading user earnings balance:', error);
       }
     );
     this._cloudProjectListingDeduplicator
@@ -561,7 +605,9 @@ export default class AuthenticatedUserProvider extends React.Component<
         // We call this function every time the user is fetched, as it will
         // automatically prevent the event to be sent if the user attributes haven't changed.
         identifyUserForAnalytics(this.state.authenticatedUser);
-        this._notifyUserAboutEmailVerification();
+        if (!options || !options.dontNotifyAboutEmailVerification) {
+          this._notifyUserAboutEmailVerification();
+        }
       }
     );
   };
@@ -627,6 +673,27 @@ export default class AuthenticatedUserProvider extends React.Component<
       }));
     } catch (error) {
       console.error('Error while loading user usages:', error);
+    }
+  };
+
+  _fetchEarningsBalance = async () => {
+    const { authentication } = this.props;
+    const firebaseUser = this.state.authenticatedUser.firebaseUser;
+    if (!firebaseUser) return;
+
+    try {
+      const userEarningsBalance = await getUserEarningsBalance(
+        authentication.getAuthorizationHeader,
+        firebaseUser.uid
+      );
+      this.setState(({ authenticatedUser }) => ({
+        authenticatedUser: {
+          ...authenticatedUser,
+          userEarningsBalance,
+        },
+      }));
+    } catch (error) {
+      console.error('Error while loading user earnings balance:', error);
     }
   };
 
@@ -919,6 +986,8 @@ export default class AuthenticatedUserProvider extends React.Component<
     if (!authentication) return;
 
     this.setState({
+      // This function is used for both account creation & login.
+      createAccountInProgress: true,
       loginInProgress: true,
       apiCallError: null,
       authenticatedUser: {
@@ -934,7 +1003,7 @@ export default class AuthenticatedUserProvider extends React.Component<
         provider,
         signal: this._abortController.signal,
       });
-      await this._fetchUserProfileWithoutThrowingErrors();
+      await this._fetchUserProfileWithoutThrowingErrors({ resetState: true });
       this.openLoginDialog(false);
       this.openCreateAccountDialog(false);
       this._showLoginSnackbar(this.state.authenticatedUser);
@@ -956,6 +1025,7 @@ export default class AuthenticatedUserProvider extends React.Component<
       }
     }
     this.setState({
+      createAccountInProgress: false,
       loginInProgress: false,
       authenticatedUser: {
         ...this.state.authenticatedUser,
@@ -965,7 +1035,7 @@ export default class AuthenticatedUserProvider extends React.Component<
     this._automaticallyUpdateUserProfile = true;
   };
 
-  _cancelLogin = () => {
+  _cancelLoginOrSignUp = () => {
     if (this._abortController) {
       this._abortController.abort();
       this._abortController = null;
@@ -988,7 +1058,7 @@ export default class AuthenticatedUserProvider extends React.Component<
     this._automaticallyUpdateUserProfile = false;
     try {
       await authentication.login(form);
-      await this._fetchUserProfileWithoutThrowingErrors();
+      await this._fetchUserProfileWithoutThrowingErrors({ resetState: true });
       this.openLoginDialog(false);
       this._showLoginSnackbar(this.state.authenticatedUser);
     } catch (apiCallError) {
@@ -1083,7 +1153,11 @@ export default class AuthenticatedUserProvider extends React.Component<
         // by the API when fetched.
       }
 
-      await this._fetchUserProfileWithoutThrowingErrors();
+      await this._fetchUserProfileWithoutThrowingErrors({
+        // When creating an account, avoid showing the email verification dialog right away.
+        dontNotifyAboutEmailVerification: true,
+        resetState: true,
+      });
       this.openCreateAccountDialog(false);
       sendSignupDone(form.email);
       const firebaseUser = this.state.authenticatedUser.firebaseUser;
@@ -1381,7 +1455,7 @@ export default class AuthenticatedUserProvider extends React.Component<
             {this.state.loginDialogOpen && (
               <LoginDialog
                 onClose={() => {
-                  this._cancelLogin();
+                  this._cancelLoginOrSignUp();
                   this.openLoginDialog(false);
                 }}
                 onGoToCreateAccount={() => this.openCreateAccountDialog(true)}
@@ -1438,7 +1512,10 @@ export default class AuthenticatedUserProvider extends React.Component<
               )}
             {this.state.createAccountDialogOpen && (
               <CreateAccountDialog
-                onClose={() => this.openCreateAccountDialog(false)}
+                onClose={() => {
+                  this._cancelLoginOrSignUp();
+                  this.openCreateAccountDialog(false);
+                }}
                 onGoToLogin={() => this.openLoginDialog(true)}
                 onCreateAccount={form =>
                   this._doCreateAccount(form, preferences)

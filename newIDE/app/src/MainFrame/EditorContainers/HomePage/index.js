@@ -14,7 +14,6 @@ import BuildSection from './BuildSection';
 import LearnSection from './LearnSection';
 import PlaySection from './PlaySection';
 import ManageSection from './ManageSection';
-import CommunitySection from './CommunitySection';
 import StoreSection from './StoreSection';
 import { type TutorialCategory } from '../../../Utils/GDevelopServices/Tutorial';
 import { TutorialContext } from '../../../Tutorial/TutorialContext';
@@ -38,8 +37,7 @@ import {
   sendUserSurveyStarted,
 } from '../../../Utils/Analytics/EventSender';
 import RouterContext, { type RouteArguments } from '../../RouterContext';
-import { type GameDetailsTab } from '../../../GameDashboard/GameDetails';
-import useGamesList from '../../../GameDashboard/UseGamesList';
+import { type GameDetailsTab } from '../../../GameDashboard';
 import useDisplayNewFeature from '../../../Utils/UseDisplayNewFeature';
 import HighlightingTooltip from '../../../UI/HighlightingTooltip';
 import Text from '../../../UI/Text';
@@ -51,13 +49,29 @@ import EducationMarketingSection from './EducationMarketingSection';
 import useEducationForm from './UseEducationForm';
 import { type NewProjectSetup } from '../../../ProjectCreation/NewProjectSetupDialog';
 import { type ObjectWithContext } from '../../../ObjectsList/EnumerateObjects';
+import { type GamesList } from '../../../GameDashboard/UseGamesList';
 
 const gamesDashboardWikiArticle = getHelpLink('/interface/games-dashboard/');
-const isShopRequested = (routeArguments: RouteArguments): boolean =>
-  routeArguments['initial-dialog'] === 'asset-store' || // Compatibility with old links
-  routeArguments['initial-dialog'] === 'store'; // New way of opening the store
-const isGamesDashboardRequested = (routeArguments: RouteArguments): boolean =>
-  routeArguments['initial-dialog'] === 'games-dashboard';
+const getRequestedTab = (routeArguments: RouteArguments): HomeTab | null => {
+  if (
+    routeArguments['initial-dialog'] === 'asset-store' || // Compatibility with old links
+    routeArguments['initial-dialog'] === 'store' // New way of opening the store
+  ) {
+    return 'shop';
+  } else if (routeArguments['initial-dialog'] === 'games-dashboard') {
+    return 'manage';
+  } else if (routeArguments['initial-dialog'] === 'build') {
+    return 'build';
+  } else if (routeArguments['initial-dialog'] === 'education') {
+    return 'team-view';
+  } else if (routeArguments['initial-dialog'] === 'play') {
+    return 'play';
+  } else if (routeArguments['initial-dialog'] === 'get-started') {
+    return 'get-started';
+  }
+
+  return null;
+};
 
 const styles = {
   container: {
@@ -98,6 +112,9 @@ type Props = {|
   setToolbar: (?React.Node) => void,
   storageProviders: Array<StorageProvider>,
 
+  // Games
+  gamesList: GamesList,
+
   // Project opening
   canOpen: boolean,
   onChooseProject: () => void,
@@ -112,6 +129,7 @@ type Props = {|
   ) => void,
   onOpenProjectManager: () => void,
   askToCloseProject: () => Promise<boolean>,
+  closeProject: () => Promise<void>,
 
   // Other dialogs opening:
   onOpenLanguageDialog: () => void,
@@ -127,6 +145,7 @@ type Props = {|
     newProjectSetup: NewProjectSetup,
     i18n: I18nType
   ) => Promise<void>,
+  onOpenTemplateFromTutorial: (tutorialId: string) => Promise<void>,
 
   // Project save
   onSave: () => Promise<void>,
@@ -174,6 +193,9 @@ export const HomePage = React.memo<Props>(
         canSave,
         resourceManagementProps,
         askToCloseProject,
+        closeProject,
+        onOpenTemplateFromTutorial,
+        gamesList,
       }: Props,
       ref
     ) => {
@@ -193,6 +215,12 @@ export const HomePage = React.memo<Props>(
         shop: { setInitialGameTemplateUserFriendlySlug },
       } = React.useContext(PrivateGameTemplateStoreContext);
       const [openedGameId, setOpenedGameId] = React.useState<?string>(null);
+      const {
+        games,
+        fetchGames,
+        gamesFetchingError,
+        onGameUpdated,
+      } = gamesList;
       const [
         gameDetailsCurrentTab,
         setGameDetailsCurrentTab,
@@ -212,16 +240,11 @@ export const HomePage = React.memo<Props>(
       const {
         values: { showGetStartedSectionByDefault },
       } = React.useContext(PreferencesContext);
-      const isShopRequestedAtOpening = React.useRef<boolean>(
-        isShopRequested(routeArguments)
+      const tabRequestedAtOpening = React.useRef<HomeTab | null>(
+        getRequestedTab(routeArguments)
       );
-      const isGamesDashboardRequestedAtOpening = React.useRef<boolean>(
-        isGamesDashboardRequested(routeArguments)
-      );
-      const initialTab = isShopRequestedAtOpening.current
-        ? 'shop'
-        : isGamesDashboardRequestedAtOpening.current
-        ? 'manage'
+      const initialTab = tabRequestedAtOpening.current
+        ? tabRequestedAtOpening.current
         : showGetStartedSectionByDefault
         ? 'get-started'
         : 'build';
@@ -239,14 +262,11 @@ export const HomePage = React.memo<Props>(
         displayTooltipDelayed,
         setDisplayTooltipDelayed,
       ] = React.useState<boolean>(false);
-      const {
-        games,
-        gamesFetchingError,
-        fetchGames,
-        onGameUpdated,
-      } = useGamesList();
       const openedGame = React.useMemo(
-        () => (games && games.find(game => game.id === openedGameId)) || null,
+        () =>
+          !openedGameId || !games
+            ? null
+            : games.find(game => game.id === openedGameId),
         [games, openedGameId]
       );
       const {
@@ -277,8 +297,12 @@ export const HomePage = React.memo<Props>(
       // that redirects to the asset store for instance).
       React.useEffect(
         () => {
-          if (isShopRequested(routeArguments)) {
-            setActiveTab('shop');
+          const requestedTab = getRequestedTab(routeArguments);
+
+          if (!requestedTab) return;
+
+          setActiveTab(requestedTab);
+          if (requestedTab === 'shop') {
             if (routeArguments['asset-pack']) {
               setInitialPackUserFriendlySlug(routeArguments['asset-pack']);
             }
@@ -288,21 +312,31 @@ export const HomePage = React.memo<Props>(
               );
             }
             // Remove the arguments so that the asset store is not opened again.
-            removeRouteArguments([
-              'initial-dialog',
-              'asset-pack',
-              'game-template',
-            ]);
-          } else if (isGamesDashboardRequested(routeArguments)) {
-            setActiveTab('manage');
-            removeRouteArguments(['initial-dialog']);
+            removeRouteArguments(['asset-pack', 'game-template']);
+          } else if (requestedTab === 'manage') {
+            const gameId = routeArguments['game-id'];
+            if (gameId) {
+              if (games && games.find(game => game.id === gameId)) {
+                setOpenedGameId(gameId);
+                if (routeArguments['games-dashboard-tab']) {
+                  setGameDetailsCurrentTab(
+                    // $FlowIgnore - We are confident the argument is one of the possible tab.
+                    routeArguments['games-dashboard-tab']
+                  );
+                  removeRouteArguments(['games-dashboard-tab']);
+                }
+              }
+            }
           }
+
+          removeRouteArguments(['initial-dialog']);
         },
         [
           routeArguments,
           removeRouteArguments,
           setInitialPackUserFriendlySlug,
           setInitialGameTemplateUserFriendlySlug,
+          games,
         ]
       );
 
@@ -521,6 +555,7 @@ export const HomePage = React.memo<Props>(
                       canManageGame={canManageGame}
                       storageProviders={storageProviders}
                       i18n={i18n}
+                      closeProject={closeProject}
                     />
                   )}
                   {activeTab === 'learn' && (
@@ -528,11 +563,11 @@ export const HomePage = React.memo<Props>(
                       onOpenExampleStore={onOpenExampleStore}
                       onTabChange={setActiveTab}
                       selectInAppTutorial={selectInAppTutorial}
+                      onOpenTemplateFromTutorial={onOpenTemplateFromTutorial}
                       initialCategory={learnInitialCategory}
                     />
                   )}
                   {activeTab === 'play' && <PlaySection />}
-                  {activeTab === 'community' && <CommunitySection />}
                   {activeTab === 'shop' && (
                     <StoreSection
                       project={project}
@@ -638,10 +673,12 @@ export const renderHomePageContainer = (
     }
     onOpenNewProjectSetupDialog={props.onOpenNewProjectSetupDialog}
     onOpenProjectManager={props.onOpenProjectManager}
+    onOpenTemplateFromTutorial={props.onOpenTemplateFromTutorial}
     onOpenLanguageDialog={props.onOpenLanguageDialog}
     onOpenProfile={props.onOpenProfile}
     onCreateProjectFromExample={props.onCreateProjectFromExample}
     askToCloseProject={props.askToCloseProject}
+    closeProject={props.closeProject}
     selectInAppTutorial={props.selectInAppTutorial}
     onOpenPreferences={props.onOpenPreferences}
     onOpenAbout={props.onOpenAbout}
@@ -651,5 +688,6 @@ export const renderHomePageContainer = (
     onSave={props.onSave}
     canSave={props.canSave}
     resourceManagementProps={props.resourceManagementProps}
+    gamesList={props.gamesList}
   />
 );

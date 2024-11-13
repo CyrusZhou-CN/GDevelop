@@ -147,9 +147,13 @@ export class SceneEditorContainer extends React.Component<RenderEditorContainerP
         hotReloadPreviewButtonProps={this.props.hotReloadPreviewButtonProps}
         openBehaviorEvents={this.props.openBehaviorEvents}
         onExtractAsExternalLayout={this.props.onExtractAsExternalLayout}
+        onExtractAsEventBasedObject={this.props.onExtractAsEventBasedObject}
+        onOpenEventBasedObjectEditor={this.props.onOpenEventBasedObjectEditor}
         onObjectEdited={objectWithContext =>
           this.props.onSceneObjectEdited(layout, objectWithContext)
         }
+        // Nothing to do as scenes are not events-based objects.
+        onEventsBasedObjectChildrenEdited={() => {}}
       />
     );
   }

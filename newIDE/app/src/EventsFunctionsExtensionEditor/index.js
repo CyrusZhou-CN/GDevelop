@@ -77,6 +77,16 @@ type Props = {|
   unsavedChanges?: ?UnsavedChanges,
   onOpenCustomObjectEditor: gdEventsBasedObject => void,
   hotReloadPreviewButtonProps: HotReloadPreviewButtonProps,
+  onEventsBasedObjectChildrenEdited: () => void,
+  onRenamedEventsBasedObject: (
+    eventsFunctionsExtension: gdEventsFunctionsExtension,
+    oldName: string,
+    newName: string
+  ) => void,
+  onDeletedEventsBasedObject: (
+    eventsFunctionsExtension: gdEventsFunctionsExtension,
+    name: string
+  ) => void,
 |};
 
 type State = {|
@@ -666,7 +676,12 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
     newName: string,
     done: boolean => void
   ) => {
-    const { project, eventsFunctionsExtension } = this.props;
+    const {
+      project,
+      eventsFunctionsExtension,
+      onRenamedEventsBasedObject,
+    } = this.props;
+    const oldName = eventsBasedObject.getName();
     const safeAndUniqueNewName = newNameGenerator(
       gd.Project.getSafeName(newName),
       tentativeNewName => {
@@ -689,22 +704,63 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
     eventsBasedObject.setName(safeAndUniqueNewName);
 
     done(true);
+    onRenamedEventsBasedObject(
+      eventsFunctionsExtension,
+      oldName,
+      safeAndUniqueNewName
+    );
   };
 
   _onEventsBasedBehaviorPasted = (
     eventsBasedBehavior: gdEventsBasedBehavior,
-    sourceExtensionName: string
+    sourceExtensionName: string,
+    sourceEventsBasedBehaviorName: string
   ) => {
     const { project, eventsFunctionsExtension } = this.props;
-    if (eventsFunctionsExtension.getName() === sourceExtensionName) {
-      return;
+    if (eventsFunctionsExtension.getName() !== sourceExtensionName) {
+      gd.WholeProjectRefactorer.updateExtensionNameInEventsBasedBehavior(
+        project,
+        eventsFunctionsExtension,
+        eventsBasedBehavior,
+        sourceExtensionName
+      );
     }
-    gd.WholeProjectRefactorer.updateExtensionNameInEventsBasedBehavior(
-      project,
-      eventsFunctionsExtension,
-      eventsBasedBehavior,
-      sourceExtensionName
-    );
+    if (eventsBasedBehavior.getName() !== sourceEventsBasedBehaviorName) {
+      gd.WholeProjectRefactorer.updateBehaviorNameInEventsBasedBehavior(
+        project,
+        eventsFunctionsExtension,
+        eventsBasedBehavior,
+        sourceEventsBasedBehaviorName
+      );
+    }
+  };
+
+  _onEventsBasedObjectPasted = (
+    eventsBasedObject: gdEventsBasedObject,
+    sourceExtensionName: string,
+    sourceEventsBasedObjectName: string
+  ) => {
+    const { project, eventsFunctionsExtension } = this.props;
+    if (eventsFunctionsExtension.getName() !== sourceExtensionName) {
+      gd.WholeProjectRefactorer.updateExtensionNameInEventsBasedObject(
+        project,
+        eventsFunctionsExtension,
+        eventsBasedObject,
+        sourceExtensionName
+      );
+    }
+    if (eventsBasedObject.getName() !== sourceEventsBasedObjectName) {
+      gd.WholeProjectRefactorer.updateObjectNameInEventsBasedObject(
+        project,
+        eventsFunctionsExtension,
+        eventsBasedObject,
+        sourceEventsBasedObjectName
+      );
+    }
+    // Some custom object instances may target the pasted event-based object name.
+    // It can happen when an event-based object is deleted and another one is
+    // pasted to replace it.
+    this.props.onEventsBasedObjectChildrenEdited();
   };
 
   _onEventsBasedBehaviorRenamed = () => {
@@ -737,6 +793,10 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
     if (this.state.selectedEventsFunction) {
       this._updateProjectScopedContainer();
     }
+    // Some custom object instances may target the new event-based object name.
+    // It can happen when an event-based object is deleted and another one is
+    // renamed to replace it.
+    this.props.onEventsBasedObjectChildrenEdited();
   };
 
   _onDeleteEventsBasedBehavior = (
@@ -765,6 +825,17 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
     }
 
     cb(true);
+
+    const {
+      eventsFunctionsExtension,
+      onDeletedEventsBasedObject,
+      onEventsBasedObjectChildrenEdited,
+    } = this.props;
+    onDeletedEventsBasedObject(
+      eventsFunctionsExtension,
+      eventsBasedObject.getName()
+    );
+    onEventsBasedObjectChildrenEdited();
   };
 
   _onCloseExtensionFunctionSelectorDialog = (
@@ -1372,6 +1443,9 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
               onOpenCustomObjectEditor={() =>
                 this.props.onOpenCustomObjectEditor(selectedEventsBasedObject)
               }
+              onEventsBasedObjectChildrenEdited={
+                this.props.onEventsBasedObjectChildrenEdited
+              }
             />
           ) : (
             <Background>
@@ -1425,6 +1499,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
                   i18n
                 )}
                 onEventsBasedObjectRenamed={this._onEventsBasedObjectRenamed}
+                onEventsBasedObjectPasted={this._onEventsBasedObjectPasted}
                 onAddEventsBasedObject={this._onAddEventsBasedObject}
                 onSelectExtensionProperties={() => this._editOptions(true)}
                 onSelectExtensionGlobalVariables={() =>

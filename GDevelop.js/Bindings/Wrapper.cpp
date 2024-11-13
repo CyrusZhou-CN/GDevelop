@@ -28,8 +28,6 @@
 #include <GDCore/IDE/Events/EventsContextAnalyzer.h>
 #include <GDCore/IDE/Events/EventsFunctionSelfCallChecker.h>
 #include <GDCore/IDE/Events/EventsIdentifiersFinder.h>
-#include <GDCore/IDE/Events/EventsLeaderboardsLister.h>
-#include <GDCore/IDE/Events/EventsLeaderboardsRenamer.h>
 #include <GDCore/IDE/Events/EventsListUnfolder.h>
 #include <GDCore/IDE/Events/EventsParametersLister.h>
 #include <GDCore/IDE/Events/EventsPositionFinder.h>
@@ -459,8 +457,11 @@ typedef std::shared_ptr<SerializerElement> SharedPtrSerializerElement;
 typedef std::vector<UnfilledRequiredBehaviorPropertyProblem>
     VectorUnfilledRequiredBehaviorPropertyProblem;
 typedef std::vector<const gd::ObjectFolderOrObject*> VectorObjectFolderOrObject;
+typedef std::vector<gd::Screenshot> VectorScreenshot;
 typedef QuickCustomization::Visibility
     QuickCustomization_Visibility;
+typedef CustomObjectConfiguration::EdgeAnchor
+    CustomObjectConfiguration_EdgeAnchor;
 
 typedef ExtensionAndMetadata<BehaviorMetadata> ExtensionAndBehaviorMetadata;
 typedef ExtensionAndMetadata<ObjectMetadata> ExtensionAndObjectMetadata;
@@ -663,6 +664,8 @@ typedef ExtensionAndMetadata<ExpressionMetadata> ExtensionAndExpressionMetadata;
 #define STATIC_MergeLayersInEventsBasedObject MergeLayersInEventsBasedObject
 #define STATIC_GetLayoutAndExternalLayoutLayerInstancesCount \
   GetLayoutAndExternalLayoutLayerInstancesCount
+#define STATIC_RenameLeaderboards RenameLeaderboards
+#define STATIC_FindAllLeaderboardIds FindAllLeaderboardIds
 
 #define STATIC_GenerateBehaviorGetterAndSetter GenerateBehaviorGetterAndSetter
 #define STATIC_GenerateObjectGetterAndSetter GenerateObjectGetterAndSetter
@@ -704,6 +707,9 @@ typedef ExtensionAndMetadata<ExpressionMetadata> ExtensionAndExpressionMetadata;
 
 #define STATIC_GetNamespaceSeparator GetNamespaceSeparator
 #define STATIC_GetBehaviorFullType GetBehaviorFullType
+#define STATIC_GetObjectFullType GetObjectFullType
+#define STATIC_GetExtensionFromFullObjectType GetExtensionFromFullObjectType
+#define STATIC_GetObjectNameFromFullObjectType GetObjectNameFromFullObjectType
 #define STATIC_ApplyRefactoringForVariablesContainer \
   ApplyRefactoringForVariablesContainer
 #define STATIC_ApplyRefactoringForGroupVariablesContainer \
@@ -715,6 +721,8 @@ typedef ExtensionAndMetadata<ExpressionMetadata> ExtensionAndExpressionMetadata;
 #define STATIC_RenameEventsFunctionsExtension RenameEventsFunctionsExtension
 #define STATIC_UpdateExtensionNameInEventsBasedBehavior \
   UpdateExtensionNameInEventsBasedBehavior
+#define STATIC_UpdateExtensionNameInEventsBasedObject \
+  UpdateExtensionNameInEventsBasedObject
 #define STATIC_RenameEventsFunction RenameEventsFunction
 #define STATIC_RenameBehaviorEventsFunction RenameBehaviorEventsFunction
 #define STATIC_RenameObjectEventsFunction RenameObjectEventsFunction
@@ -729,7 +737,9 @@ typedef ExtensionAndMetadata<ExpressionMetadata> ExtensionAndExpressionMetadata;
   RenameEventsBasedBehaviorSharedProperty
 #define STATIC_RenameEventsBasedObjectProperty RenameEventsBasedObjectProperty
 #define STATIC_RenameEventsBasedBehavior RenameEventsBasedBehavior
+#define STATIC_UpdateBehaviorNameInEventsBasedBehavior UpdateBehaviorNameInEventsBasedBehavior
 #define STATIC_RenameEventsBasedObject RenameEventsBasedObject
+#define STATIC_UpdateObjectNameInEventsBasedObject UpdateObjectNameInEventsBasedObject
 #define STATIC_RenameLayout RenameLayout
 #define STATIC_RenameExternalLayout RenameExternalLayout
 #define STATIC_RenameExternalEvents RenameExternalEvents
@@ -808,6 +818,7 @@ typedef ExtensionAndMetadata<ExpressionMetadata> ExtensionAndExpressionMetadata;
 #define STATIC_GetDefaultMeasurementUnitAtIndex GetDefaultMeasurementUnitAtIndex
 #define STATIC_GetDefaultMeasurementUnitByName GetDefaultMeasurementUnitByName
 #define STATIC_HasDefaultMeasurementUnitNamed HasDefaultMeasurementUnitNamed
+#define STATIC_GetEdgeAnchorFromString GetEdgeAnchorFromString
 
 // We postfix some methods with "At" as Javascript does not support overloading
 #define GetLayoutAt GetLayout

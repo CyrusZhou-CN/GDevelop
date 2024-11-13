@@ -16,24 +16,29 @@ export type TutorialCategory =
 export type Tutorial = {|
   id: string,
   /** Deprecated - see `titleByLocale`. */
-  title: string,
+  title?: string,
   titleByLocale: MessageByLocale,
   /** Deprecated - see `descriptionByLocale`. */
-  description: string,
+  description?: string,
   descriptionByLocale: MessageByLocale,
   type: 'video' | 'text' | 'pdf-tutorial',
   category: TutorialCategory,
   duration?: number,
   /** Deprecated - see `linkByLocale`. */
-  link: string,
+  link?: string,
   linkByLocale: MessageByLocale,
   /** Deprecated - see `thumbnailUrlByLocale`. */
-  thumbnailUrl: string,
+  thumbnailUrl?: string,
   thumbnailUrlByLocale: MessageByLocale,
 
   isPrivateTutorial?: boolean,
   redeemHintByLocale?: MessageByLocale,
   redeemLinkByLocale?: MessageByLocale,
+  sectionByLocale?: MessageByLocale,
+  tagsByLocale?: MessageByLocale[],
+  availableAt?: string,
+  gameLink?: string,
+  templateUrl?: string,
 |};
 
 export const canAccessTutorial = (
@@ -56,7 +61,9 @@ export const canAccessTutorial = (
 
 export const listAllTutorials = (): Promise<Array<Tutorial>> => {
   return axios
-    .get(`${GDevelopAssetApi.baseUrl}/tutorial`)
+    .get(`${GDevelopAssetApi.baseUrl}/tutorial`, {
+      params: { include: 'upcoming' },
+    })
     .then(response => response.data);
 };
 
@@ -107,6 +114,8 @@ export const getInstructionTutorialIds = (type: string): Array<string> => {
     case 'EcrireFichierTxt':
     case 'LireFichierExp':
     case 'LireFichierTxt':
+    case 'ReadNumberFromStorage':
+    case 'ReadStringFromStorage':
       return ['intermediate-storage'];
     case 'PlatformBehavior::SimulateJumpKey':
       return ['simple-trampoline-platformer'];
@@ -117,7 +126,9 @@ export const getInstructionTutorialIds = (type: string): Array<string> => {
     case 'ToggleObjectVariableAsBoolean':
     case 'ToggleGlobalVariableAsBoolean':
     case 'ToggleSceneVariableAsBoolean':
-      return ['iIntermediate-toggle-states-with-variable'];
+    case 'SetBooleanObjectVariable':
+    case 'SetBooleanVariable':
+      return ['intermediate-toggle-states-with-variable'];
     case 'Scene':
     case 'PushScene':
     case 'PopScene':
@@ -126,9 +137,15 @@ export const getInstructionTutorialIds = (type: string): Array<string> => {
     case 'AnimationName':
     case 'ChangeAnimation':
     case 'ChangeAnimationName':
+    case 'AnimatableCapability::AnimatableBehavior::Index':
+    case 'AnimatableCapability::AnimatableBehavior::Name':
+    case 'AnimatableCapability::AnimatableBehavior::SetIndex':
+    case 'AnimatableCapability::AnimatableBehavior::SetName':
       return ['intermediate-changing-animations'];
     case 'PopStartedTouch':
     case 'MouseButtonPressed':
+    case 'HasAnyTouchOrMouseStarted':
+    case 'HasTouchEnded':
       return ['intermediate-touchscreen-controls'];
     default:
       return [];

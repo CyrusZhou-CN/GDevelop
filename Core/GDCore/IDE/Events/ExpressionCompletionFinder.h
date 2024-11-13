@@ -337,19 +337,19 @@ struct GD_CORE_API ExpressionCompletionDescription {
 
  private:
   CompletionKind completionKind;
-  gd::Variable::Type variableType;
-  gd::VariablesContainer::SourceType variableScope;
+  gd::Variable::Type variableType = gd::Variable::Unknown;
+  gd::VariablesContainer::SourceType variableScope = gd::VariablesContainer::Unknown;
   gd::String type;
   gd::String prefix;
   gd::String completion;
-  size_t replacementStartPosition;
-  size_t replacementEndPosition;
+  size_t replacementStartPosition = 0;
+  size_t replacementEndPosition = 0;
   gd::String objectName;
   gd::String behaviorName;
-  bool isExact;
-  bool isLastParameter;
-  const gd::ParameterMetadata* parameterMetadata;
-  const gd::ObjectConfiguration* objectConfiguration;
+  bool isExact = false;
+  bool isLastParameter = false;
+  const gd::ParameterMetadata* parameterMetadata = &badParameterMetadata;
+  const gd::ObjectConfiguration* objectConfiguration = &badObjectConfiguration;
 
   static const gd::ParameterMetadata badParameterMetadata;
   static const gd::ObjectConfiguration badObjectConfiguration;
@@ -1066,8 +1066,8 @@ class GD_CORE_API ExpressionCompletionFinder
       bool eagerlyCompleteIfExactMatch = false) {
     projectScopedContainers.ForEachIdentifierMatchingSearch(
         search,
-        [&](const gd::String& objectName,
-            const ObjectConfiguration* objectConfiguration) {
+        [&](const gd::String &objectName,
+            const ObjectConfiguration *objectConfiguration) {
           ExpressionCompletionDescription description(
               ExpressionCompletionDescription::Object,
               location.GetStartPosition(),
@@ -1077,7 +1077,7 @@ class GD_CORE_API ExpressionCompletionFinder
           description.SetType(type);
           completions.push_back(description);
         },
-        [&](const gd::String& variableName, const gd::Variable& variable) {
+        [&](const gd::String &variableName, const gd::Variable &variable) {
           ExpressionCompletionDescription description(
               ExpressionCompletionDescription::Variable,
               location.GetStartPosition(),
@@ -1095,23 +1095,29 @@ class GD_CORE_API ExpressionCompletionFinder
                 variable, variableName, location);
           }
         },
-        [&](const gd::NamedPropertyDescriptor& property) {
-          ExpressionCompletionDescription description(
-              ExpressionCompletionDescription::Property,
-              location.GetStartPosition(),
-              location.GetEndPosition());
-          description.SetCompletion(property.GetName());
-          description.SetType(property.GetType());
-          completions.push_back(description);
+        [&](const gd::NamedPropertyDescriptor &property) {
+          auto propertyType = gd::ValueTypeMetadata::ConvertPropertyTypeToValueType(
+              property.GetType());
+          if (gd::ValueTypeMetadata::IsTypeValue("number", propertyType) ||
+              gd::ValueTypeMetadata::IsTypeValue("string", propertyType)) {
+            ExpressionCompletionDescription description(
+                ExpressionCompletionDescription::Property,
+                location.GetStartPosition(), location.GetEndPosition());
+            description.SetCompletion(property.GetName());
+            description.SetType(property.GetType());
+            completions.push_back(description);
+          }
         },
-        [&](const gd::ParameterMetadata& parameter) {
-          ExpressionCompletionDescription description(
-              ExpressionCompletionDescription::Parameter,
-              location.GetStartPosition(),
-              location.GetEndPosition());
-          description.SetCompletion(parameter.GetName());
-          description.SetType(parameter.GetType());
-          completions.push_back(description);
+        [&](const gd::ParameterMetadata &parameter) {
+          if (parameter.GetValueTypeMetadata().IsNumber() ||
+              parameter.GetValueTypeMetadata().IsString()) {
+            ExpressionCompletionDescription description(
+                ExpressionCompletionDescription::Parameter,
+                location.GetStartPosition(), location.GetEndPosition());
+            description.SetCompletion(parameter.GetName());
+            description.SetType(parameter.GetType());
+            completions.push_back(description);
+          }
         });
   }
 

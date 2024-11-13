@@ -56,7 +56,7 @@ const getShopItemsColumns = (
 ) => {
   switch (windowSize) {
     case 'small':
-      return isLandscape ? 3 : 1;
+      return isLandscape ? 3 : 2;
     case 'medium':
       return 2;
     case 'large':
@@ -68,8 +68,10 @@ const getShopItemsColumns = (
   }
 };
 
+export const gameTemplatesCategoryId = 'game-template';
+
 export const shopCategories = {
-  'game-template': {
+  [gameTemplatesCategoryId]: {
     title: <Trans>Ready-made games</Trans>,
     imageAlt: 'Premium game templates category',
     imageSource: 'res/shop-categories/Game_Templates.jpeg',

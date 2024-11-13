@@ -4,6 +4,7 @@ import { GDevelopUsageApi } from './ApiConfigs';
 import { type MessageDescriptor } from '../i18n/MessageDescriptor.flow';
 import { type MessageByLocale } from '../i18n/MessageByLocale';
 import { extractGDevelopApiErrorStatusAndCode } from './Errors';
+import { isNativeMobileApp } from '../Platform';
 
 export type Usage = {
   id: string,
@@ -77,7 +78,6 @@ export type Capabilities = {|
   },
   classrooms?: {
     hidePlayTab: boolean,
-    hideCommunityTab: boolean,
     hideSocials: boolean,
     hidePremiumProducts: boolean,
     hideUpgradeNotice: boolean,
@@ -88,6 +88,7 @@ export type Capabilities = {|
     maxPlayersPerLobby: number,
     themeCustomizationCapabilities: 'NONE' | 'BASIC' | 'FULL',
   |},
+  versionHistory: {| enabled: boolean |},
 |};
 
 export type UsagePrice = {|
@@ -158,6 +159,7 @@ export type SubscriptionPlanPricingSystem = {|
   isPerUser?: true,
   currency: 'EUR' | 'USD',
   region: string,
+  status: 'active' | 'inactive',
   amountInCents: number,
   periodCount: number,
 |};
@@ -220,7 +222,23 @@ export const canPriceBeFoundInGDevelopPrices = (
 
 export const listSubscriptionPlans = async (options: {|
   includeLegacy: boolean,
+  getAuthorizationHeader?: ?() => Promise<string>,
+  userId?: ?string,
 |}): Promise<SubscriptionPlan[]> => {
+  if (options.userId && options.getAuthorizationHeader) {
+    const authorizationHeader = await options.getAuthorizationHeader();
+
+    const response = await apiClient.get('/subscription-plan', {
+      params: {
+        includeLegacy: options.includeLegacy ? 'true' : 'false',
+        userId: options.userId,
+      },
+      headers: {
+        Authorization: authorizationHeader,
+      },
+    });
+    return response.data;
+  }
   const response = await apiClient.get('/subscription-plan', {
     params: { includeLegacy: options.includeLegacy ? 'true' : 'false' },
   });
@@ -247,13 +265,31 @@ export const getSubscriptionPlanPricingSystem = async (
 export const listSubscriptionPlanPricingSystems = async (options: {|
   subscriptionPlanIds?: ?(string[]),
   includeLegacy: boolean,
+  getAuthorizationHeader?: ?() => Promise<string>,
+  userId?: ?string,
 |}): Promise<SubscriptionPlanPricingSystem[]> => {
-  const params: {| includeLegacy: string, subscriptionPlanIds?: string |} = {
+  const params: {|
+    includeLegacy: string,
+    subscriptionPlanIds?: string,
+    userId?: string,
+  |} = {
     includeLegacy: options.includeLegacy ? 'true' : 'false',
   };
   if (options.subscriptionPlanIds && options.subscriptionPlanIds.length > 0) {
     params.subscriptionPlanIds = options.subscriptionPlanIds.join(',');
   }
+  if (options.userId && options.getAuthorizationHeader) {
+    params.userId = options.userId;
+    const authorizationHeader = await options.getAuthorizationHeader();
+    const response = await apiClient.get('/subscription-plan-pricing-system', {
+      params,
+      headers: {
+        Authorization: authorizationHeader,
+      },
+    });
+    return response.data;
+  }
+
   const response = await apiClient.get('/subscription-plan-pricing-system', {
     params,
   });
@@ -283,17 +319,14 @@ export const getUserEarningsBalance = async (
 ): Promise<UserEarningsBalance> => {
   const authorizationHeader = await getAuthorizationHeader();
 
-  const response = await axios.get(
-    `${GDevelopUsageApi.baseUrl}/user-earnings-balance`,
-    {
-      params: {
-        userId,
-      },
-      headers: {
-        Authorization: authorizationHeader,
-      },
-    }
-  );
+  const response = await apiClient.get(`/user-earnings-balance`, {
+    params: {
+      userId,
+    },
+    headers: {
+      Authorization: authorizationHeader,
+    },
+  });
   const userEarningsBalances = response.data;
   if (!Array.isArray(userEarningsBalances)) {
     throw new Error('Invalid response from the user earnings API');
@@ -313,8 +346,8 @@ export const cashOutUserEarnings = async (
 ): Promise<void> => {
   const authorizationHeader = await getAuthorizationHeader();
 
-  await axios.post(
-    `${GDevelopUsageApi.baseUrl}/user-earnings-balance/action/cash-out`,
+  await apiClient.post(
+    `/user-earnings-balance/action/cash-out`,
     {
       type,
     },
@@ -334,11 +367,15 @@ export const getUserLimits = async (
   userId: string
 ): Promise<Limits> => {
   const authorizationHeader = await getAuthorizationHeader();
+  const params: {| userId: string, platform?: string |} = {
+    userId,
+  };
+  if (isNativeMobileApp()) {
+    params.platform = 'mobile';
+  }
 
   const response = await apiClient.get('/limits', {
-    params: {
-      userId,
-    },
+    params,
     headers: {
       Authorization: authorizationHeader,
     },
@@ -497,17 +534,6 @@ export const getRedirectToCheckoutUrl = ({
   return url.toString();
 };
 
-export const canUseCloudProjectHistory = (
-  subscription: ?Subscription
-): boolean => {
-  if (!subscription) return false;
-  return (
-    ['gdevelop_startup', 'gdevelop_education'].includes(subscription.planId) ||
-    (subscription.planId === 'gdevelop_gold' &&
-      !!subscription.benefitsFromEducationPlan)
-  );
-};
-
 export const redeemCode = async (
   getAuthorizationHeader: () => Promise<string>,
   userId: string,
@@ -560,3 +586,6 @@ export const shouldHideClassroomTab = (limits: ?Limits) =>
   limits.capabilities.classrooms.showClassroomTab
     ? false
     : true;
+
+export const canUseCloudProjectHistory = (limits: ?Limits): boolean =>
+  limits && limits.capabilities.versionHistory.enabled ? true : false;

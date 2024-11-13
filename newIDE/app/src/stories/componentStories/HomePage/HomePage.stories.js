@@ -108,6 +108,9 @@ const WrappedHomePage = ({
               onOpenNewProjectSetupDialog={() =>
                 action('onOpenNewProjectSetupDialog')()
               }
+              onOpenTemplateFromTutorial={() =>
+                action('onOpenTemplateFromTutorial')()
+              }
               canSave={true}
               onSave={() => action('onSave')()}
               selectInAppTutorial={() => action('select in app tutorial')()}
@@ -117,6 +120,13 @@ const WrappedHomePage = ({
               resourceManagementProps={fakeResourceManagementProps}
               onCreateProjectFromExample={action('onCreateProjectFromExample')}
               askToCloseProject={async () => true}
+              closeProject={async () => {}}
+              gamesList={{
+                games: null,
+                fetchGames: async () => {},
+                gamesFetchingError: null,
+                onGameUpdated: () => {},
+              }}
             />
           </TutorialStateProvider>
         </ExampleStoreStateProvider>

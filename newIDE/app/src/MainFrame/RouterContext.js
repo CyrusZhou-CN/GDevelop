@@ -8,7 +8,11 @@ export type Route =
   | 'subscription'
   | 'games-dashboard'
   | 'asset-store' // For compatibility when there was only asset packs.
-  | 'store'; // New way of opening the store.
+  | 'store' // New way of opening the store.
+  | 'build'
+  | 'education'
+  | 'play'
+  | 'get-started';
 type RouteKey =
   | 'initial-dialog'
   | 'game-id'

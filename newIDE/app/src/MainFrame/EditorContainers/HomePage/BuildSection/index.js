@@ -72,7 +72,7 @@ const cellSpacing = 2;
 const getItemsColumns = (windowSize: WindowSizeType, isLandscape: boolean) => {
   switch (windowSize) {
     case 'small':
-      return isLandscape ? 4 : 1;
+      return isLandscape ? 4 : 2;
     case 'medium':
       return 3;
     case 'large':
@@ -118,6 +118,7 @@ type Props = {|
   onOpenExampleStore: () => void,
   onManageGame: (gameId: string) => void,
   canManageGame: (gameId: string) => boolean,
+  closeProject: () => Promise<void>,
 |};
 
 const locateProjectFile = (file: FileMetadataAndStorageProviderName) => {
@@ -141,10 +142,15 @@ const BuildSection = ({
   onOpenExampleStore,
   onManageGame,
   canManageGame,
+  closeProject,
 }: Props) => {
   const { getRecentProjectFiles } = React.useContext(PreferencesContext);
   const { exampleShortHeaders } = React.useContext(ExampleStoreContext);
-  const { showDeleteConfirmation, showAlert } = useAlertDialog();
+  const {
+    showDeleteConfirmation,
+    showConfirmation,
+    showAlert,
+  } = useAlertDialog();
   const { removeRecentProjectFile } = React.useContext(PreferencesContext);
   const [pendingProject, setPendingProject] = React.useState<?string>(null);
   const [
@@ -236,12 +242,25 @@ const BuildSection = ({
     const projectName = fileMetadata.name;
     if (!projectName) return; // Only cloud projects can be deleted, and all cloud projects have names.
 
+    const isCurrentProjectOpened =
+      !!currentFileMetadata &&
+      currentFileMetadata.fileIdentifier === fileMetadata.fileIdentifier;
+    if (isCurrentProjectOpened) {
+      const result = await showConfirmation({
+        title: t`Project is opened`,
+        message: t`You are about to delete the project ${projectName}, which is currently opened. If you proceed, the project will be closed and you will lose any unsaved changes. Do you want to proceed?`,
+        confirmButtonLabel: t`Continue`,
+      });
+      if (!result) return;
+      await closeProject();
+    }
+
     // Extract word translation to ensure it is not wrongly translated in the sentence.
     const translatedConfirmText = i18n._(t`delete`);
 
     const deleteAnswer = await showDeleteConfirmation({
-      title: t`Do you really want to permanently delete your project ${projectName}?`,
-      message: t`You’re about to permanently delete your project ${projectName}. You will no longer be able to access it.`,
+      title: t`Permanently delete the project?`,
+      message: t`Project ${projectName} will be deleted. You will no longer be able to access it.`,
       fieldMessage: t`To confirm, type "${translatedConfirmText}"`,
       confirmText: translatedConfirmText,
       confirmButtonLabel: t`Delete project`,
@@ -274,9 +293,6 @@ const BuildSection = ({
     file: ?FileMetadataAndStorageProviderName
   ): Array<MenuItemTemplate> => {
     if (!file) return [];
-    const isCurrentProjectOpened =
-      !!currentFileMetadata &&
-      currentFileMetadata.fileIdentifier === file.fileMetadata.fileIdentifier;
 
     const actions = [
       { label: i18n._(t`Open`), click: () => onOpenRecentFile(file) },
@@ -285,7 +301,6 @@ const BuildSection = ({
       actions.push({
         label: i18n._(t`Delete`),
         click: () => onDeleteCloudProject(i18n, file),
-        enabled: !isCurrentProjectOpened,
       });
     } else if (file.storageProviderName === 'LocalFile') {
       actions.push(
@@ -406,14 +421,11 @@ const BuildSection = ({
   const shouldDisplayAnnouncements =
     !authenticatedUser.limits ||
     !authenticatedUser.limits.capabilities.classrooms ||
-    !authenticatedUser.limits.capabilities.classrooms.hideCommunityTab;
+    !authenticatedUser.limits.capabilities.classrooms.hidePlayTab;
 
   const skeletonLineHeight = getProjectLineHeight({ isMobile });
   const pageContent = showAllGameTemplates ? (
-    <SectionContainer
-      title={<Trans>All templates</Trans>}
-      backAction={() => setShowAllGameTemplates(false)}
-    >
+    <SectionContainer backAction={() => setShowAllGameTemplates(false)}>
       <SectionRow>
         <GridList
           cols={columnsCount}
@@ -435,10 +447,9 @@ const BuildSection = ({
     </SectionContainer>
   ) : (
     <SectionContainer
-      title={<Trans>My projects</Trans>}
       showUrgentAnnouncements={shouldDisplayAnnouncements}
       renderFooter={
-        limits && hasTooManyCloudProjects
+        !isMobile && limits && hasTooManyCloudProjects
           ? () => (
               <Line>
                 <Column expand>
@@ -503,15 +514,16 @@ const BuildSection = ({
             </LineStackLayout>
           </Column>
           <Column noMargin>
-            <LineStackLayout noMargin>
+            <LineStackLayout noMargin alignItems="center">
               <RaisedButton
                 primary
+                size="medium"
                 fullWidth={!canOpen}
                 label={
                   isMobile ? (
                     <Trans>Create</Trans>
                   ) : (
-                    <Trans>Create a project</Trans>
+                    <Trans>Create from scratch</Trans>
                   )
                 }
                 onClick={onOpenNewProjectSetupDialog}
@@ -606,6 +618,19 @@ const BuildSection = ({
                     }
                   />
                 ))}
+                {isMobile && limits && hasTooManyCloudProjects && (
+                  <MaxProjectCountAlertMessage
+                    margin="dense"
+                    limits={limits}
+                    onUpgrade={() =>
+                      openSubscriptionDialog({
+                        analyticsMetadata: {
+                          reason: 'Cloud Project limit reached',
+                        },
+                      })
+                    }
+                  />
+                )}
               </List>
             </Column>
           </Line>

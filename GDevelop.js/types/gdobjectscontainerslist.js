@@ -9,10 +9,12 @@ declare class gdObjectsContainersList {
   static makeNewObjectsContainersListForContainers(globalObjectsContainer: gdObjectsContainer, objectsContainer: gdObjectsContainer): gdObjectsContainersList;
   getTypeOfObject(objectName: string): string;
   getTypeOfBehavior(name: string, searchInGroups: boolean): string;
-  getBehaviorsOfObject(name: string, searchInGroups: boolean): gdVectorString;
+  getBehaviorsOfObject(objectOrGroupName: string, searchInGroups: boolean): gdVectorString;
+  getBehaviorNamesInObjectOrGroup(objectOrGroupName: string, behaviorType: string, searchInGroups: boolean): gdVectorString;
   getAnimationNamesOfObject(name: string): gdVectorString;
   getTypeOfBehaviorInObjectOrGroup(objectOrGroupName: string, behaviorName: string, searchInGroups: boolean): string;
   hasObjectOrGroupNamed(name: string): boolean;
+  hasObjectNamed(name: string): boolean;
   hasObjectOrGroupWithVariableNamed(objectName: string, variableName: string): ObjectsContainersList_VariableExistence;
   getObjectsContainer(index: number): gdObjectsContainer;
   getObjectsContainersCount(): number;

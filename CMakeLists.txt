@@ -60,7 +60,7 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "Release" AND NOT WIN32 AND CMAKE_COMPILER_IS_
 endif()
 
 #Activate C++11
-set(CMAKE_CXX_STANDARD 11) # Upgrading to C++17 would need to remove usage of bind2nd (should be easy).
+set(CMAKE_CXX_STANDARD 11) # Upgrading to C++17 should be tried.
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Mark some warnings as errors
@@ -69,12 +69,18 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	# uninitialized variables or other hard to debug bugs.
 	add_compile_options(
 		-Wall
+		-Wextra
+		-Wuninitialized
+		-Wconditional-uninitialized
 		-Wno-unknown-warning-option
 		-Wno-reorder-ctor
 		-Wno-reorder
+		-Wno-unused-parameter
 		-Wno-pessimizing-move
-		-Wno-unused-variable
+		-Wno-unused-variable # Not a good style, but not a risk
 		-Wno-unused-private-field
+		-Wno-ignored-qualifiers # Not a risk
+		-Wno-sign-compare # Not a big risk
 
 		# Make as much warnings considered as errors as possible (only one for now).
 		-Werror=return-stack-address

@@ -1,19 +1,42 @@
 // @flow
 
 import * as React from 'react';
+import { createStyles, makeStyles } from '@material-ui/styles';
 import {
-  EmailIcon,
   EmailShareButton,
-  FacebookIcon,
   FacebookShareButton,
-  RedditIcon,
   RedditShareButton,
-  TwitterIcon,
   TwitterShareButton,
-  WhatsappIcon,
   WhatsappShareButton,
 } from 'react-share';
-import { Line } from '../Grid';
+import Facebook from '../CustomSvgIcons/Facebook';
+import Twitter from '../CustomSvgIcons/Twitter';
+import Reddit from '../CustomSvgIcons/Reddit';
+import Mail from '../CustomSvgIcons/Mail';
+import Whatsapp from '../CustomSvgIcons/Whatsapp';
+
+const useStyles = () =>
+  makeStyles(theme =>
+    createStyles({
+      root: {
+        padding: 5,
+        cursor: 'pointer',
+        '& svg': {
+          transition: 'color 0.1s',
+          cursor: 'pointer',
+        },
+        '& path': {
+          cursor: 'unset',
+        },
+        '&:hover svg': {
+          color: theme.palette.secondary.dark,
+        },
+        '&:focus svg': {
+          color: theme.palette.secondary.dark,
+        },
+      },
+    })
+  )();
 
 type Props = {|
   url: string,
@@ -21,52 +44,63 @@ type Props = {|
 
 const styles = {
   icon: {
+    // Needed to override style set by react-share directly on the button element.
     padding: 5,
+  },
+  container: {
+    display: 'flex',
+    flexWrap: 'wrap',
   },
 };
 
 const SocialShareButtons = ({ url }: Props) => {
+  const classNames = useStyles();
   return (
-    <Line>
+    <div style={styles.container}>
       <FacebookShareButton
         url={url}
+        className={classNames.root}
         style={styles.icon}
         quote={`Try the game I just created with GDevelop.io`}
         hashtag="#gdevelop"
       >
-        <FacebookIcon size={32} round />
+        <Facebook />
       </FacebookShareButton>
       <RedditShareButton
         url={url}
+        className={classNames.root}
         title={`Try the game I just created with r/gdevelop`}
         style={styles.icon}
       >
-        <RedditIcon size={32} round />
+        <Reddit />
       </RedditShareButton>
       <TwitterShareButton
         title={`Try the game I just created with GDevelop.io`}
         hashtags={['gdevelop']}
         url={url}
+        className={classNames.root}
         style={styles.icon}
       >
-        <TwitterIcon size={32} round />
+        <Twitter />
       </TwitterShareButton>
       <WhatsappShareButton
         title={`Try the game I just created with GDevelop.io`}
         url={url}
+        className={classNames.root}
         style={styles.icon}
       >
-        <WhatsappIcon size={32} round />
+        <Whatsapp />
       </WhatsappShareButton>
       <EmailShareButton
         subject="My GDevelop game"
         body="Try the game I just created with GDevelop.io"
         url={url}
+        className={classNames.root}
         style={styles.icon}
       >
-        <EmailIcon size={32} round />
+        <Mail />
       </EmailShareButton>
-    </Line>
+    </div>
   );
 };
 

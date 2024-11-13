@@ -50,6 +50,11 @@ class GD_CORE_API ObjectsContainersList {
    */
   bool HasObjectOrGroupNamed(const gd::String& name) const;
 
+  /**
+   * \brief Check if the specified object exists ignoring groups.
+   */
+  bool HasObjectNamed(const gd::String& name) const;
+
   enum VariableExistence {
     DoesNotExist,
     Exists,
@@ -129,6 +134,18 @@ class GD_CORE_API ObjectsContainersList {
       const gd::String& objectName, bool searchInGroups = true) const;
 
   /**
+   * \brief Get behaviors of an object/group of a given behavior type.
+   * \note The behaviors of a group are the behaviors which are found in common
+   * when looking all the objects of the group.
+   *
+   * @return Vector containing names of behaviors
+   */
+  std::vector<gd::String>
+  GetBehaviorNamesInObjectOrGroup(const gd::String &objectOrGroupName,
+                       const gd::String &behaviorType,
+                       bool searchInGroups = true) const;
+
+  /**
    * \brief Get the animation names of an object/group.
    * \note The animation names of a group are the animation names common to
    * every object of the group.
@@ -175,6 +192,13 @@ class GD_CORE_API ObjectsContainersList {
 
   /**
    * \brief Return a the objects container at position \a index.
+   *
+   * \warning The returned `ObjectsContainer` may contain cloned objects (in the case of
+   * `ProjectScopedContainers::MakeNewProjectScopedContainersForEventsBasedObject`)
+   * or "fake" objects used by events like parameters. They must not be used to
+   * edit the objects.
+   * Search for "ProjectScopedContainers wrongly containing temporary objects containers or objects"
+   * in the codebase.
    */
   const gd::ObjectsContainer &GetObjectsContainer(std::size_t index) const;
 
@@ -188,8 +212,6 @@ class GD_CORE_API ObjectsContainersList {
   ObjectsContainersList(){};
 
  private:
-  bool HasObjectNamed(const gd::String& name) const;
-
   const gd::Object* GetObject(const gd::String& name) const;
 
   bool HasObjectWithVariableNamed(const gd::String& objectName,

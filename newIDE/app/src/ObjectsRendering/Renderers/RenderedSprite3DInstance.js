@@ -7,6 +7,20 @@ import * as THREE from 'three';
 
 const gd: libGDevelop = global.gd;
 
+let transparentMaterial = null;
+const getTransparentMaterial = () => {
+  if (!transparentMaterial)
+    transparentMaterial = new THREE.MeshBasicMaterial({
+      transparent: true,
+      opacity: 0,
+      // Set the alpha test to to ensure the faces behind are rendered
+      // (no "back face culling" that would still be done if alphaTest is not set).
+      alphaTest: 1,
+    });
+
+  return transparentMaterial;
+};
+
 /**
  * Renderer for gd.SpriteObject
  */
@@ -50,15 +64,8 @@ export default class RenderedSprite3DInstance extends Rendered3DInstance {
     this._pixiContainer.addChild(this._pixiObject);
 
     this.updateSprite();
-    const material = this._pixiResourcesLoader.getThreeMaterial(
-      project,
-      this._sprite ? this._sprite.getImageName() : '',
-      {
-        useTransparentTexture: true,
-      }
-    );
     const geometry = new THREE.PlaneGeometry(1, -1);
-    const threeObject = new THREE.Mesh(geometry, material);
+    const threeObject = new THREE.Mesh(geometry, getTransparentMaterial());
     threeObject.rotation.order = 'ZYX';
     this._threeGroup.add(threeObject);
     this._threeObject = threeObject;
@@ -133,7 +140,11 @@ export default class RenderedSprite3DInstance extends Rendered3DInstance {
     threeObject.position.y += this._instance.getY();
     threeObject.position.z += this._instance.getZ();
 
-    threeObject.scale.set(width, height, 1);
+    const scaleX = width * (this._instance.isFlippedX() ? -1 : 1);
+    const scaleY = height * (this._instance.isFlippedY() ? -1 : 1);
+    const scaleZ = 1 * (this._instance.isFlippedZ() ? -1 : 1);
+
+    threeObject.scale.set(scaleX, scaleY, scaleZ);
   }
 
   updateSprite(): boolean {
@@ -173,44 +184,51 @@ export default class RenderedSprite3DInstance extends Rendered3DInstance {
     return true;
   }
 
-  updateTextureAndSprite(): void {
+  async updateTextureAndSprite(): Promise<void> {
     this.updateSprite();
     const sprite = this._sprite;
-    if (!sprite) return;
+    // An empty image name will display a place holder.
+    const imageName = sprite ? sprite.getImageName() : '';
 
+    // Note that `getPIXITexture` could be refactored to return a promise
+    // to make it nicer to use (no need to use "once('update')" pattern).
     const texture = this._pixiResourcesLoader.getPIXITexture(
       this._project,
-      sprite.getImageName()
+      imageName
     );
     this._pixiObject.texture = texture;
 
     if (!texture.baseTexture.valid) {
       // Post pone texture update if texture is not loaded.
-      texture.once('update', () => this.updateTextureAndSprite());
+      texture.once('update', () => {
+        if (this._wasDestroyed) return;
+        this.updateTextureAndSprite();
+      });
       return;
     }
     this._textureWidth = texture.width;
     this._textureHeight = texture.height;
 
-    const material = this._pixiResourcesLoader.getThreeMaterial(
+    const material = await this._pixiResourcesLoader.getThreeMaterial(
       this._project,
-      sprite.getImageName(),
+      imageName,
       {
         useTransparentTexture: true,
       }
     );
+    if (this._wasDestroyed) return;
     if (this._threeObject) {
       this._threeObject.material = material;
     }
 
-    const origin = sprite.getOrigin();
-    this._originX = origin.getX();
-    this._originY = origin.getY();
+    this._originX = sprite ? sprite.getOrigin().getX() : 0;
+    this._originY = sprite ? sprite.getOrigin().getY() : 0;
 
-    if (sprite.isDefaultCenterPoint()) {
+    const isDefaultCenterPoint = sprite ? sprite.isDefaultCenterPoint() : true;
+    if (isDefaultCenterPoint) {
       this._centerX = this._textureWidth / 2;
       this._centerY = this._textureHeight / 2;
-    } else {
+    } else if (sprite) {
       const center = sprite.getCenter();
       this._centerX = center.getX();
       this._centerY = center.getY();

@@ -35,19 +35,23 @@ namespace gdjs {
     invScaleX: float;
     /** @deprecated Use `worldInvScale` instead */
     invScaleY: float;
+
     timeStep: float;
     frameTime: float = 0;
     stepped: boolean = false;
     timeScale: float = 1;
+
     world: Box2D.b2World;
     staticBody: Box2D.b2Body;
-
     /** Contact listener to keep track of current collisions */
     contactListener: Box2D.JSContactListener;
     _nextJointId: number = 1;
-
     /** Start with 1 so the user is safe from default variables value (0) */
     joints: { [key: string]: Box2D.b2Joint } = {};
+    /** Avoid creating new vectors all the time */
+    _tempb2Vec2 = new Box2D.b2Vec2(0, 0);
+    /** Sometimes two vectors are needed on the same function call */
+    _tempb2Vec2Sec = new Box2D.b2Vec2(0, 0);
 
     /**
      * List of physics behavior in the runtimeScene. It should be updated
@@ -68,9 +72,7 @@ namespace gdjs {
         sharedData.worldScale || Math.sqrt(this.scaleX * this.scaleY);
       this.worldInvScale = 1 / this.worldScale;
       this.timeStep = 1 / 60;
-      this.world = new Box2D.b2World(
-        new Box2D.b2Vec2(this.gravityX, this.gravityY)
-      );
+      this.world = new Box2D.b2World(this.b2Vec2(this.gravityX, this.gravityY));
       this.world.SetAutoClearForces(false);
       this.staticBody = this.world.CreateBody(new Box2D.b2BodyDef());
       this.contactListener = new Box2D.JSContactListener();
@@ -133,6 +135,13 @@ namespace gdjs {
       this.contactListener.PreSolve = function () {};
       this.contactListener.PostSolve = function () {};
       this.world.SetContactListener(this.contactListener);
+    }
+
+    b2Vec2(x: float, y: float): Box2D.b2Vec2 {
+      const tempb2Vec2 = this._tempb2Vec2;
+      tempb2Vec2.set_x(x);
+      tempb2Vec2.set_y(y);
+      return tempb2Vec2;
     }
 
     // (string)jointId -> (b2Joint)b2Joint
@@ -300,14 +309,11 @@ namespace gdjs {
     }
   }
   gdjs.registerRuntimeSceneUnloadedCallback(function (runtimeScene) {
-    if (
-      // @ts-ignore
-      runtimeScene.physics2SharedData &&
-      // @ts-ignore
-      runtimeScene.physics2SharedData.world
-    ) {
-      // @ts-ignore
-      Box2D.destroy(runtimeScene.physics2SharedData.world);
+    const physics2SharedData = runtimeScene.physics2SharedData;
+    if (physics2SharedData && physics2SharedData.world) {
+      Box2D.destroy(physics2SharedData.world);
+      Box2D.destroy(physics2SharedData._tempb2Vec2);
+      Box2D.destroy(physics2SharedData._tempb2Vec2Sec);
     }
   });
 
@@ -358,8 +364,6 @@ namespace gdjs {
     currentContacts: Array<Physics2RuntimeBehavior>;
     destroyedDuringFrameLogic: boolean;
     _body: Box2D.b2Body | null = null;
-    /** Avoid creating new vectors all the time */
-    _tempb2Vec2: Box2D.b2Vec2;
 
     /**
      * sharedData is a reference to the shared data of the scene, that registers
@@ -367,8 +371,6 @@ namespace gdjs {
      * before stepping the world.
      */
     _sharedData: Physics2SharedData;
-    /** Sometimes two vectors are needed on the same function call */
-    _tempb2Vec2Sec: Box2D.b2Vec2;
 
     _objectOldX: number = 0;
     _objectOldY: number = 0;
@@ -400,8 +402,8 @@ namespace gdjs {
       this.density = behaviorData.density;
       this.friction = behaviorData.friction;
       this.restitution = behaviorData.restitution;
-      this.linearDamping = behaviorData.linearDamping;
-      this.angularDamping = behaviorData.angularDamping;
+      this.linearDamping = Math.max(0, behaviorData.linearDamping);
+      this.angularDamping = Math.max(0, behaviorData.angularDamping);
       this.gravityScale = behaviorData.gravityScale;
       this.layers = behaviorData.layers;
       this.masks = behaviorData.masks;
@@ -414,22 +416,22 @@ namespace gdjs {
         instanceContainer.getScene(),
         behaviorData.name
       );
-      this._tempb2Vec2 = new Box2D.b2Vec2();
-      this._tempb2Vec2Sec = new Box2D.b2Vec2();
       this._sharedData.addToBehaviorsList(this);
     }
 
     // Stores a Box2D pointer of created vertices
     b2Vec2(x: float, y: float): Box2D.b2Vec2 {
-      this._tempb2Vec2.set_x(x);
-      this._tempb2Vec2.set_y(y);
-      return this._tempb2Vec2;
+      const tempb2Vec2 = this._sharedData._tempb2Vec2;
+      tempb2Vec2.set_x(x);
+      tempb2Vec2.set_y(y);
+      return tempb2Vec2;
     }
 
     b2Vec2Sec(x: float, y: float): Box2D.b2Vec2 {
-      this._tempb2Vec2Sec.set_x(x);
-      this._tempb2Vec2Sec.set_y(y);
-      return this._tempb2Vec2Sec;
+      const tempb2Vec2Sec = this._sharedData._tempb2Vec2Sec;
+      tempb2Vec2Sec.set_x(x);
+      tempb2Vec2Sec.set_y(y);
+      return tempb2Vec2Sec;
     }
 
     updateFromBehaviorData(oldBehaviorData, newBehaviorData): boolean {
@@ -897,16 +899,21 @@ namespace gdjs {
       // Generate the body definition
       const bodyDef = new Box2D.b2BodyDef();
 
+      const x =
+        (this.owner.getDrawableX() + this.owner.getWidth() / 2) *
+        this._sharedData.worldInvScale;
+      const y =
+        (this.owner.getDrawableY() + this.owner.getHeight() / 2) *
+        this._sharedData.worldInvScale;
+
       // Set the initial body transformation from the GD object
       bodyDef.set_position(
-        this.b2Vec2(
-          (this.owner.getDrawableX() + this.owner.getWidth() / 2) *
-            this._sharedData.worldInvScale,
-          (this.owner.getDrawableY() + this.owner.getHeight() / 2) *
-            this._sharedData.worldInvScale
-        )
+        this.b2Vec2(Number.isFinite(x) ? x : 0, Number.isFinite(y) ? y : 0)
       );
-      bodyDef.set_angle(gdjs.toRad(this.owner.getAngle()));
+      const angle = gdjs.toRad(this.owner.getAngle());
+      if (Number.isFinite(angle)) {
+        bodyDef.set_angle(angle);
+      }
 
       // Set body settings
       bodyDef.set_type(
@@ -1014,13 +1021,21 @@ namespace gdjs {
         this._objectOldY !== this.owner.getY() ||
         this._objectOldAngle !== this.owner.getAngle()
       ) {
-        const pos = this.b2Vec2(
+        const x =
           (this.owner.getDrawableX() + this.owner.getWidth() / 2) *
-            this._sharedData.worldInvScale,
+          this._sharedData.worldInvScale;
+        const y =
           (this.owner.getDrawableY() + this.owner.getHeight() / 2) *
-            this._sharedData.worldInvScale
+          this._sharedData.worldInvScale;
+        const pos = this.b2Vec2(
+          Number.isFinite(x) ? x : body.GetPosition().x,
+          Number.isFinite(y) ? y : body.GetPosition().y
         );
-        body.SetTransform(pos, gdjs.toRad(this.owner.getAngle()));
+        const angle = gdjs.toRad(this.owner.getAngle());
+        body.SetTransform(
+          pos,
+          Number.isFinite(angle) ? angle : body.GetAngle()
+        );
         body.SetAwake(true);
       }
     }
@@ -1312,6 +1327,11 @@ namespace gdjs {
     }
 
     setLinearDamping(linearDamping: float): void {
+      // Non-negative values only
+      if (linearDamping < 0) {
+        linearDamping = 0;
+      }
+
       // Check if there is no modification
       if (this.linearDamping === linearDamping) {
         return;
@@ -1335,6 +1355,11 @@ namespace gdjs {
     }
 
     setAngularDamping(angularDamping: float): void {
+      // Non-negative values only
+      if (angularDamping < 0) {
+        angularDamping = 0;
+      }
+
       // Check if there is no modification
       if (this.angularDamping === angularDamping) {
         return;

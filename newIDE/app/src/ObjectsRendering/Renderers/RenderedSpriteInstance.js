@@ -118,6 +118,17 @@ export default class RenderedSpriteInstance extends RenderedInstance {
     this._pixiObject.position.y =
       this._instance.getY() +
       (this._centerY - this._originY) * Math.abs(this._pixiObject.scale.y);
+
+    // Do not hide completely an object so it can still be manipulated
+    const alphaForDisplay = Math.max(this._instance.getOpacity() / 255, 0.5);
+    this._pixiObject.alpha = alphaForDisplay;
+
+    this._pixiObject.scale.x =
+      Math.abs(this._pixiObject.scale.x) *
+      (this._instance.isFlippedX() ? -1 : 1);
+    this._pixiObject.scale.y =
+      Math.abs(this._pixiObject.scale.y) *
+      (this._instance.isFlippedY() ? -1 : 1);
   }
 
   updateSprite(): boolean {
@@ -176,7 +187,10 @@ export default class RenderedSpriteInstance extends RenderedInstance {
 
     if (!texture.baseTexture.valid) {
       // Post pone texture update if texture is not loaded.
-      texture.once('update', () => this.updatePIXITextureAndSprite());
+      texture.once('update', () => {
+        if (this._wasDestroyed) return;
+        this.updatePIXITextureAndSprite();
+      });
       return;
     }
 
@@ -208,13 +222,13 @@ export default class RenderedSpriteInstance extends RenderedInstance {
   getOriginX(): number {
     if (!this._sprite || !this._pixiObject) return 0;
 
-    return this._sprite.getOrigin().getX() * this._pixiObject.scale.x;
+    return this._sprite.getOrigin().getX() * Math.abs(this._pixiObject.scale.x);
   }
 
   getOriginY(): number {
     if (!this._sprite || !this._pixiObject) return 0;
 
-    return this._sprite.getOrigin().getY() * this._pixiObject.scale.y;
+    return this._sprite.getOrigin().getY() * Math.abs(this._pixiObject.scale.y);
   }
 
   getDefaultWidth(): number {
@@ -235,11 +249,15 @@ export default class RenderedSpriteInstance extends RenderedInstance {
 
   getCenterX(): number {
     if (!this._sprite || !this._pixiObject) return 0;
-    return this._centerX * this._pixiObject.scale.x; // This is equivalent to `this._animationFrame.center.x * Math.abs(this._scaleX)` in the runtime.
+    return (
+      this._centerX * Math.abs(this._pixiObject.scale.x) // This is equivalent to `this._animationFrame.center.x * Math.abs(this._scaleX)` in the runtime.
+    );
   }
 
   getCenterY(): number {
     if (!this._sprite || !this._pixiObject) return 0;
-    return this._centerY * this._pixiObject.scale.y; // This is equivalent to `this._animationFrame.center.y * Math.abs(this._scaleY)` in the runtime.
+    return (
+      this._centerY * Math.abs(this._pixiObject.scale.y) // This is equivalent to `this._animationFrame.center.y * Math.abs(this._scaleY)` in the runtime.
+    );
   }
 }

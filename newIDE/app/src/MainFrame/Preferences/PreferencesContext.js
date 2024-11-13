@@ -43,8 +43,7 @@ export type AlertMessageIdentifier =
   | 'command-palette-shortcut'
   | 'asset-installed-explanation'
   | 'extension-installed-explanation'
-  | 'project-should-have-unique-package-name'
-  | 'new-generate-project-from-prompt';
+  | 'project-should-have-unique-package-name';
 
 export type EditorMosaicName =
   | 'scene-editor'
@@ -169,10 +168,6 @@ export const allAlertMessages: Array<{
       <Trans>Project package names should not begin with com.example</Trans>
     ),
   },
-  {
-    key: 'new-generate-project-from-prompt',
-    label: <Trans>New project generation from prompt warning</Trans>,
-  },
 ];
 
 /**
@@ -212,11 +207,11 @@ export type PreferencesValues = {|
   eventsSheetCancelInlineParameter: 'cancel' | 'apply',
   showCommunityExtensions: boolean,
   showGetStartedSectionByDefault: boolean,
-  showEventBasedObjectsEditor: boolean,
   showInAppTutorialDeveloperMode: boolean,
   showDeprecatedInstructionWarning: boolean,
   openDiagnosticReportAutomatically: boolean,
   use3DEditor: boolean,
+  showBasicProfilingCounters: boolean,
   inAppTutorialsProgress: InAppTutorialProgressDatabase,
   newProjectsDefaultFolder: string,
   newProjectsDefaultStorageProviderName: string,
@@ -229,6 +224,7 @@ export type PreferencesValues = {|
   editorStateByProject: { [string]: { editorTabs: EditorTabsPersistedState } },
   fetchPlayerTokenForPreviewAutomatically: boolean,
   previewCrashReportUploadLevel: string,
+  gamesListOrderBy: 'createdAt' | 'totalSessions' | 'weeklySessions',
 |};
 
 /**
@@ -293,8 +289,6 @@ export type Preferences = {|
   setEventsSheetCancelInlineParameter: (value: string) => void,
   setShowCommunityExtensions: (enabled: boolean) => void,
   setShowGetStartedSectionByDefault: (enabled: boolean) => void,
-  setShowEventBasedObjectsEditor: (enabled: boolean) => void,
-  getShowEventBasedObjectsEditor: () => boolean,
   setShowInAppTutorialDeveloperMode: (enabled: boolean) => void,
   setOpenDiagnosticReportAutomatically: (enabled: boolean) => void,
   getOpenDiagnosticReportAutomatically: () => boolean,
@@ -302,6 +296,7 @@ export type Preferences = {|
   getShowDeprecatedInstructionWarning: () => boolean,
   setUse3DEditor: (enabled: boolean) => void,
   getUse3DEditor: () => boolean,
+  setShowBasicProfilingCounters: (enabled: boolean) => void,
   setNewProjectsDefaultStorageProviderName: (name: string) => void,
   saveTutorialProgress: ({|
     tutorialId: string,
@@ -328,6 +323,9 @@ export type Preferences = {|
   ) => void,
   setFetchPlayerTokenForPreviewAutomatically: (enabled: boolean) => void,
   setPreviewCrashReportUploadLevel: (level: string) => void,
+  setGamesListOrderBy: (
+    orderBy: 'createdAt' | 'totalSessions' | 'weeklySessions'
+  ) => void,
 |};
 
 export const initialPreferences = {
@@ -368,11 +366,11 @@ export const initialPreferences = {
     eventsSheetCancelInlineParameter: 'apply',
     showCommunityExtensions: false,
     showGetStartedSectionByDefault: true,
-    showEventBasedObjectsEditor: false,
     showInAppTutorialDeveloperMode: false,
     openDiagnosticReportAutomatically: true,
     showDeprecatedInstructionWarning: false,
     use3DEditor: isWebGLSupported(),
+    showBasicProfilingCounters: false,
     inAppTutorialsProgress: {},
     newProjectsDefaultFolder: app ? findDefaultFolder(app) : '',
     newProjectsDefaultStorageProviderName: 'Cloud',
@@ -383,6 +381,7 @@ export const initialPreferences = {
     editorStateByProject: {},
     fetchPlayerTokenForPreviewAutomatically: true,
     previewCrashReportUploadLevel: 'exclude-javascript-code-events',
+    gamesListOrderBy: 'createdAt',
   },
   setLanguage: () => {},
   setThemeName: () => {},
@@ -433,8 +432,6 @@ export const initialPreferences = {
   setEventsSheetCancelInlineParameter: () => {},
   setShowCommunityExtensions: () => {},
   setShowGetStartedSectionByDefault: (enabled: boolean) => {},
-  setShowEventBasedObjectsEditor: (enabled: boolean) => {},
-  getShowEventBasedObjectsEditor: () => false,
   setShowInAppTutorialDeveloperMode: (enabled: boolean) => {},
   setShowDeprecatedInstructionWarning: (enabled: boolean) => {},
   getOpenDiagnosticReportAutomatically: () => true,
@@ -442,6 +439,7 @@ export const initialPreferences = {
   getShowDeprecatedInstructionWarning: () => false,
   setUse3DEditor: (enabled: boolean) => {},
   getUse3DEditor: () => false,
+  setShowBasicProfilingCounters: (enabled: boolean) => {},
   saveTutorialProgress: () => {},
   getTutorialProgress: () => {},
   setNewProjectsDefaultFolder: () => {},
@@ -454,6 +452,9 @@ export const initialPreferences = {
   setEditorStateForProject: (projectId, editorState) => {},
   setFetchPlayerTokenForPreviewAutomatically: (enabled: boolean) => {},
   setPreviewCrashReportUploadLevel: (level: string) => {},
+  setGamesListOrderBy: (
+    orderBy: 'createdAt' | 'totalSessions' | 'weeklySessions'
+  ) => {},
 };
 
 const PreferencesContext = React.createContext<Preferences>(initialPreferences);

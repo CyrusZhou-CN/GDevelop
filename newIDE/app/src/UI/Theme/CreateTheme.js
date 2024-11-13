@@ -356,7 +356,6 @@ export const smallScreenMuiOverrides = {
 };
 
 const rtlDirection = { direction: 'rtl' };
-const rtlOrder = { order: 100 };
 
 export const rtlMuiOverrides = {
   MuiTypography: {
@@ -370,9 +369,6 @@ export const rtlMuiOverrides = {
   },
   MuiButton: {
     label: rtlDirection,
-  },
-  MuiSvgIcon: {
-    root: rtlOrder,
   },
   MuiFormControlLabel: {
     root: rtlDirection,
@@ -612,6 +608,36 @@ export function createGdevelopTheme({
           medium: styles['ThemeSurfaceAlternateCanvasBackgroundColor'],
           light: styles['ThemeSurfaceAlternateCanvasLightBackgroundColor'],
         },
+      },
+      soundPlayer: {
+        playButton: {
+          primary: {
+            borderColor: styles['SoundPlayerPlayButtonPrimaryBorderColor'],
+            backgroundColor:
+              styles['SoundPlayerPlayButtonPrimaryBackgroundColor'],
+            hover: {
+              backgroundColor:
+                styles['SoundPlayerPlayButtonPrimaryHoverBackgroundColor'],
+              borderColor:
+                styles['SoundPlayerPlayButtonPrimaryHoverBorderColor'],
+            },
+            color: styles['SoundPlayerPlayButtonPrimaryColor'],
+          },
+          secondary: {
+            borderColor: styles['SoundPlayerPlayButtonSecondaryBorderColor'],
+            backgroundColor:
+              styles['SoundPlayerPlayButtonSecondaryBackgroundColor'],
+            hover: {
+              backgroundColor:
+                styles['SoundPlayerPlayButtonSecondaryHoverBackgroundColor'],
+              borderColor:
+                styles['SoundPlayerPlayButtonSecondaryHoverBorderColor'],
+            },
+            color: styles['SoundPlayerPlayButtonSecondaryColor'],
+          },
+        },
+        waveColor: styles['SoundPlayerWaveColor'],
+        progressColor: styles['SoundPlayerProgressColor'],
       },
       notification: { badgeColor: styles['ThemeNotificationBadgeColor'] },
       emptyMessage: {

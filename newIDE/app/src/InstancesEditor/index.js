@@ -23,6 +23,7 @@ import * as THREE from 'three';
 import FpsLimiter from './FpsLimiter';
 import { startPIXITicker, stopPIXITicker } from '../Utils/PIXITicker';
 import StatusBar from './StatusBar';
+import ProfilerBar from './ProfilerBar';
 import CanvasCursor from './CanvasCursor';
 import InstancesAdder from './InstancesAdder';
 import { makeDropTarget } from '../UI/DragAndDrop/DropTarget';
@@ -43,8 +44,6 @@ import {
 } from '../Utils/ZoomUtils';
 import Background from './Background';
 import TileMapPaintingPreview, {
-  getTileSet,
-  getTilesGridCoordinatesFromPointerSceneCoordinates,
   updateSceneToTileMapTransformation,
 } from './TileMapPaintingPreview';
 import {
@@ -57,6 +56,11 @@ import { AffineTransformation } from '../Utils/AffineTransformation';
 import { ErrorFallbackComponent } from '../UI/ErrorBoundary';
 import { Trans } from '@lingui/macro';
 import { generateUUID } from 'three/src/math/MathUtils';
+import {
+  getTilesGridCoordinatesFromPointerSceneCoordinates,
+  getTileSet,
+  isTileSetBadlyConfigured,
+} from '../Utils/TileMap';
 
 const gd: libGDevelop = global.gd;
 
@@ -125,6 +129,7 @@ type Props = {|
   onMouseLeave?: MouseEvent => void,
   screenType: ScreenType,
   showObjectInstancesIn3D: boolean,
+  showBasicProfilingCounters: boolean,
 |};
 
 type State = {|
@@ -158,6 +163,7 @@ export default class InstancesEditor extends Component<Props, State> {
   windowBorder: WindowBorder;
   windowMask: WindowMask;
   statusBar: StatusBar;
+  profilerBar: ProfilerBar;
   uiPixiContainer: PIXI.Container;
   backgroundPixiContainer: PIXI.Container;
   backgroundArea: PIXI.Container;
@@ -477,6 +483,9 @@ export default class InstancesEditor extends Component<Props, State> {
     if (this.background) {
       this.backgroundPixiContainer.removeChild(this.background.getPixiObject());
     }
+    if (this.profilerBar) {
+      this.uiPixiContainer.removeChild(this.profilerBar.getPixiObject());
+    }
 
     this.instancesRenderer = new InstancesRenderer({
       project: props.project,
@@ -504,6 +513,7 @@ export default class InstancesEditor extends Component<Props, State> {
     });
     this.selectedInstances = new SelectedInstances({
       instancesSelection: this.props.instancesSelection,
+      shouldDisplayHandles: this.shouldDisplayClickableHandles,
       onResize: this._onResize,
       onResizeEnd: this._onResizeEnd,
       onRotate: this._onRotate,
@@ -519,7 +529,8 @@ export default class InstancesEditor extends Component<Props, State> {
     this.tileMapPaintingPreview = new TileMapPaintingPreview({
       instancesSelection: this.props.instancesSelection,
       project: props.project,
-      layout: props.layout,
+      globalObjectsContainer: props.globalObjectsContainer,
+      objectsContainer: props.objectsContainer,
       getTileMapTileSelection: this.getTileMapTileSelection,
       getRendererOfInstance: this.getRendererOfInstance,
       getCoordinatesToRender: this.getCoordinatesToRenderTileMapPreview,
@@ -566,6 +577,7 @@ export default class InstancesEditor extends Component<Props, State> {
       height: this.props.height,
       getLastCursorSceneCoordinates: this.getLastCursorSceneCoordinates,
     });
+    this.profilerBar = new ProfilerBar();
 
     this.uiPixiContainer.addChild(this.selectionRectangle.getPixiObject());
     this.uiPixiContainer.addChild(this.instancesRenderer.getPixiContainer());
@@ -574,6 +586,7 @@ export default class InstancesEditor extends Component<Props, State> {
     this.uiPixiContainer.addChild(this.selectedInstances.getPixiContainer());
     this.uiPixiContainer.addChild(this.highlightedInstance.getPixiObject());
     this.uiPixiContainer.addChild(this.statusBar.getPixiObject());
+    this.uiPixiContainer.addChild(this.profilerBar.getPixiObject());
     this.uiPixiContainer.addChild(this.tileMapPaintingPreview.getPixiObject());
     this.uiPixiContainer.addChild(this.clickInterceptor.getPixiObject());
 
@@ -732,6 +745,8 @@ export default class InstancesEditor extends Component<Props, State> {
     return { color: isLocked ? 0xbc5753 : 0x6868e8, alpha: 1 };
   };
 
+  shouldDisplayClickableHandles = () => !this.props.tileMapTileSelection;
+
   getZoomFactor = () => {
     return this.props.instancesEditorSettings.zoomFactor;
   };
@@ -756,6 +771,7 @@ export default class InstancesEditor extends Component<Props, State> {
     serializedInstances: Array<Object>,
     preventSnapToGrid?: boolean,
     addInstancesInTheForeground?: boolean,
+    doesObjectExistInContext: string => boolean,
   |}): Array<gdInitialInstance> => {
     return this._instancesAdder.addSerializedInstances(options);
   };
@@ -781,8 +797,8 @@ export default class InstancesEditor extends Component<Props, State> {
     const {
       tileMapTileSelection,
       instancesSelection,
-      project,
-      layout,
+      globalObjectsContainer,
+      objectsContainer,
     } = this.props;
     if (!tileMapTileSelection) {
       return;
@@ -791,8 +807,8 @@ export default class InstancesEditor extends Component<Props, State> {
     if (selectedInstances.length !== 1) return;
     const selectedInstance = selectedInstances[0];
     const object = getObjectByName(
-      project.getObjects(),
-      layout ? layout.getObjects() : null,
+      globalObjectsContainer,
+      objectsContainer,
       selectedInstance.getObjectName()
     );
     if (!object) return;
@@ -823,8 +839,19 @@ export default class InstancesEditor extends Component<Props, State> {
       if (!scales) return;
       const { scaleX, scaleY } = scales;
       const tileSet = getTileSet(object);
+      if (!tileSet.atlasImage) {
+        console.warn('Trying to paint on a tilemap without an atlas image.');
+        return;
+      }
+      if (isTileSetBadlyConfigured(tileSet)) {
+        console.warn(
+          'Trying to paint on a tilemap with a badly configured tileset.'
+        );
+        return;
+      }
       const tileMapGridCoordinates = getTilesGridCoordinatesFromPointerSceneCoordinates(
         {
+          tileMapTileSelection,
           coordinates: sceneCoordinates,
           tileSize: tileSet.tileSize,
           sceneToTileMapTransformation,
@@ -833,96 +860,126 @@ export default class InstancesEditor extends Component<Props, State> {
 
       let shouldTrimAfterOperations = false;
 
-      if (tileMapTileSelection.kind === 'single') {
+      if (tileMapTileSelection.kind === 'rectangle') {
         shouldTrimAfterOperations = editableTileMap.isEmpty();
         // TODO: Optimize list execution to make sure the most important size changing operations are done first.
         let cumulatedUnshiftedRows = 0,
           cumulatedUnshiftedColumns = 0;
-        const tileId = getTileIdFromGridCoordinates({
-          columnCount: tileSet.columnCount,
-          ...tileMapTileSelection.coordinates,
-        });
-
-        const tileDefinition = editableTileMap.getTileDefinition(tileId);
-        if (!tileDefinition) return;
 
         const layer = editableTileMap.getTileLayer(0);
         if (!layer) return;
 
-        tileMapGridCoordinates.forEach(({ x: gridX, y: gridY }) => {
-          // If rows or columns have been unshifted in the previous tile setting operations,
-          // we have to take them into account for the current coordinates.
-          const x = gridX + cumulatedUnshiftedColumns;
-          const y = gridY + cumulatedUnshiftedRows;
-          const rowsToAppend = Math.max(
-            0,
-            y - (editableTileMap.getDimensionY() - 1)
-          );
-          const columnsToAppend = Math.max(
-            0,
-            x - (editableTileMap.getDimensionX() - 1)
-          );
-          const rowsToUnshift = Math.abs(Math.min(0, y));
-          const columnsToUnshift = Math.abs(Math.min(0, x));
-          if (
-            rowsToAppend > 0 ||
-            columnsToAppend > 0 ||
-            rowsToUnshift > 0 ||
-            columnsToUnshift > 0
-          ) {
-            editableTileMap.increaseDimensions(
-              columnsToAppend,
-              columnsToUnshift,
-              rowsToAppend,
-              rowsToUnshift
-            );
-          }
-          const newX = x + columnsToUnshift;
-          const newY = y + rowsToUnshift;
+        tileMapGridCoordinates.forEach(
+          ({ bottomRightCorner, topLeftCorner, tileCoordinates }) => {
+            if (!tileCoordinates) return;
+            const tileId = getTileIdFromGridCoordinates({
+              columnCount: tileSet.columnCount,
+              ...tileCoordinates,
+            });
 
-          editableTileMap.setTile(newX, newY, 0, tileId);
-          editableTileMap.flipTileOnX(
-            newX,
-            newY,
-            0,
-            tileMapTileSelection.flipHorizontally
-          );
-          editableTileMap.flipTileOnY(
-            newX,
-            newY,
-            0,
-            tileMapTileSelection.flipVertically
-          );
+            const tileDefinition = editableTileMap.getTileDefinition(tileId);
+            if (!tileDefinition) return;
 
-          cumulatedUnshiftedRows += rowsToUnshift;
-          cumulatedUnshiftedColumns += columnsToUnshift;
-          // The instance angle is not considered when moving the instance after
-          // rows/columns were added/removed because the instance position does not
-          // include the rotation transformation. Otherwise, we could have used
-          // tileMapToSceneTransformation to get the new position.
-          selectedInstance.setX(
-            selectedInstance.getX() -
-              columnsToUnshift * (tileSet.tileSize * scaleX)
-          );
-          selectedInstance.setY(
-            selectedInstance.getY() -
-              rowsToUnshift * (tileSet.tileSize * scaleY)
-          );
-          if (selectedInstance.hasCustomSize()) {
-            selectedInstance.setCustomWidth(
-              selectedInstance.getCustomWidth() +
-                tileSet.tileSize * scaleX * (columnsToAppend + columnsToUnshift)
-            );
-            selectedInstance.setCustomHeight(
-              selectedInstance.getCustomHeight() +
-                tileSet.tileSize * scaleY * (rowsToAppend + rowsToUnshift)
-            );
+            for (
+              let gridX = topLeftCorner.x;
+              gridX <= bottomRightCorner.x;
+              gridX++
+            ) {
+              for (
+                let gridY = topLeftCorner.y;
+                gridY <= bottomRightCorner.y;
+                gridY++
+              ) {
+                // If rows or columns have been unshifted in the previous tile setting operations,
+                // we have to take them into account for the current coordinates.
+                const x = gridX + cumulatedUnshiftedColumns;
+                const y = gridY + cumulatedUnshiftedRows;
+                const rowsToAppend = Math.max(
+                  0,
+                  y - (editableTileMap.getDimensionY() - 1)
+                );
+                const columnsToAppend = Math.max(
+                  0,
+                  x - (editableTileMap.getDimensionX() - 1)
+                );
+                const rowsToUnshift = Math.abs(Math.min(0, y));
+                const columnsToUnshift = Math.abs(Math.min(0, x));
+                if (
+                  rowsToAppend > 0 ||
+                  columnsToAppend > 0 ||
+                  rowsToUnshift > 0 ||
+                  columnsToUnshift > 0
+                ) {
+                  editableTileMap.increaseDimensions(
+                    columnsToAppend,
+                    columnsToUnshift,
+                    rowsToAppend,
+                    rowsToUnshift
+                  );
+                }
+                const newX = x + columnsToUnshift;
+                const newY = y + rowsToUnshift;
+
+                editableTileMap.setTile(newX, newY, 0, tileId);
+                editableTileMap.flipTileOnX(
+                  newX,
+                  newY,
+                  0,
+                  tileMapTileSelection.flipHorizontally
+                );
+                editableTileMap.flipTileOnY(
+                  newX,
+                  newY,
+                  0,
+                  tileMapTileSelection.flipVertically
+                );
+
+                cumulatedUnshiftedRows += rowsToUnshift;
+                cumulatedUnshiftedColumns += columnsToUnshift;
+                // The instance angle is not considered when moving the instance after
+                // rows/columns were added/removed because the instance position does not
+                // include the rotation transformation. Otherwise, we could have used
+                // tileMapToSceneTransformation to get the new position.
+                selectedInstance.setX(
+                  selectedInstance.getX() -
+                    columnsToUnshift * (tileSet.tileSize * scaleX)
+                );
+                selectedInstance.setY(
+                  selectedInstance.getY() -
+                    rowsToUnshift * (tileSet.tileSize * scaleY)
+                );
+                if (selectedInstance.hasCustomSize()) {
+                  selectedInstance.setCustomWidth(
+                    selectedInstance.getCustomWidth() +
+                      tileSet.tileSize *
+                        scaleX *
+                        (columnsToAppend + columnsToUnshift)
+                  );
+                  selectedInstance.setCustomHeight(
+                    selectedInstance.getCustomHeight() +
+                      tileSet.tileSize * scaleY * (rowsToAppend + rowsToUnshift)
+                  );
+                }
+              }
+            }
           }
-        });
+        );
       } else if (tileMapTileSelection.kind === 'erase') {
-        tileMapGridCoordinates.forEach(({ x: gridX, y: gridY }) => {
-          editableTileMap.removeTile(gridX, gridY, 0);
-        });
+        const { bottomRightCorner, topLeftCorner } = tileMapGridCoordinates[0];
+        for (
+          let gridX = topLeftCorner.x;
+          gridX <= bottomRightCorner.x;
+          gridX++
+        ) {
+          for (
+            let gridY = topLeftCorner.y;
+            gridY <= bottomRightCorner.y;
+            gridY++
+          ) {
+            editableTileMap.removeTile(gridX, gridY, 0);
+          }
+        }
+
         shouldTrimAfterOperations = true;
       } else {
         return;
@@ -1446,20 +1503,14 @@ export default class InstancesEditor extends Component<Props, State> {
     this.scrollTo(areaRectangle.centerX(), areaRectangle.centerY());
   };
 
-  zoomToFitSelection = (instances: Array<gdInitialInstance>) => {
-    if (instances.length === 0) return;
-    const [firstInstance, ...otherInstances] = instances;
-    const instanceMeasurer = this.instancesRenderer.getInstanceMeasurer();
-    let selectedInstancesRectangle = instanceMeasurer.getInstanceAABB(
-      firstInstance,
-      new Rectangle()
-    );
-    otherInstances.forEach(instance => {
-      selectedInstancesRectangle.union(
-        instanceMeasurer.getInstanceAABB(instance, new Rectangle())
-      );
-    });
-    this.fitViewToRectangle(selectedInstancesRectangle, { adaptZoom: true });
+  zoomToFitSelection = () => {
+    const selectedInstancesRectangle = this.selectedInstances.getSelectionAABB();
+    if (
+      selectedInstancesRectangle.width() > 0 &&
+      selectedInstancesRectangle.height() > 0
+    ) {
+      this.fitViewToRectangle(selectedInstancesRectangle, { adaptZoom: true });
+    }
   };
 
   centerViewOnLastInstance = (
@@ -1529,6 +1580,10 @@ export default class InstancesEditor extends Component<Props, State> {
         this.windowBorder.render();
         this.windowMask.render();
         this.statusBar.render();
+        this.profilerBar.render({
+          basicProfilingCounters: this.instancesRenderer.getBasicProfilingCounters(),
+          display: this.props.showBasicProfilingCounters,
+        });
         this.background.render();
 
         this.instancesRenderer.render(

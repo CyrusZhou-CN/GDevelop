@@ -336,7 +336,7 @@ export const PromoBundleCard = ({
               border: `2px solid ${gdevelopTheme.palette.secondary}`,
             }}
           >
-            <ResponsiveLineStackLayout expand noMargin>
+            <ResponsiveLineStackLayout expand noMargin noResponsiveLandscape>
               <div style={styles.promoImageContainer}>
                 <CorsAwareImage
                   key={productListingData.name}
@@ -522,13 +522,30 @@ export const ExampleTile = ({
   onSelect,
   style,
   customTitle,
+  useQuickCustomizationThumbnail,
 }: {|
   exampleShortHeader: ExampleShortHeader | null,
   onSelect: () => void,
   /** Props needed so that GridList component can adjust tile size */
   style?: any,
   customTitle?: string,
+  useQuickCustomizationThumbnail?: boolean,
 |}) => {
+  const thumbnailImgUrl = React.useMemo(
+    () => {
+      if (!exampleShortHeader) return '';
+      const firstPreviewUrl = exampleShortHeader.previewImageUrls[0] || '';
+      const quickCustomizationImageUrl =
+        exampleShortHeader.quickCustomizationImageUrl;
+      if (useQuickCustomizationThumbnail && quickCustomizationImageUrl) {
+        return quickCustomizationImageUrl;
+      }
+
+      return firstPreviewUrl;
+    },
+    [exampleShortHeader, useQuickCustomizationThumbnail]
+  );
+
   const classesForGridListItem = useStylesForGridListItem();
   return (
     <GridListTile
@@ -547,11 +564,7 @@ export const ExampleTile = ({
           <CorsAwareImage
             key={exampleShortHeader.name}
             style={styles.previewImage}
-            src={
-              exampleShortHeader.previewImageUrls
-                ? exampleShortHeader.previewImageUrls[0]
-                : ''
-            }
+            src={thumbnailImgUrl}
             alt={`Preview image of example ${exampleShortHeader.name}`}
           />
         ) : (

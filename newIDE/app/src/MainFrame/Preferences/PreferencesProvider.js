@@ -152,12 +152,6 @@ export default class PreferencesProvider extends React.Component<Props, State> {
     setShowGetStartedSectionByDefault: this._setShowGetStartedSection.bind(
       this
     ),
-    setShowEventBasedObjectsEditor: this._setShowEventBasedObjectsEditor.bind(
-      this
-    ),
-    getShowEventBasedObjectsEditor: this._getShowEventBasedObjectsEditor.bind(
-      this
-    ),
     setShowInAppTutorialDeveloperMode: this._setShowInAppTutorialDeveloperMode.bind(
       this
     ),
@@ -175,6 +169,9 @@ export default class PreferencesProvider extends React.Component<Props, State> {
     ),
     setUse3DEditor: this._setUse3DEditor.bind(this),
     getUse3DEditor: this._getUse3DEditor.bind(this),
+    setShowBasicProfilingCounters: this._setShowBasicProfilingCounters.bind(
+      this
+    ),
     saveTutorialProgress: this._saveTutorialProgress.bind(this),
     getTutorialProgress: this._getTutorialProgress.bind(this),
     setNewProjectsDefaultFolder: this._setNewProjectsDefaultFolder.bind(this),
@@ -199,6 +196,7 @@ export default class PreferencesProvider extends React.Component<Props, State> {
     setPreviewCrashReportUploadLevel: this._setPreviewCrashReportUploadLevel.bind(
       this
     ),
+    setGamesListOrderBy: this._setGamesListOrderBy.bind(this),
   };
 
   componentDidMount() {
@@ -453,22 +451,6 @@ export default class PreferencesProvider extends React.Component<Props, State> {
     );
   }
 
-  _setShowEventBasedObjectsEditor(showEventBasedObjectsEditor: boolean) {
-    this.setState(
-      state => ({
-        values: {
-          ...state.values,
-          showEventBasedObjectsEditor,
-        },
-      }),
-      () => this._persistValuesToLocalStorage(this.state)
-    );
-  }
-
-  _getShowEventBasedObjectsEditor() {
-    return this.state.values.showEventBasedObjectsEditor;
-  }
-
   _setShowInAppTutorialDeveloperMode(showInAppTutorialDeveloperMode: boolean) {
     this.setState(
       state => ({
@@ -531,6 +513,18 @@ export default class PreferencesProvider extends React.Component<Props, State> {
 
   _getUse3DEditor() {
     return this.state.values.use3DEditor;
+  }
+
+  _setShowBasicProfilingCounters(showBasicProfilingCounters: boolean) {
+    this.setState(
+      state => ({
+        values: {
+          ...state.values,
+          showBasicProfilingCounters,
+        },
+      }),
+      () => this._persistValuesToLocalStorage(this.state)
+    );
   }
 
   _checkUpdates(forceDownload?: boolean) {
@@ -1007,6 +1001,20 @@ export default class PreferencesProvider extends React.Component<Props, State> {
         values: {
           ...state.values,
           previewCrashReportUploadLevel: newValue,
+        },
+      }),
+      () => this._persistValuesToLocalStorage(this.state)
+    );
+  }
+
+  _setGamesListOrderBy(
+    newValue: 'createdAt' | 'totalSessions' | 'weeklySessions'
+  ) {
+    this.setState(
+      state => ({
+        values: {
+          ...state.values,
+          gamesListOrderBy: newValue,
         },
       }),
       () => this._persistValuesToLocalStorage(this.state)

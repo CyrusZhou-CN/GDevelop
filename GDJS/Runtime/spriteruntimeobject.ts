@@ -184,6 +184,15 @@ namespace gdjs {
         this.setWidth(initialInstanceData.width);
         this.setHeight(initialInstanceData.height);
       }
+      if (initialInstanceData.opacity !== undefined) {
+        this.setOpacity(initialInstanceData.opacity);
+      }
+      if (initialInstanceData.flippedX) {
+        this.flipX(initialInstanceData.flippedX);
+      }
+      if (initialInstanceData.flippedY) {
+        this.flipY(initialInstanceData.flippedY);
+      }
     }
 
     /**
@@ -388,7 +397,7 @@ namespace gdjs {
     }
 
     setAnimationElapsedTime(time: float): void {
-      const hasFrameChanged = this._animator.getAnimationElapsedTime();
+      const hasFrameChanged = this._animator.setAnimationElapsedTime(time);
       if (hasFrameChanged) {
         this._animationFrameDirty = true;
         this.invalidateHitboxes();
@@ -750,10 +759,10 @@ namespace gdjs {
     /**
      * Change the tint of the sprite object.
      *
-     * @param rgbColor The color, in RGB format ("128;200;255").
+     * @param rgbOrHexColor The color as a string, in RGB format ("128;200;255") or Hex format.
      */
-    setColor(rgbColor: string): void {
-      this._renderer.setColor(rgbColor);
+    setColor(rgbOrHexColor: string): void {
+      this._renderer.setColor(rgbOrHexColor);
     }
 
     /**

@@ -126,7 +126,7 @@ const createField = (
       property.getExtraInfo().size() > 0 ? property.getExtraInfo().at(0) : '';
     return {
       name,
-      isHiddenWhenThereOnlyOneChoice: true,
+      isHiddenWhenOnlyOneChoice: true,
       valueType: 'string',
       getChoices: () => {
         return !object || behaviorType === ''
@@ -153,18 +153,32 @@ const createField = (
       getLabel,
       getDescription,
     };
+  } else if (valueType === 'leaderboardid') {
+    // LeaderboardId is a "string" (with a selector in the UI)
+    return {
+      name,
+      valueType: 'leaderboardId',
+      getValue: (instance: Instance): string => {
+        return getProperties(instance)
+          .get(name)
+          .getValue();
+      },
+      setValue: (instance: Instance, newValue: string) => {
+        onUpdateProperty(instance, name, newValue);
+      },
+      getLabel,
+      getDescription,
+    };
   } else if (valueType === 'resource') {
     // Resource is a "string" (with a selector in the UI)
     const extraInfos = property.getExtraInfo().toJSArray();
     // $FlowFixMe - assume the passed resource kind is always valid.
     const kind: ResourceKind = extraInfos[0] || '';
-    // $FlowFixMe - assume the passed resource kind is always valid.
-    const fallbackKind: ResourceKind = extraInfos[1] || '';
+
     return {
       name,
       valueType: 'resource',
       resourceKind: kind,
-      fallbackResourceKind: fallbackKind,
       getValue: (instance: Instance): string => {
         return getProperties(instance)
           .get(name)

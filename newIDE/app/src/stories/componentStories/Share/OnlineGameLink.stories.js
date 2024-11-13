@@ -48,8 +48,10 @@ export const Export = () => {
         exportStep={'export'}
         onSaveProject={action('onSaveProject')}
         onRefreshGame={action('onRefreshGame')}
+        onGameUpdated={action('onGameUpdated')}
         isSavingProject={false}
         project={testProject.project}
+        shouldShowShareDialog
       />
     </AuthenticatedUserContext.Provider>
   );
@@ -64,8 +66,10 @@ export const SavingProject = () => {
         exportStep={'export'}
         onSaveProject={action('onSaveProject')}
         onRefreshGame={action('onRefreshGame')}
+        onGameUpdated={action('onGameUpdated')}
         isSavingProject
         project={testProject.project}
+        shouldShowShareDialog
       />
     </AuthenticatedUserContext.Provider>
   );
@@ -80,8 +84,10 @@ export const ResourcesDownload = () => {
         exportStep={'resources-download'}
         onSaveProject={action('onSaveProject')}
         onRefreshGame={action('onRefreshGame')}
+        onGameUpdated={action('onGameUpdated')}
         isSavingProject={false}
         project={testProject.project}
+        shouldShowShareDialog
       />
     </AuthenticatedUserContext.Provider>
   );
@@ -96,8 +102,10 @@ export const Compress = () => {
         exportStep={'compress'}
         onSaveProject={action('onSaveProject')}
         onRefreshGame={action('onRefreshGame')}
+        onGameUpdated={action('onGameUpdated')}
         isSavingProject={false}
         project={testProject.project}
+        shouldShowShareDialog
       />
     </AuthenticatedUserContext.Provider>
   );
@@ -112,8 +120,10 @@ export const Upload = () => {
         exportStep={'upload'}
         onSaveProject={action('onSaveProject')}
         onRefreshGame={action('onRefreshGame')}
+        onGameUpdated={action('onGameUpdated')}
         isSavingProject={false}
         project={testProject.project}
+        shouldShowShareDialog
       />
     </AuthenticatedUserContext.Provider>
   );
@@ -128,8 +138,10 @@ export const WaitingForBuild = () => {
         exportStep={'waiting-for-build'}
         onSaveProject={action('onSaveProject')}
         onRefreshGame={action('onRefreshGame')}
+        onGameUpdated={action('onGameUpdated')}
         isSavingProject={false}
         project={testProject.project}
+        shouldShowShareDialog
       />
     </AuthenticatedUserContext.Provider>
   );
@@ -144,8 +156,10 @@ export const Build = () => {
         exportStep={'build'}
         onSaveProject={action('onSaveProject')}
         onRefreshGame={action('onRefreshGame')}
+        onGameUpdated={action('onGameUpdated')}
         isSavingProject={false}
         project={testProject.project}
+        shouldShowShareDialog
       />
     </AuthenticatedUserContext.Provider>
   );
@@ -160,8 +174,10 @@ export const DoneWithPublicBuild = () => {
         exportStep={'done'}
         onSaveProject={action('onSaveProject')}
         onRefreshGame={action('onRefreshGame')}
+        onGameUpdated={action('onGameUpdated')}
         isSavingProject={false}
         project={testProject.project}
+        shouldShowShareDialog
       />
     </AuthenticatedUserContext.Provider>
   );
@@ -176,8 +192,10 @@ export const DoneWithPrivateBuild = () => {
         exportStep={'done'}
         onSaveProject={action('onSaveProject')}
         onRefreshGame={action('onRefreshGame')}
+        onGameUpdated={action('onGameUpdated')}
         isSavingProject={false}
         project={testProject.project}
+        shouldShowShareDialog
       />
     </AuthenticatedUserContext.Provider>
   );

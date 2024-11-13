@@ -54,6 +54,11 @@ interface VectorObjectFolderOrObject {
     [Const] ObjectFolderOrObject at(unsigned long index);
 };
 
+interface VectorScreenshot {
+    unsigned long size();
+    [Const, Ref] Screenshot at(unsigned long index);
+};
+
 interface MapStringString {
     void MapStringString();
 
@@ -658,10 +663,15 @@ interface ObjectsContainersList {
 
   [Const, Value] DOMString GetTypeOfObject([Const] DOMString objectName);
   [Const, Value] DOMString GetTypeOfBehavior([Const] DOMString name, boolean searchInGroups);
-  [Value] VectorString GetBehaviorsOfObject([Const] DOMString name, boolean searchInGroups);
+  [Value] VectorString GetBehaviorsOfObject([Const] DOMString objectOrGroupName, boolean searchInGroups);
+  [Value] VectorString GetBehaviorNamesInObjectOrGroup(
+    [Const] DOMString objectOrGroupName,
+    [Const] DOMString behaviorType,
+    boolean searchInGroups);
   [Value] VectorString GetAnimationNamesOfObject([Const] DOMString name);
   [Const, Value] DOMString GetTypeOfBehaviorInObjectOrGroup([Const] DOMString objectOrGroupName, [Const] DOMString behaviorName, boolean searchInGroups);
   boolean HasObjectOrGroupNamed([Const] DOMString name);
+  boolean HasObjectNamed([Const] DOMString name);
   ObjectsContainersList_VariableExistence HasObjectOrGroupWithVariableNamed([Const] DOMString objectName, [Const] DOMString variableName);
 
   [Const, Ref] ObjectsContainer GetObjectsContainer(unsigned long index);
@@ -750,6 +760,8 @@ interface Behavior {
     void SetFolded(boolean folded);
 
     boolean IsDefaultBehavior();
+
+    [Ref] QuickCustomizationVisibilitiesContainer GetPropertiesQuickCustomizationVisibilities();
 };
 
 [JSImplementation=Behavior]
@@ -771,6 +783,8 @@ interface BehaviorsSharedData {
     [Value] MapStringPropertyDescriptor GetProperties();
     boolean UpdateProperty([Const] DOMString name, [Const] DOMString value);
     void InitializeContent();
+
+    [Ref] QuickCustomizationVisibilitiesContainer GetPropertiesQuickCustomizationVisibilities();
 };
 
 [JSImplementation=BehaviorsSharedData]
@@ -863,15 +877,20 @@ interface ObjectJsImplementation {
         [Const] DOMString name,
         [Const] DOMString value);
 
-    [Const, Ref] DOMString GetRawJSONContent();
-    [Ref] ObjectJsImplementation SetRawJSONContent([Const] DOMString newContent);
-
     void SerializeTo([Ref] SerializerElement element);
     void UnserializeFrom([Ref] Project project, [Const, Ref] SerializerElement element);
 
     // Not exposed as protected:
     // void DoSerializeTo([Ref] SerializerElement element);
     // void DoUnserializeFrom([Ref] Project project, [Const, Ref] SerializerElement element);
+};
+
+enum CustomObjectConfiguration_EdgeAnchor {
+    "CustomObjectConfiguration::NoAnchor",
+    "CustomObjectConfiguration::MinEdge",
+    "CustomObjectConfiguration::MaxEdge",
+    "CustomObjectConfiguration::Proportional",
+    "CustomObjectConfiguration::Center",
 };
 
 interface CustomObjectConfiguration {
@@ -896,6 +915,11 @@ interface CustomObjectConfiguration {
         DOMString value);
 
     [Ref] SpriteAnimationList GetAnimations();
+
+    boolean IsChildObjectFolded([Const] DOMString childName);
+    void SetChildObjectFolded([Const] DOMString childName, boolean folded);
+
+    CustomObjectConfiguration_EdgeAnchor STATIC_GetEdgeAnchorFromString([Const] DOMString value);
 };
 CustomObjectConfiguration implements ObjectConfiguration;
 
@@ -980,6 +1004,9 @@ interface Effect {
 
   void SetEffectType([Const] DOMString effectType_);
   [Const, Ref] DOMString GetEffectType();
+
+  void SetFolded(boolean val);
+  boolean IsFolded();
 
   void SetDoubleParameter([Const] DOMString name, double value);
   double GetDoubleParameter([Const] DOMString name);
@@ -1092,6 +1119,9 @@ interface PropertyDescriptor {
     boolean IsAdvanced();
     [Const, Ref] MeasurementUnit GetMeasurementUnit();
     [Ref] PropertyDescriptor SetMeasurementUnit([Const, Ref] MeasurementUnit measurementUnit);
+
+    boolean HasImpactOnOtherProperties();
+    [Ref] PropertyDescriptor SetHasImpactOnOtherProperties(boolean enable);
 
     QuickCustomization_Visibility GetQuickCustomizationVisibility();
     [Ref] PropertyDescriptor SetQuickCustomizationVisibility(QuickCustomization_Visibility visibility);
@@ -1303,8 +1333,17 @@ interface InitialInstance {
     void SetShouldKeepRatio(boolean keepRatio);
     long GetZOrder();
     void SetZOrder(long zOrder);
+    long GetOpacity();
+    void SetOpacity(long opacity);
     [Const, Ref] DOMString GetLayer();
     void SetLayer([Const] DOMString layer);
+
+    boolean IsFlippedX();
+    void SetFlippedX(boolean flippedX);
+    boolean IsFlippedY();
+    void SetFlippedY(boolean flippedY);
+    boolean IsFlippedZ();
+    void SetFlippedZ(boolean flippedZ);
 
     void SetHasCustomSize(boolean enable);
     boolean HasCustomSize();
@@ -1351,6 +1390,7 @@ interface InitialInstancesContainer {
     void RemoveAllInstancesOnLayer([Const] DOMString layer);
     void RemoveInitialInstancesOfObject([Const] DOMString obj);
     boolean HasInstancesOfObject([Const] DOMString objectName);
+    boolean IsInstancesCountOfObjectGreaterThan([Const] DOMString objectName, unsigned long minInstanceCount);
     boolean SomeInstancesAreOnLayer([Const] DOMString layer);
     void RenameInstancesOfObject([Const] DOMString oldName, [Const] DOMString newName);
     void RemoveInstance([Const, Ref] InitialInstance inst);
@@ -1878,6 +1918,9 @@ interface ObjectMetadata {
 
     [Ref] ObjectMetadata MarkAsRenderedIn3D();
     boolean IsRenderedIn3D();
+
+    [Ref] ObjectMetadata SetOpenFullEditorLabel([Const] DOMString label);
+    [Const, Ref] DOMString GetOpenFullEditorLabel();
 };
 
 enum QuickCustomization_Visibility {
@@ -1888,6 +1931,26 @@ enum QuickCustomization_Visibility {
 
 interface QuickCustomization {
     // Nothing, it's just a container for the visibility enum.
+};
+
+interface QuickCustomizationVisibilitiesContainer {
+    void Set([Const] DOMString name, QuickCustomization_Visibility visibility);
+    QuickCustomization_Visibility Get([Const] DOMString name);
+};
+
+interface Screenshot {
+    long GetDelayTimeInSeconds();
+    void SetDelayTimeInSeconds(long delayTimeInSeconds);
+    [Const, Ref] DOMString GetSignedUrl();
+    void SetSignedUrl([Const] DOMString signedUrl);
+    [Const, Ref] DOMString GetPublicUrl();
+    void SetPublicUrl([Const] DOMString publicUrl);
+};
+
+interface CaptureOptions {
+    void AddScreenshot([Const, Ref] Screenshot screenshot);
+    void ClearScreenshots();
+    [Const, Ref] VectorScreenshot GetScreenshots();
 };
 
 interface BehaviorMetadata {
@@ -1997,6 +2060,9 @@ interface BehaviorMetadata {
 
     QuickCustomization_Visibility GetQuickCustomizationVisibility();
     [Ref] BehaviorMetadata SetQuickCustomizationVisibility(QuickCustomization_Visibility visibility);
+
+    [Ref] BehaviorMetadata SetOpenFullEditorLabel([Const] DOMString label);
+    [Const, Ref] DOMString GetOpenFullEditorLabel();
 
     [Ref] Behavior Get();
     BehaviorsSharedData GetSharedDataInstance();
@@ -2168,6 +2234,10 @@ interface PlatformExtension {
     [Const, Value] DOMString STATIC_GetNamespaceSeparator();
     [Const, Value] DOMString STATIC_GetBehaviorFullType(
         [Const] DOMString extensionName, [Const] DOMString behaviorName);
+    [Const, Value] DOMString STATIC_GetObjectFullType(
+        [Const] DOMString extensionName, [Const] DOMString objectName);
+    [Const, Value] DOMString STATIC_GetExtensionFromFullObjectType([Const] DOMString type);
+    [Const, Value] DOMString STATIC_GetObjectNameFromFullObjectType([Const] DOMString type);
 };
 
 interface EventsList {
@@ -2411,6 +2481,11 @@ interface WholeProjectRefactorer {
       [Const, Ref] EventsFunctionsExtension eventsFunctionsExtension,
       [Ref] EventsBasedBehavior eventsBasedBehavior,
       [Const] DOMString sourceExtensionName);
+    void STATIC_UpdateExtensionNameInEventsBasedObject(
+      [Ref] Project project,
+      [Const, Ref] EventsFunctionsExtension eventsFunctionsExtension,
+      [Ref] EventsBasedObject eventsBasedObject,
+      [Const] DOMString sourceExtensionName);
     void STATIC_RenameEventsFunction(
       [Ref] Project project,
       [Const, Ref] EventsFunctionsExtension eventsFunctionsExtension,
@@ -2471,11 +2546,21 @@ interface WholeProjectRefactorer {
       [Const, Ref] EventsFunctionsExtension eventsFunctionsExtension,
       [Const] DOMString oldName,
       [Const] DOMString newName);
+    void STATIC_UpdateBehaviorNameInEventsBasedBehavior(
+      [Ref] Project project,
+      [Const, Ref] EventsFunctionsExtension eventsFunctionsExtension,
+      [Ref] EventsBasedBehavior eventsBasedBehavior,
+      [Const] DOMString sourceBehaviorName);
     void STATIC_RenameEventsBasedObject(
       [Ref] Project project,
       [Const, Ref] EventsFunctionsExtension eventsFunctionsExtension,
       [Const] DOMString oldName,
       [Const] DOMString newName);
+    void STATIC_UpdateObjectNameInEventsBasedObject(
+      [Ref] Project project,
+      [Const, Ref] EventsFunctionsExtension eventsFunctionsExtension,
+      [Ref] EventsBasedObject eventsBasedObject,
+      [Const] DOMString sourceObjectName);
     void STATIC_RenameLayout(
       [Ref] Project project,
       [Const] DOMString oldName,
@@ -2620,6 +2705,8 @@ interface WholeProjectRefactorer {
         [Const] DOMString originLayerName,
         [Const] DOMString targetLayerName);
     unsigned long STATIC_GetLayoutAndExternalLayoutLayerInstancesCount([Ref] Project project, [Ref] Layout layout, [Const] DOMString layerName);
+    void STATIC_RenameLeaderboards([Ref] Project project, [Const, Ref] MapStringString leaderboardIdMap);
+    [Value] SetString STATIC_FindAllLeaderboardIds([Ref] Project project);
 };
 
 interface EventsBasedObjectDependencyFinder {
@@ -2956,8 +3043,10 @@ interface EventsBasedObject {
     boolean IsAnimatable();
     [Ref] EventsBasedObject MarkAsTextContainer(boolean isTextContainer);
     boolean IsTextContainer();
-    [Ref] EventsBasedObject MarkAsInnerAreaExpandingWithParent(boolean value);
+    [Ref] EventsBasedObject MarkAsInnerAreaFollowingParentSize(boolean value);
     boolean IsInnerAreaFollowingParentSize();
+    [Ref] EventsBasedObject MakAsUsingLegacyInstancesRenderer(boolean value);
+    boolean IsUsingLegacyInstancesRenderer();
 
     [Ref] InitialInstancesContainer GetInitialInstances();
     [Ref] LayersContainer GetLayers();
@@ -3107,21 +3196,6 @@ interface ArbitraryEventsWorker {
 
 interface ArbitraryObjectsWorker {
     void Launch([Ref] ObjectsContainer container);
-};
-
-interface EventsLeaderboardsLister {
-    void EventsLeaderboardsLister([Ref] Project project);
-    [Const, Ref] SetString GetLeaderboardIds();
-
-    //Inherited from ArbitraryEventsWorker
-    void Launch([Ref] EventsList events);
-};
-
-interface EventsLeaderboardsRenamer {
-    void EventsLeaderboardsRenamer([Ref] Project project, [Const, Ref] MapStringString leaderboardIdMap);
-
-    //Inherited from ArbitraryEventsWorker
-    void Launch([Ref] EventsList events);
 };
 
 interface EventsParametersLister {
@@ -3393,6 +3467,20 @@ interface Model3DObjectConfiguration {
     boolean HasNoAnimations();
     void SwapAnimations(unsigned long first, unsigned long second);
     void MoveAnimation(unsigned long oldIndex, unsigned long newIndex);
+
+    double GetWidth();
+    double GetHeight();
+    double GetDepth();
+    double GetRotationX();
+    double GetRotationY();
+    double GetRotationZ();
+
+    [Const, Ref] DOMString GetModelResourceName();
+    [Const, Ref] DOMString GetMaterialType();
+    [Const, Ref] DOMString GetOriginLocation();
+    [Const, Ref] DOMString GetCenterLocation();
+
+    boolean shouldKeepAspectRatio();
 };
 Model3DObjectConfiguration implements ObjectConfiguration;
 
@@ -3422,6 +3510,9 @@ interface SpineObjectConfiguration {
     boolean HasNoAnimations();
     void SwapAnimations(unsigned long first, unsigned long second);
     void MoveAnimation(unsigned long oldIndex, unsigned long newIndex);
+
+    double GetScale();
+    [Const, Ref] DOMString GetSpineResourceName();
 };
 SpineObjectConfiguration implements ObjectConfiguration;
 
@@ -3465,6 +3556,8 @@ interface TextObject {
     [Const, Ref] DOMString GetColor();
     void SetTextAlignment([Const] DOMString textAlignment);
     [Const, Ref] DOMString GetTextAlignment();
+    void SetVerticalTextAlignment([Const] DOMString value);
+    [Const, Ref] DOMString GetVerticalTextAlignment();
 
     void SetOutlineEnabled(boolean enable);
     boolean IsOutlineEnabled();
@@ -3541,21 +3634,18 @@ interface ShapePainterObject {
     void SetOutlineSize(double size);
     double GetOutlineSize();
 
+    void SetOutlineColor([Const] DOMString color);
+    [Const, Ref] DOMString GetOutlineColor();
+
     void SetOutlineOpacity(double val);
     double GetOutlineOpacity();
 
-    void SetOutlineColor(unsigned long r, unsigned long g, unsigned long b);
-    unsigned long GetOutlineColorR();
-    unsigned long GetOutlineColorG();
-    unsigned long GetOutlineColorB();
+    void SetFillColor([Const] DOMString color);
+    [Const, Ref] DOMString GetFillColor();
 
     void SetFillOpacity(double val);
     double GetFillOpacity();
 
-    void SetFillColor(unsigned long r,unsigned long g, unsigned long b);
-    unsigned long GetFillColorR();
-    unsigned long GetFillColorG();
-    unsigned long GetFillColorB();
     [Const, Value] DOMString GetAntialiasing();
     void SetAntialiasing([Const] DOMString value);
 
@@ -3624,18 +3714,10 @@ interface ParticleEmitterObject {
     void SetParticleLifeTimeMax(double newValue);
     double GetParticleLifeTimeMax();
 
-    void SetParticleRed1(double newValue);
-    double GetParticleRed1();
-    void SetParticleRed2(double newValue);
-    double GetParticleRed2();
-    void SetParticleGreen1(double newValue);
-    double GetParticleGreen1();
-    void SetParticleGreen2(double newValue);
-    double GetParticleGreen2();
-    void SetParticleBlue1(double newValue);
-    double GetParticleBlue1();
-    void SetParticleBlue2(double newValue);
-    double GetParticleBlue2();
+    void SetParticleColor1([Const] DOMString newValue);
+    [Const, Ref] DOMString GetParticleColor1();
+    void SetParticleColor2([Const] DOMString newValue);
+    [Const, Ref] DOMString GetParticleColor2();
     void SetParticleAlpha1(double newValue);
     double GetParticleAlpha1();
     void SetParticleAlpha2(double newValue);
@@ -3741,6 +3823,7 @@ interface PreviewExportOptions {
     [Ref] PreviewExportOptions SetGDevelopVersionWithHash([Const] DOMString gdevelopVersionWithHash);
     [Ref] PreviewExportOptions SetProjectTemplateSlug([Const] DOMString projectTemplateSlug);
     [Ref] PreviewExportOptions SetSourceGameId([Const] DOMString sourceGameId);
+    [Ref] PreviewExportOptions AddScreenshotCapture(long delayTimeInSeconds, [Const] DOMString signedUrl, [Const] DOMString publicUrl);
 };
 
 [Prefix="gdjs::"]

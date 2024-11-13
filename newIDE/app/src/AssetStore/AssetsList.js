@@ -48,7 +48,6 @@ import Breadcrumbs from '../UI/Breadcrumbs';
 import { getFolderTagsFromAssetShortHeaders } from './TagsHelper';
 import { PrivateGameTemplateStoreContext } from './PrivateGameTemplates/PrivateGameTemplateStoreContext';
 import { type AssetStorePageState } from './AssetStoreNavigator';
-import RaisedButton from '../UI/RaisedButton';
 import FlatButton from '../UI/FlatButton';
 import HelpIcon from '../UI/HelpIcon';
 import { OwnedProductLicense } from './ProductLicense/ProductLicenseOptions';
@@ -76,7 +75,7 @@ const getShopItemsColumns = (
 ) => {
   switch (windowSize) {
     case 'small':
-      return isLandscape ? 3 : 1;
+      return isLandscape ? 3 : 2;
     case 'medium':
       return 2;
     case 'large':
@@ -145,7 +144,6 @@ const styles = {
     margin: '0 2px', // Remove the default margin of the grid but keep the horizontal padding for focus outline.
     // Remove the scroll capability of the grid, the scroll view handles it.
     overflow: 'unset',
-    justifyContent: 'center',
   },
   scrollView: {
     display: 'flex',
@@ -203,9 +201,8 @@ const PageBreakNavigation = ({
           }}
           disabled={pageBreakIndex <= 0}
         />
-        <RaisedButton
+        <FlatButton
           key="next-assets"
-          primary
           label={<Trans>Show next assets</Trans>}
           onClick={() => {
             currentPage.pageBreakIndex = (currentPage.pageBreakIndex || 0) + 1;
@@ -747,7 +744,7 @@ const AssetsList = React.forwardRef<Props, AssetsListInterface>(
         {!openedAssetPack &&
         gameTemplateTiles.length &&
         pageBreakIndex === 0 ? (
-          <Line expand>
+          <Line>
             <Column noMargin expand>
               <GridList
                 cols={getShopItemsColumns(windowSize, isLandscape)}
@@ -763,7 +760,7 @@ const AssetsList = React.forwardRef<Props, AssetsListInterface>(
         {!openedAssetPack &&
         allBundlePackTiles.length &&
         pageBreakIndex === 0 ? (
-          <Line expand>
+          <Line>
             <Column noMargin expand>
               <GridList
                 cols={getShopItemsColumns(windowSize, isLandscape)}
@@ -779,7 +776,7 @@ const AssetsList = React.forwardRef<Props, AssetsListInterface>(
         {!openedAssetPack &&
         allStandAlonePackTiles.length &&
         pageBreakIndex === 0 ? (
-          <Line expand>
+          <Line>
             <Column noMargin expand>
               <GridList
                 cols={getShopItemsColumns(windowSize, isLandscape)}
@@ -794,7 +791,7 @@ const AssetsList = React.forwardRef<Props, AssetsListInterface>(
         ) : null}
         {openedAssetPack && (
           <Column>
-            <ResponsiveLineStackLayout>
+            <ResponsiveLineStackLayout noResponsiveLandscape>
               {packMainImageUrl && (
                 <div style={styles.previewImageContainer}>
                   <CorsAwareImage

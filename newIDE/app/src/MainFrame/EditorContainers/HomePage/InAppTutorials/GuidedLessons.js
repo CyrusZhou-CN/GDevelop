@@ -21,8 +21,9 @@ import {
   OBJECT_3D_IN_APP_TUTORIAL_ID,
   KNIGHT_PLATFORMER_IN_APP_TUTORIAL_ID,
   TOP_DOWN_RPG_MOVEMENT_ID,
-  FIRE_A_BULLET,
-  COOP_PLATFORMER,
+  FIRE_A_BULLET_ID,
+  COOP_PLATFORMER_ID,
+  TILEMAP_PLATFORMER_ID,
   guidedLessonsIds,
 } from '../../../../Utils/GDevelopServices/InAppTutorial';
 import MultiplierScore from './Icons/MultiplierScore';
@@ -42,6 +43,7 @@ import Platformer from './Icons/Platformer';
 import TopDownRPGMovement from './Icons/TopDownRPGMovement';
 import FireABullet from './Icons/FireAbullet';
 import CoopPlatformer from './Icons/CoopPlatformer';
+import TilemapPlatformer from './Icons/TilemapPlatformer';
 
 const getColumnsFromWindowSize = (
   windowSize: WindowSizeType,
@@ -49,7 +51,7 @@ const getColumnsFromWindowSize = (
 ) => {
   switch (windowSize) {
     case 'small':
-      return isLandscape ? 4 : 1;
+      return isLandscape ? 4 : 2;
     case 'medium':
       return 3;
     case 'large':
@@ -122,74 +124,81 @@ const GuidedLessons = ({ selectInAppTutorial, lessonsIds }: Props) => {
 
   const guidedLessonCards = [
     {
-      id: JOYSTICK_IN_APP_TUTORIAL_ID,
-      title: t`Joystick controls`,
-      description: t`Learn how to add a joystick to control the player.`,
-      durationInMinutes: 1,
-      renderImage: props => <Joystick {...props} />,
-    },
-    {
-      id: HEALTH_BAR_IN_APP_TUTORIAL_ID,
-      title: t`Health bar`,
-      description: t`Learn how to display the health of a player on the foreground.`,
-      durationInMinutes: 2,
-      renderImage: props => <HealthBar {...props} />,
-    },
-    {
-      id: OBJECT_3D_IN_APP_TUTORIAL_ID,
-      title: t`3D box`,
-      description: t`Learn how to add a 3D box to your game.`,
-      durationInMinutes: 2,
-      renderImage: props => <Object3D {...props} />,
-    },
-    {
-      id: CAMERA_PARALLAX_IN_APP_TUTORIAL_ID,
-      title: t`Background`,
-      description: t`Learn how to create a parallax background as well as a camera that follows the player.`,
-      durationInMinutes: 2,
-      renderImage: props => <Parallax {...props} />,
-    },
-    {
-      id: TIMER_IN_APP_TUTORIAL_ID,
-      title: t`Timer`,
-      description: t`Learn how to use a timer to count a score.`,
-      durationInMinutes: 2,
-      renderImage: props => <Timer {...props} />,
-    },
-    {
-      id: PLINKO_MULTIPLIER_IN_APP_TUTORIAL_ID,
-      title: t`Score multiplier`,
-      description: t`Learn how to manipulate a score by adding collectibles.`,
-      durationInMinutes: 3,
-      renderImage: props => <MultiplierScore {...props} />,
-    },
-    {
       id: KNIGHT_PLATFORMER_IN_APP_TUTORIAL_ID,
       title: t`Platformer`,
-      description: t`Learn how to use the behaviors to make a basic 2D platformer.`,
+      description: t`Make a knight jump and run in this platformer game.`,
       durationInMinutes: 1,
       renderImage: props => <Platformer {...props} />,
     },
     {
       id: TOP_DOWN_RPG_MOVEMENT_ID,
       title: t`Top-Down RPG Pixel Perfect`,
-      description: t`Learn how to make a character move like in the retro Pokemon games.`,
+      description: t`Make a character move like in a retro Pokemon game.`,
       durationInMinutes: 2,
       renderImage: props => <TopDownRPGMovement {...props} />,
     },
     {
-      id: FIRE_A_BULLET,
+      id: FIRE_A_BULLET_ID,
       title: t`Fire a Bullet`,
-      description: t`Learn how to fire bullets with the help of a behavior. Get ready for a Star Wars show.`,
+      description: t`Fire bullets in this Asteroids game. Get ready for a Star Wars show.`,
       durationInMinutes: 3,
       renderImage: props => <FireABullet {...props} />,
     },
     {
-      id: COOP_PLATFORMER,
-      title: t`The basics of Multiplayer`,
-      description: t`Learn how to use the multiplayer behavior and the ownership system in this co-op platformer.`,
+      id: JOYSTICK_IN_APP_TUTORIAL_ID,
+      title: t`Joystick controls`,
+      description: t`Control your spaceship with a joystick, while avoiding asteroids.`,
+      durationInMinutes: 1,
+      renderImage: props => <Joystick {...props} />,
+    },
+    {
+      id: OBJECT_3D_IN_APP_TUTORIAL_ID,
+      title: t`3D platforms`,
+      description: t`Place 3D platforms in this 2D platformer, creating a path to the end.`,
+      durationInMinutes: 2,
+      renderImage: props => <Object3D {...props} />,
+    },
+    {
+      id: COOP_PLATFORMER_ID,
+      title: t`Co-op Multiplayer`,
+      description: t`Transform this platformer into a co-op game, where two players can play together.`,
       durationInMinutes: 3,
       renderImage: props => <CoopPlatformer {...props} />,
+    },
+    {
+      id: HEALTH_BAR_IN_APP_TUTORIAL_ID,
+      title: t`Health bar`,
+      description: t`Add a health bar to this jumping character, losing health when hitting spikes.`,
+      durationInMinutes: 2,
+      renderImage: props => <HealthBar {...props} />,
+    },
+    {
+      id: CAMERA_PARALLAX_IN_APP_TUTORIAL_ID,
+      title: t`Background and cameras`,
+      description: t`Follow this Castlevania-type chraracter with the camera, while the background scrolls.`,
+      durationInMinutes: 2,
+      renderImage: props => <Parallax {...props} />,
+    },
+    {
+      id: TIMER_IN_APP_TUTORIAL_ID,
+      title: t`Time score`,
+      description: t`Add a time attack mode, where you have to reach the end as fast as possible.`,
+      durationInMinutes: 2,
+      renderImage: props => <Timer {...props} />,
+    },
+    {
+      id: TILEMAP_PLATFORMER_ID,
+      title: t`Paint a Level with Tiles`,
+      description: t`Use a Tilemap to build a level and change it dynamically during the game.`,
+      durationInMinutes: 1,
+      renderImage: props => <TilemapPlatformer {...props} />,
+    },
+    {
+      id: PLINKO_MULTIPLIER_IN_APP_TUTORIAL_ID,
+      title: t`Score multiplier`,
+      description: t`Transform this Plinko game with collectibles that multiply your score.`,
+      durationInMinutes: 3,
+      renderImage: props => <MultiplierScore {...props} />,
     },
   ].filter(item => displayedGuidedLessonsIds.includes(item.id));
 

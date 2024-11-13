@@ -18,16 +18,14 @@ import {
   useResponsiveWindowSize,
   type WindowSizeType,
 } from '../../../../UI/Responsive/ResponsiveWindowMeasurer';
-import { CardWidget, SMALL_WIDGET_SIZE } from '../CardWidget';
+import { CardWidget, LARGE_WIDGET_SIZE } from '../CardWidget';
 import GridList from '@material-ui/core/GridList';
 import GridListTile from '@material-ui/core/GridListTile';
-import { makeStyles } from '@material-ui/core/styles';
 import ImageTileRow from '../../../../UI/ImageTileRow';
 import { formatTutorialToImageTileComponent, TUTORIAL_CATEGORY_TEXTS } from '.';
 import GuidedLessons from '../InAppTutorials/GuidedLessons';
 import ChevronArrowRight from '../../../../UI/CustomSvgIcons/ChevronArrowRight';
 import Upload from '../../../../UI/CustomSvgIcons/Upload';
-import WikiSearchBar from '../../../../UI/WikiSearchBar';
 import FlingGame from '../InAppTutorials/FlingGame';
 import AuthenticatedUserContext from '../../../../Profile/AuthenticatedUserContext';
 import { type Limits } from '../../../../Utils/GDevelopServices/Usage';
@@ -35,29 +33,45 @@ import { PrivateTutorialViewDialog } from '../../../../AssetStore/PrivateTutoria
 import { EducationCard } from './EducationCard';
 import InAppTutorialContext from '../../../../InAppTutorial/InAppTutorialContext';
 import PreferencesContext from '../../../Preferences/PreferencesContext';
+import RaisedButton from '../../../../UI/RaisedButton';
+import Help from '../../../../UI/CustomSvgIcons/Help';
+import AnyQuestionDialog from '../AnyQuestionDialog';
+import Paper from '../../../../UI/Paper';
 
-const useStyles = makeStyles({
-  tile: {
-    width: '100%',
-  },
-});
-
-const getHelpItemsColumnsFromWidth = (
+const getColumnsFromWindowSize = (
   windowSize: WindowSizeType,
   isLandscape: boolean
 ) => {
   switch (windowSize) {
     case 'small':
-      return isLandscape ? 4 : 1;
+      return isLandscape ? 4 : 2;
     case 'medium':
       return 3;
     case 'large':
       return 4;
     case 'xlarge':
-      return 5;
+      return 6;
     default:
       return 3;
   }
+};
+
+const MAX_COLUMNS = getColumnsFromWindowSize('xlarge', true);
+const MAX_SECTION_WIDTH = (LARGE_WIDGET_SIZE + 2 * 5) * MAX_COLUMNS; // widget size + 5 padding per side
+const ITEMS_SPACING = 5;
+const styles = {
+  grid: {
+    textAlign: 'center',
+    // Avoid tiles taking too much space on large screens.
+    maxWidth: MAX_SECTION_WIDTH,
+    overflow: 'hidden',
+    width: `calc(100% + ${2 * ITEMS_SPACING}px)`, // This is needed to compensate for the `margin: -5px` added by MUI related to spacing.
+  },
+  helpItem: {
+    padding: 10,
+    flex: 1,
+    display: 'flex',
+  },
 };
 
 const getTutorialsColumnsFromWidth = (
@@ -66,7 +80,7 @@ const getTutorialsColumnsFromWidth = (
 ) => {
   switch (windowSize) {
     case 'small':
-      return isLandscape ? 5 : 1;
+      return isLandscape ? 5 : 2;
     case 'medium':
       return 3;
     case 'large':
@@ -76,19 +90,6 @@ const getTutorialsColumnsFromWidth = (
     default:
       return 3;
   }
-};
-
-const HELP_ITEMS_MAX_COLUMNS = getHelpItemsColumnsFromWidth('xlarge', true);
-const styles = {
-  grid: {
-    textAlign: 'center',
-    maxWidth: (SMALL_WIDGET_SIZE + 2 * 5) * HELP_ITEMS_MAX_COLUMNS, // Avoid tiles taking too much space on large screens.
-  },
-  helpItem: {
-    padding: 10,
-    flex: 1,
-    display: 'flex',
-  },
 };
 
 type TutorialsRowProps = {|
@@ -149,16 +150,24 @@ const MainPage = ({
   const { onLoadInAppTutorialFromLocalFile } = React.useContext(
     InAppTutorialContext
   );
+  const [isAnyQuestionDialogOpen, setIsAnyQuestionDialogOpen] = React.useState(
+    false
+  );
   const {
     values: { showInAppTutorialDeveloperMode },
   } = React.useContext(PreferencesContext);
-  const classes = useStyles();
   const {
     windowSize,
     isMobile,
     isLandscape,
     isMediumScreen,
   } = useResponsiveWindowSize();
+
+  const [
+    selectedTutorial,
+    setSelectedTutorial,
+  ] = React.useState<Tutorial | null>(null);
+
   const helpItems: {
     title: React.Node,
     description: React.Node,
@@ -173,66 +182,96 @@ const MainPage = ({
     },
     {
       title: <Trans>Examples</Trans>,
-      description: <Trans>Have look at existing games from the inside</Trans>,
+      description: <Trans>Have a look at existing games from the inside</Trans>,
       action: onOpenExampleStore,
     },
     {
-      title: <Trans>Community</Trans>,
+      title: <Trans>Forums</Trans>,
       description: <Trans>Ask your questions to the community</Trans>,
-      action: () => onTabChange('community'),
+      action: () => Window.openExternalURL('https://forum.gdevelop.io'),
+    },
+    {
+      title: <Trans>Discord</Trans>,
+      description: <Trans>Join the discussion</Trans>,
+      action: () => Window.openExternalURL('https://discord.gg/gdevelop'),
     },
   ].filter(Boolean);
 
-  const [
-    selectedTutorial,
-    setSelectedTutorial,
-  ] = React.useState<Tutorial | null>(null);
-
   return (
-    <SectionContainer title={<Trans>Help and guides</Trans>}>
+    <SectionContainer>
       <SectionRow>
-        <WikiSearchBar />
-      </SectionRow>
-      <SectionRow>
-        <Line noMargin>
-          <GridList
-            cols={getHelpItemsColumnsFromWidth(windowSize, isLandscape)}
-            style={styles.grid}
-            cellHeight="auto"
-            spacing={10}
-          >
-            {helpItems.map((helpItem, index) => (
-              <GridListTile key={index} classes={{ tile: classes.tile }}>
-                <CardWidget
-                  onClick={helpItem.action}
-                  key={index}
-                  size="large"
-                  disabled={helpItem.disabled}
-                  useDefaultDisabledStyle
-                >
-                  <div style={styles.helpItem}>
-                    <ColumnStackLayout
-                      expand
-                      justifyContent="center"
-                      useFullHeight
-                    >
-                      <Text noMargin size="block-title">
-                        {helpItem.title}
-                      </Text>
-                      <Text noMargin size="body" color="secondary">
-                        {helpItem.description}
-                      </Text>
-                    </ColumnStackLayout>
-                  </div>
-                </CardWidget>
-              </GridListTile>
-            ))}
-          </GridList>
-        </Line>
+        <ColumnStackLayout noMargin expand>
+          <Line noMargin>
+            <GridList
+              cols={getColumnsFromWindowSize(windowSize, isLandscape)}
+              style={styles.grid}
+              cellHeight="auto"
+              spacing={ITEMS_SPACING * 2}
+            >
+              {limits &&
+              limits.quotas['ask-question'] &&
+              limits.quotas['ask-question'].max > 0 ? (
+                <GridListTile cols={2} style={{ background: 'transparent' }}>
+                  <Paper
+                    background="light"
+                    style={{ display: 'flex', height: '100%' }}
+                  >
+                    <Column expand>
+                      <Line expand alignItems="flex-start">
+                        <Help />
+                        <ColumnStackLayout expand alignItems="flex-start">
+                          <Text noMargin size="block-title">
+                            <Trans>Blocked on GDevelop?</Trans>
+                          </Text>
+                          <RaisedButton
+                            label={
+                              <Trans>Ask any question, get an answer</Trans>
+                            }
+                            size="medium"
+                            color="success"
+                            onClick={() => {
+                              setIsAnyQuestionDialogOpen(true);
+                            }}
+                          />
+                        </ColumnStackLayout>
+                      </Line>
+                    </Column>
+                  </Paper>
+                </GridListTile>
+              ) : null}
+              {helpItems.map((helpItem, index) => (
+                <GridListTile key={index}>
+                  <CardWidget
+                    onClick={helpItem.action}
+                    key={index}
+                    size="large"
+                    disabled={helpItem.disabled}
+                    useDefaultDisabledStyle
+                  >
+                    <div style={styles.helpItem}>
+                      <ColumnStackLayout
+                        expand
+                        justifyContent="center"
+                        useFullHeight
+                      >
+                        <Text noMargin size="block-title">
+                          {helpItem.title}
+                        </Text>
+                        <Text noMargin size="body" color="secondary">
+                          {helpItem.description}
+                        </Text>
+                      </ColumnStackLayout>
+                    </div>
+                  </CardWidget>
+                </GridListTile>
+              ))}
+            </GridList>
+          </Line>
+        </ColumnStackLayout>
       </SectionRow>
       <SectionRow>
         <Line justifyContent="space-between" noMargin>
-          <Text noMargin size="section-title">
+          <Text noMargin size="title">
             <Trans>Guided lessons</Trans>
           </Text>
           {showInAppTutorialDeveloperMode && (
@@ -398,6 +437,9 @@ const MainPage = ({
           />
         )}
       </>
+      {isAnyQuestionDialogOpen && (
+        <AnyQuestionDialog onClose={() => setIsAnyQuestionDialogOpen(false)} />
+      )}
     </SectionContainer>
   );
 };

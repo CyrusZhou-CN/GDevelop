@@ -72,7 +72,7 @@ gd::ObjectConfiguration &CustomObjectConfiguration::GetChildObjectConfiguration(
   }
 
   if (!eventsBasedObject->GetObjects().HasObjectNamed(objectName)) {
-    gd::LogError("Tried to get the configuration of a child-object:" + objectName
+    gd::LogError("Tried to get the configuration of a child-object: " + objectName
                 + " that doesn't exist in the event-based object: " + GetType());
     return badObjectConfiguration;
   }
@@ -158,7 +158,9 @@ bool CustomObjectConfiguration::UpdateInitialInstanceProperty(
 void CustomObjectConfiguration::DoSerializeTo(SerializerElement& element) const {
   element.AddChild("content") = objectContent;
 
-  if (!animations.HasNoAnimations()) {
+  const auto *eventsBasedObject = GetEventsBasedObject();
+  if (!animations.HasNoAnimations() ||
+      (eventsBasedObject && eventsBasedObject->IsAnimatable())) {
     auto &animatableElement = element.AddChild("animatable");
     animations.SerializeTo(animatableElement);
   }
@@ -202,8 +204,8 @@ void CustomObjectConfiguration::ExposeResources(gd::ArbitraryResourceWorker& wor
 
   for (auto& property : properties) {
     const String& propertyName = property.first;
-    const gd::PropertyDescriptor& propertyDescriptor = property.second;
-    if (propertyDescriptor.GetType() == "resource") {
+    const gd::PropertyDescriptor &propertyDescriptor = property.second;
+    if (propertyDescriptor.GetType().LowerCase() == "resource") {
       auto& extraInfo = propertyDescriptor.GetExtraInfo();
       const gd::String& resourceType = extraInfo.empty() ? "" : extraInfo[0];
       const gd::String& oldPropertyValue = propertyDescriptor.GetValue();
@@ -271,4 +273,17 @@ const SpriteAnimationList& CustomObjectConfiguration::GetAnimations() const {
 
 SpriteAnimationList& CustomObjectConfiguration::GetAnimations() {
   return animations;
+}
+
+const gd::CustomObjectConfiguration::EdgeAnchor
+CustomObjectConfiguration::GetEdgeAnchorFromString(const gd::String &value) {
+  return (value == _("Window left") || value == _("Window top"))
+             ? gd::CustomObjectConfiguration::EdgeAnchor::MinEdge
+         : (value == _("Window right") || value == _("Window bottom"))
+             ? gd::CustomObjectConfiguration::EdgeAnchor::MaxEdge
+         : value == _("Proportional")
+             ? gd::CustomObjectConfiguration::EdgeAnchor::Proportional
+         : value == _("Window center")
+             ? gd::CustomObjectConfiguration::EdgeAnchor::Center
+             : gd::CustomObjectConfiguration::EdgeAnchor::NoAnchor;
 }

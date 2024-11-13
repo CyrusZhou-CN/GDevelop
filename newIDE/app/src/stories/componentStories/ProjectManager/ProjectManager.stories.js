@@ -45,7 +45,6 @@ export const Default = () => (
           )}
           onRenameExternalEvents={action('onRenameExternalEvents')}
           onOpenResources={action('onOpenResources')}
-          onOpenPlatformSpecificAssets={action('onOpenPlatformSpecificAssets')}
           eventsFunctionsExtensionsError={null}
           onReloadEventsFunctionsExtensions={action(
             'onReloadEventsFunctionsExtensions'
@@ -54,6 +53,14 @@ export const Default = () => (
           freezeUpdate={false}
           hotReloadPreviewButtonProps={fakeHotReloadPreviewButtonProps}
           resourceManagementProps={fakeResourceManagementProps}
+          gamesList={{
+            games: null,
+            fetchGames: async () => {},
+            gamesFetchingError: null,
+            onGameUpdated: () => {},
+          }}
+          onOpenHomePage={action('openHomepage')}
+          toggleProjectManager={action('toggleProjectManager')}
         />
       </FixedHeightFlexContainer>
     </DragAndDropContextProvider>
@@ -88,7 +95,6 @@ export const ErrorsInFunctions = () => (
           )}
           onRenameExternalEvents={action('onRenameExternalEvents')}
           onOpenResources={action('onOpenResources')}
-          onOpenPlatformSpecificAssets={action('onOpenPlatformSpecificAssets')}
           eventsFunctionsExtensionsError={
             new Error('Fake error during code generation')
           }
@@ -99,6 +105,14 @@ export const ErrorsInFunctions = () => (
           freezeUpdate={false}
           hotReloadPreviewButtonProps={fakeHotReloadPreviewButtonProps}
           resourceManagementProps={fakeResourceManagementProps}
+          gamesList={{
+            games: null,
+            fetchGames: async () => {},
+            gamesFetchingError: null,
+            onGameUpdated: () => {},
+          }}
+          onOpenHomePage={action('openHomepage')}
+          toggleProjectManager={action('toggleProjectManager')}
         />
       </FixedHeightFlexContainer>
     </DragAndDropContextProvider>

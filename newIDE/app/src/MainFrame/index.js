@@ -16,7 +16,6 @@ import ProjectTitlebar from './ProjectTitlebar';
 import PreferencesDialog from './Preferences/PreferencesDialog';
 import AboutDialog from './AboutDialog';
 import ProjectManager from '../ProjectManager';
-import PlatformSpecificAssetsDialog from '../PlatformSpecificAssetsEditor/PlatformSpecificAssetsDialog';
 import LoaderModal from '../UI/LoaderModal';
 import CloseConfirmDialog from '../UI/CloseConfirmDialog';
 import ProfileDialog from '../Profile/ProfileDialog';
@@ -39,6 +38,7 @@ import {
   closeExternalLayoutTabs,
   closeExternalEventsTabs,
   closeEventsFunctionsExtensionTabs,
+  closeCustomObjectTab,
   saveUiSettings,
   type EditorTabsState,
   type EditorTab,
@@ -67,6 +67,7 @@ import {
   type PreviewLauncherInterface,
   type PreviewLauncherProps,
   type PreviewLauncherComponent,
+  type LaunchPreviewOptions,
 } from '../ExportAndShare/PreviewLauncher.flow';
 import {
   type ResourceSource,
@@ -151,6 +152,7 @@ import LeaderboardProvider from '../Leaderboard/LeaderboardProvider';
 import {
   sendInAppTutorialStarted,
   sendEventsExtractedAsFunction,
+  sendPreviewStarted,
 } from '../Utils/Analytics/EventSender';
 import { useLeaderboardReplacer } from '../Leaderboard/UseLeaderboardReplacer';
 import useAlertDialog from '../UI/Alert/useAlertDialog';
@@ -177,6 +179,7 @@ import { emptyStorageProvider } from '../ProjectsStorage/ProjectStorageProviders
 import CustomDragLayer from '../UI/DragAndDrop/CustomDragLayer';
 import CloudProjectRecoveryDialog from '../ProjectsStorage/CloudStorageProvider/CloudProjectRecoveryDialog';
 import CloudProjectSaveChoiceDialog from '../ProjectsStorage/CloudStorageProvider/CloudProjectSaveChoiceDialog';
+import CloudStorageProvider from '../ProjectsStorage/CloudStorageProvider';
 import useCreateProject from '../Utils/UseCreateProject';
 import newNameGenerator from '../Utils/NewNameGenerator';
 import { addDefaultLightToAllLayers } from '../ProjectCreation/CreateProject';
@@ -193,6 +196,9 @@ import { useAuthenticatedPlayer } from './UseAuthenticatedPlayer';
 import ListIcon from '../UI/ListIcon';
 import { QuickCustomizationDialog } from '../QuickCustomization/QuickCustomizationDialog';
 import { type ObjectWithContext } from '../ObjectsList/EnumerateObjects';
+import useGamesList from '../GameDashboard/UseGamesList';
+import useCapturesManager from './UseCapturesManager';
+import useHomepageWitchForRouting from './UseHomepageWitchForRouting';
 
 const GD_STARTUP_TIMES = global.GD_STARTUP_TIMES || [];
 
@@ -273,15 +279,6 @@ const initialPreviewState: PreviewState = {
   isPreviewOverriden: false,
   overridenPreviewLayoutName: null,
   overridenPreviewExternalLayoutName: null,
-};
-
-type LaunchPreviewOptions = {
-  networkPreview?: boolean,
-  hotReload?: boolean,
-  projectDataOnlyExport?: boolean,
-  fullLoadingScreen?: boolean,
-  forceDiagnosticReport?: boolean,
-  numberOfWindows?: number,
 };
 
 export type Props = {|
@@ -367,10 +364,6 @@ const MainFrame = (props: Props) => {
   const [languageDialogOpen, openLanguageDialog] = React.useState<boolean>(
     false
   );
-  const [
-    platformSpecificAssetsDialogOpen,
-    openPlatformSpecificAssetsDialog,
-  ] = React.useState<boolean>(false);
   const [aboutDialogOpen, openAboutDialog] = React.useState<boolean>(false);
   const [profileDialogOpen, openProfileDialog] = React.useState<boolean>(false);
   const [
@@ -540,6 +533,15 @@ const MainFrame = (props: Props) => {
     isProjectOpening,
     onOpenNewProjectSetupDialog: () => setNewProjectSetupDialogOpen(true),
   });
+
+  const gamesList = useGamesList();
+
+  const {
+    createCaptureOptionsForPreview,
+    onCaptureFinished,
+    onGameScreenshotsClaimed,
+    getGameUnverifiedScreenshotUrls,
+  } = useCapturesManager({ project: currentProject });
 
   /**
    * This reference is useful to get the current opened project,
@@ -1111,6 +1113,7 @@ const MainFrame = (props: Props) => {
         if (error.name === 'CloudProjectReadingError') {
           setCloudProjectFileMetadataToRecover(fileMetadata);
         } else {
+          console.error('Failed to open the project:', error);
           const errorMessage = getOpenErrorMessage
             ? getOpenErrorMessage(error)
             : t`Ensure that you are connected to internet and that the URL used is correct, then try again.`;
@@ -1138,6 +1141,7 @@ const MainFrame = (props: Props) => {
     createProjectFromExample,
     createProjectFromPrivateGameTemplate,
     createProjectFromInAppTutorial,
+    createProjectFromTutorial,
     createProjectWithLogin,
     createProjectFromAIGeneration,
   } = useCreateProject({
@@ -1190,6 +1194,7 @@ const MainFrame = (props: Props) => {
       }));
     },
     ensureResourcesAreMoved,
+    onGameRegistered: gamesList.fetchGames,
   });
 
   const closeApp = React.useCallback((): void => {
@@ -1469,6 +1474,7 @@ const MainFrame = (props: Props) => {
       oldName
     );
 
+    // TODO Replace the tabs instead on closing them.
     setState(state => ({
       ...state,
       editorTabs: closeEventsFunctionsExtensionTabs(state.editorTabs, oldName),
@@ -1478,6 +1484,36 @@ const MainFrame = (props: Props) => {
       );
       _onProjectItemModified();
     });
+  };
+
+  const onRenamedEventsBasedObject = (
+    eventsFunctionsExtension: gdEventsFunctionsExtension,
+    oldName: string,
+    newName: string
+  ) => {
+    // TODO Replace the tabs instead on closing them.
+    setState(state => ({
+      ...state,
+      editorTabs: closeCustomObjectTab(
+        state.editorTabs,
+        eventsFunctionsExtension.getName(),
+        oldName
+      ),
+    }));
+  };
+
+  const onDeletedEventsBasedObject = (
+    eventsFunctionsExtension: gdEventsFunctionsExtension,
+    name: string
+  ) => {
+    setState(state => ({
+      ...state,
+      editorTabs: closeCustomObjectTab(
+        state.editorTabs,
+        eventsFunctionsExtension.getName(),
+        name
+      ),
+    }));
   };
 
   const setPreviewedLayout = (
@@ -1552,6 +1588,7 @@ const MainFrame = (props: Props) => {
       projectDataOnlyExport,
       fullLoadingScreen,
       forceDiagnosticReport,
+      launchCaptureOptions,
     }: LaunchPreviewOptions) => {
       if (!currentProject) return;
       if (currentProject.getLayoutsCount() === 0) return;
@@ -1597,9 +1634,14 @@ const MainFrame = (props: Props) => {
         currentProject
       );
 
+      const captureOptions = await createCaptureOptionsForPreview(
+        launchCaptureOptions
+      );
+
       try {
         await eventsFunctionsExtensionsState.ensureLoadFinished();
 
+        const startTime = Date.now();
         await previewLauncher.launchPreview({
           project: currentProject,
           layout,
@@ -1613,8 +1655,23 @@ const MainFrame = (props: Props) => {
           getIsMenuBarHiddenInPreview: preferences.getIsMenuBarHiddenInPreview,
           getIsAlwaysOnTopInPreview: preferences.getIsAlwaysOnTopInPreview,
           numberOfWindows: numberOfWindows || 1,
+          captureOptions,
+          onCaptureFinished,
         });
         setPreviewLoading(false);
+
+        sendPreviewStarted({
+          quickCustomizationGameId:
+            quickCustomizationDialogOpenedFromGameId || null,
+          networkPreview: !!networkPreview,
+          hotReload: !!hotReload,
+          projectDataOnlyExport: !!projectDataOnlyExport,
+          fullLoadingScreen: !!fullLoadingScreen,
+          numberOfWindows: numberOfWindows || 1,
+          forceDiagnosticReport: !!forceDiagnosticReport,
+          previewLaunchDuration: Date.now() - startTime,
+        });
+
         if (inAppTutorialOrchestratorRef.current) {
           inAppTutorialOrchestratorRef.current.onPreviewLaunch();
         }
@@ -1651,6 +1708,9 @@ const MainFrame = (props: Props) => {
       preferences.values.openDiagnosticReportAutomatically,
       currentlyRunningInAppTutorial,
       getAuthenticatedPlayerForPreview,
+      quickCustomizationDialogOpenedFromGameId,
+      onCaptureFinished,
+      createCaptureOptionsForPreview,
     ]
   );
 
@@ -1680,6 +1740,22 @@ const MainFrame = (props: Props) => {
 
   const launchPreviewWithDiagnosticReport = React.useCallback(
     () => launchPreview({ forceDiagnosticReport: true }),
+    [launchPreview]
+  );
+
+  const launchQuickCustomizationPreview = React.useCallback(
+    () =>
+      launchPreview({
+        networkPreview: false,
+        launchCaptureOptions: {
+          screenshots: [
+            { delayTimeInSeconds: 1000 }, // Take one quickly in case the user closes the preview too fast.
+            { delayTimeInSeconds: 5000 }, // Take another one after longer into the game.
+          ],
+        },
+        hotReload: true,
+        projectDataOnlyExport: true,
+      }),
     [launchPreview]
   );
 
@@ -1826,6 +1902,15 @@ const MainFrame = (props: Props) => {
     },
     [setState, getEditorOpeningOptions]
   );
+
+  const closeDialogsToOpenHomePage = React.useCallback(() => {
+    setShareDialogOpen(false);
+  }, []);
+
+  const { navigateToRoute } = useHomepageWitchForRouting({
+    openHomePage,
+    closeDialogs: closeDialogsToOpenHomePage,
+  });
 
   const _openDebugger = React.useCallback(
     () => {
@@ -2026,6 +2111,37 @@ const MainFrame = (props: Props) => {
 
   const onExtractAsExternalLayout = (name: string) => {
     openExternalLayout(name);
+  };
+
+  const onOpenEventBasedObjectEditor = (
+    extensionName: string,
+    eventsBasedObjectName: string
+  ) => {
+    if (!currentProject) return;
+    openEventsFunctionsExtension(
+      extensionName,
+      null,
+      null,
+      eventsBasedObjectName
+    );
+    if (!currentProject.hasEventsFunctionsExtensionNamed(extensionName)) {
+      return;
+    }
+    const eventsFunctionsExtension = currentProject.getEventsFunctionsExtension(
+      extensionName
+    );
+    const eventsBasedObjects = eventsFunctionsExtension.getEventsBasedObjects();
+    if (!eventsBasedObjects.has(eventsBasedObjectName)) {
+      return;
+    }
+    const eventsBasedObject = eventsBasedObjects.get(eventsBasedObjectName);
+    openCustomObjectEditor(eventsFunctionsExtension, eventsBasedObject);
+
+    // Trigger reloading of extensions as an extension was modified (or even added)
+    // to create the custom object.
+    eventsFunctionsExtensionsState.loadProjectEventsFunctionsExtensions(
+      currentProject
+    );
   };
 
   const onEventsBasedObjectChildrenEdited = React.useCallback(
@@ -2408,7 +2524,12 @@ const MainFrame = (props: Props) => {
   );
 
   const saveProjectAsWithStorageProvider = React.useCallback(
-    async (requestedStorageProvider?: StorageProvider) => {
+    async (
+      options: ?{|
+        requestedStorageProvider?: StorageProvider,
+        forcedSavedAsLocation?: SaveAsLocation,
+      |}
+    ) => {
       if (!currentProject) return;
 
       saveUiSettings(state.editorTabs);
@@ -2426,6 +2547,8 @@ const MainFrame = (props: Props) => {
       const oldStorageProviderOperations = getStorageProviderOperations();
 
       // Get the methods to save the project using the *new* storage provider.
+      const requestedStorageProvider =
+        options && options.requestedStorageProvider;
       const newStorageProviderOperations = getStorageProviderOperations(
         requestedStorageProvider
       );
@@ -2451,8 +2574,9 @@ const MainFrame = (props: Props) => {
       const storageProviderInternalName = newStorageProvider.internalName;
 
       try {
-        let newSaveAsLocation: ?SaveAsLocation = null;
-        if (onChooseSaveProjectAsLocation) {
+        let newSaveAsLocation: ?SaveAsLocation =
+          options && options.forcedSavedAsLocation;
+        if (onChooseSaveProjectAsLocation && !newSaveAsLocation) {
           const { saveAsLocation } = await onChooseSaveProjectAsLocation({
             project: currentProject,
             fileMetadata: currentFileMetadata,
@@ -2460,19 +2584,19 @@ const MainFrame = (props: Props) => {
           if (!saveAsLocation) {
             return; // Save as was cancelled.
           }
-
-          if (canFileMetadataBeSafelySavedAs && currentFileMetadata) {
-            const canProjectBeSafelySavedAs = await canFileMetadataBeSafelySavedAs(
-              currentFileMetadata,
-              {
-                showAlert,
-                showConfirmation,
-              }
-            );
-
-            if (!canProjectBeSafelySavedAs) return;
-          }
           newSaveAsLocation = saveAsLocation;
+        }
+
+        if (canFileMetadataBeSafelySavedAs && currentFileMetadata) {
+          const canProjectBeSafelySavedAs = await canFileMetadataBeSafelySavedAs(
+            currentFileMetadata,
+            {
+              showAlert,
+              showConfirmation,
+            }
+          );
+
+          if (!canProjectBeSafelySavedAs) return;
         }
 
         const { wasSaved, fileMetadata } = await onSaveProjectAs(
@@ -2782,6 +2906,7 @@ const MainFrame = (props: Props) => {
   const renderSaveReminder = useSaveReminder({
     onSave: saveProject,
     project: currentProject,
+    isInQuickCustomization: !!quickCustomizationDialogOpenedFromGameId,
   });
 
   /**
@@ -2983,6 +3108,34 @@ const MainFrame = (props: Props) => {
       notification.onclick = () => openAboutDialog(true);
     }
   };
+
+  const openTemplateFromTutorial = React.useCallback(
+    async (tutorialId: string) => {
+      const projectIsClosed = await askToCloseProject();
+      if (!projectIsClosed) {
+        return;
+      }
+      try {
+        await createProjectFromTutorial(tutorialId, {
+          storageProvider: emptyStorageProvider,
+          saveAsLocation: null,
+          // Remaining will be set by the template.
+        });
+      } catch (error) {
+        showErrorBox({
+          message: i18n._(
+            t`Unable to create a new project for the tutorial. Try again later.`
+          ),
+          rawError: new Error(
+            `Can't create project from template of tutorial "${tutorialId}"`
+          ),
+          errorId: 'cannot-create-project-from-tutorial-template',
+        });
+        return;
+      }
+    },
+    [askToCloseProject, createProjectFromTutorial, i18n]
+  );
 
   const startSelectedTutorial = React.useCallback(
     async (scenario: 'resume' | 'startOver' | 'start') => {
@@ -3359,9 +3512,6 @@ const MainFrame = (props: Props) => {
             onRenameEventsFunctionsExtension={renameEventsFunctionsExtension}
             onRenameExternalEvents={renameExternalEvents}
             onOpenResources={openResources}
-            onOpenPlatformSpecificAssets={() =>
-              openPlatformSpecificAssetsDialog(true)
-            }
             eventsFunctionsExtensionsError={eventsFunctionsExtensionsError}
             onReloadEventsFunctionsExtensions={() => {
               if (isProjectClosedSoAvoidReloadingExtensions) {
@@ -3376,6 +3526,9 @@ const MainFrame = (props: Props) => {
             freezeUpdate={!projectManagerOpen}
             hotReloadPreviewButtonProps={hotReloadPreviewButtonProps}
             resourceManagementProps={resourceManagementProps}
+            gamesList={gamesList}
+            onOpenHomePage={openHomePage}
+            toggleProjectManager={toggleProjectManager}
           />
         ) : null}
       </ProjectManagerDrawer>
@@ -3474,6 +3627,7 @@ const MainFrame = (props: Props) => {
                         openSceneEditor: false,
                       });
                     },
+                    onOpenTemplateFromTutorial: openTemplateFromTutorial,
                     previewDebuggerServer,
                     hotReloadPreviewButtonProps,
                     onOpenLayout: name => {
@@ -3488,6 +3642,8 @@ const MainFrame = (props: Props) => {
                     onCreateEventsFunction,
                     openInstructionOrExpression,
                     onOpenCustomObjectEditor: openCustomObjectEditor,
+                    onRenamedEventsBasedObject: onRenamedEventsBasedObject,
+                    onDeletedEventsBasedObject: onDeletedEventsBasedObject,
                     openObjectEvents,
                     unsavedChanges: unsavedChanges,
                     canOpen: !!props.storageProviders.filter(
@@ -3500,6 +3656,7 @@ const MainFrame = (props: Props) => {
                     },
                     onOpenProjectManager: () => openProjectManager(true),
                     askToCloseProject,
+                    closeProject,
                     onOpenExampleStore: openExampleStoreDialog,
                     onSelectExampleShortHeader: onSelectExampleShortHeader,
                     onCreateProjectFromExample: createProjectFromExample,
@@ -3520,9 +3677,9 @@ const MainFrame = (props: Props) => {
                     onOpenPreferences: () => openPreferencesDialog(true),
                     onOpenAbout: () => openAboutDialog(true),
                     selectInAppTutorial: selectInAppTutorial,
-                    onLoadEventsFunctionsExtensions: () => {
+                    onLoadEventsFunctionsExtensions: async () => {
                       if (isProjectClosedSoAvoidReloadingExtensions) {
-                        return Promise.resolve();
+                        return;
                       }
                       return eventsFunctionsExtensionsState.loadProjectEventsFunctionsExtensions(
                         currentProject
@@ -3558,8 +3715,11 @@ const MainFrame = (props: Props) => {
                     },
                     openBehaviorEvents: openBehaviorEvents,
                     onExtractAsExternalLayout: onExtractAsExternalLayout,
+                    onExtractAsEventBasedObject: onOpenEventBasedObjectEditor,
+                    onOpenEventBasedObjectEditor: onOpenEventBasedObjectEditor,
                     onEventsBasedObjectChildrenEdited: onEventsBasedObjectChildrenEdited,
                     onSceneObjectEdited: onSceneObjectEdited,
+                    gamesList,
                   })}
                 </ErrorBoundary>
               </CommandsContextScopedProvider>
@@ -3592,16 +3752,8 @@ const MainFrame = (props: Props) => {
           fileMetadata: currentFileMetadata,
           storageProvider: getStorageProvider(),
           initialTab: shareDialogInitialTab,
+          gamesList,
         })}
-      {!!currentProject && platformSpecificAssetsDialogOpen && (
-        <PlatformSpecificAssetsDialog
-          project={currentProject}
-          open
-          onApply={() => openPlatformSpecificAssetsDialog(false)}
-          onClose={() => openPlatformSpecificAssetsDialog(false)}
-          resourceManagementProps={resourceManagementProps}
-        />
-      )}
       {!!renderPreviewLauncher &&
         renderPreviewLauncher(
           {
@@ -3615,6 +3767,7 @@ const MainFrame = (props: Props) => {
             getIncludeFileHashs:
               eventsFunctionsExtensionsContext.getIncludeFileHashs,
             onExport: () => openShareDialog('publish'),
+            onCaptureFinished,
           },
           (previewLauncher: ?PreviewLauncherInterface) => {
             _previewLauncher.current = previewLauncher;
@@ -3735,7 +3888,9 @@ const MainFrame = (props: Props) => {
           storageProviders={props.storageProviders}
           onChooseProvider={storageProvider => {
             openSaveToStorageProviderDialog(false);
-            saveProjectAsWithStorageProvider(storageProvider);
+            saveProjectAsWithStorageProvider({
+              requestedStorageProvider: storageProvider,
+            });
           }}
         />
       )}
@@ -3834,23 +3989,67 @@ const MainFrame = (props: Props) => {
         <QuickCustomizationDialog
           project={currentProject}
           resourceManagementProps={resourceManagementProps}
-          onLaunchPreview={
-            hotReloadPreviewButtonProps.launchProjectDataOnlyPreview
-          }
-          onClose={options => {
+          onLaunchPreview={launchQuickCustomizationPreview}
+          onClose={async options => {
+            if (hasUnsavedChanges) {
+              const response = await showConfirmation({
+                title: t`Leave the customization?`,
+                message: t`Do you want to quit the customization? All your changes will be lost.`,
+                confirmButtonLabel: t`Leave`,
+              });
+
+              if (!response) {
+                return;
+              }
+            }
+
             setQuickCustomizationDialogOpenedFromGameId(null);
-            if (options && options.tryAnotherGame) {
-              // Close the project so the user is back at where they can chose a game to customize
-              // which is probably the home page.
-              closeProject();
-              openHomePage();
+            closeProject();
+            openHomePage();
+            if (!hasUnsavedChanges) {
+              navigateToRoute('build');
             }
           }}
           onlineWebExporter={quickPublishOnlineWebExporter}
-          onSaveProject={saveProject}
+          isRequiredToSaveAsNewCloudProject={() => {
+            const storageProvider = getStorageProvider();
+            return storageProvider.internalName !== 'Cloud';
+          }}
+          onSaveProject={async () => {
+            // Automatically try to save project to the cloud.
+            const storageProvider = getStorageProvider();
+            if (storageProvider.internalName === 'Cloud') {
+              saveProject();
+              return;
+            }
+
+            if (
+              !['Empty', 'UrlStorageProvider'].includes(
+                storageProvider.internalName
+              )
+            ) {
+              console.error(
+                `Unexpected storage provider ${
+                  storageProvider.internalName
+                } when saving project from quick customization dialog. Saving anyway as a new cloud project.`
+              );
+            }
+
+            saveProjectAsWithStorageProvider({
+              requestedStorageProvider: CloudStorageProvider,
+              forcedSavedAsLocation: {
+                name: currentProject.getName(),
+              },
+            });
+            return;
+          }}
           isSavingProject={isSavingProject}
-          canClose={true}
+          canClose
           sourceGameId={quickCustomizationDialogOpenedFromGameId}
+          gameScreenshotUrls={getGameUnverifiedScreenshotUrls(
+            currentProject.getProjectUuid()
+          )}
+          onScreenshotsClaimed={onGameScreenshotsClaimed}
         />
       )}
       <CustomDragLayer />

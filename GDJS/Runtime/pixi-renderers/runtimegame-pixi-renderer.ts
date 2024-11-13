@@ -44,6 +44,8 @@ namespace gdjs {
 
     _nextFrameId: integer = 0;
 
+    _wasDisposed: boolean = false;
+
     /**
      * @param game The game that is being rendered
      * @param forceFullscreen If fullscreen should be always activated
@@ -62,6 +64,8 @@ namespace gdjs {
      *
      */
     createStandardCanvas(parentElement: HTMLElement) {
+      this._throwIfDisposed();
+
       let gameCanvas: HTMLCanvasElement;
       if (typeof THREE !== 'undefined') {
         gameCanvas = document.createElement('canvas');
@@ -71,6 +75,7 @@ namespace gdjs {
             this._game.getAntialiasingMode() !== 'none' &&
             (this._game.isAntialisingEnabledOnMobile() ||
               !gdjs.evtTools.common.isMobile()),
+          preserveDrawingBuffer: true, // Keep to true to allow screenshots.
         });
         this._threeRenderer.useLegacyLights = true;
         this._threeRenderer.autoClear = false;
@@ -89,7 +94,7 @@ namespace gdjs {
           // @ts-ignore - reuse the context from Three.js.
           context: this._threeRenderer.getContext(),
           clearBeforeRender: false,
-          preserveDrawingBuffer: true,
+          preserveDrawingBuffer: true, // Keep to true to allow screenshots.
           antialias: false,
           backgroundAlpha: 0,
           // TODO (3D): add a setting for pixel ratio (`resolution: window.devicePixelRatio`)
@@ -335,6 +340,7 @@ namespace gdjs {
      * Change the margin that must be preserved around the game canvas.
      */
     setMargins(top, right, bottom, left): void {
+      this._throwIfDisposed();
       if (
         this._marginTop === top &&
         this._marginRight === right &&
@@ -356,12 +362,19 @@ namespace gdjs {
      * @param height The new height, in pixels.
      */
     setWindowSize(width: float, height: float): void {
+      this._throwIfDisposed();
       const remote = this.getElectronRemote();
       if (remote) {
-        // Use Electron BrowserWindow API
         const browserWindow = remote.getCurrentWindow();
-        if (browserWindow) {
-          browserWindow.setContentSize(width, height);
+        try {
+          if (browserWindow) {
+            browserWindow.setContentSize(width, height);
+          }
+        } catch (error) {
+          logger.error(
+            `Window size setting to width ${width} and height ${height} failed. See error:`,
+            error
+          );
         }
       } else {
         logger.warn("Window size can't be changed on this platform.");
@@ -372,22 +385,27 @@ namespace gdjs {
      * Center the window on screen.
      */
     centerWindow() {
+      this._throwIfDisposed();
       const remote = this.getElectronRemote();
       if (remote) {
-        // Use Electron BrowserWindow API
         const browserWindow = remote.getCurrentWindow();
-        if (browserWindow) {
-          browserWindow.center();
+        try {
+          if (browserWindow) {
+            browserWindow.center();
+          }
+        } catch (error) {
+          logger.error('Window centering failed. See error:', error);
         }
       } else {
+        logger.warn("Window can't be centered on this platform.");
       }
     }
 
-    // Not supported
     /**
      * De/activate fullscreen for the game.
      */
     setFullScreen(enable): void {
+      this._throwIfDisposed();
       if (this._forceFullscreen) {
         return;
       }
@@ -395,10 +413,16 @@ namespace gdjs {
         this._isFullscreen = !!enable;
         const remote = this.getElectronRemote();
         if (remote) {
-          // Use Electron BrowserWindow API
           const browserWindow = remote.getCurrentWindow();
-          if (browserWindow) {
-            browserWindow.setFullScreen(this._isFullscreen);
+          try {
+            if (browserWindow) {
+              browserWindow.setFullScreen(this._isFullscreen);
+            }
+          } catch (error) {
+            logger.error(
+              `Full screen setting to ${this._isFullscreen} failed. See error:`,
+              error
+            );
           }
         } else {
           // Use HTML5 Fullscreen API
@@ -451,7 +475,12 @@ namespace gdjs {
     isFullScreen(): boolean {
       const remote = this.getElectronRemote();
       if (remote) {
-        return remote.getCurrentWindow().isFullScreen();
+        try {
+          return remote.getCurrentWindow().isFullScreen();
+        } catch (error) {
+          logger.error(`Full screen detection failed. See error:`, error);
+          return false;
+        }
       }
 
       // Height check is used to detect user triggered full screen (for example F11 shortcut).
@@ -500,6 +529,7 @@ namespace gdjs {
       window: Window,
       document: Document
     ) {
+      this._throwIfDisposed();
       const canvas = this._gameCanvas;
       if (!canvas) return;
 
@@ -812,6 +842,7 @@ namespace gdjs {
     }
 
     startGameLoop(fn) {
+      this._throwIfDisposed();
       let oldTime = 0;
       const gameLoop = (time: float) => {
         // Schedule the next frame now to be sure it's called as soon
@@ -827,6 +858,10 @@ namespace gdjs {
       };
 
       requestAnimationFrame(gameLoop);
+    }
+
+    stopGameLoop(): void {
+      cancelAnimationFrame(this._nextFrameId);
     }
 
     getPIXIRenderer() {
@@ -874,7 +909,7 @@ namespace gdjs {
     }
 
     /**
-     * Close the game, if applicable
+     * Close the game, if applicable.
      */
     stopGame() {
       // Try to detect the environment to use the most adapted
@@ -883,7 +918,11 @@ namespace gdjs {
       if (remote) {
         const browserWindow = remote.getCurrentWindow();
         if (browserWindow) {
-          browserWindow.close();
+          try {
+            browserWindow.close();
+          } catch (error) {
+            logger.error('Window closing failed. See error:', error);
+          }
         }
       } else {
         if (
@@ -898,6 +937,19 @@ namespace gdjs {
         }
       }
       // HTML5 games on mobile/browsers don't have a way to close their window/page.
+    }
+
+    /**
+     * Dispose PixiRenderer, ThreeRenderer and remove canvas from DOM.
+     */
+    dispose() {
+      this._pixiRenderer?.destroy(true);
+      this._threeRenderer?.dispose();
+      this._pixiRenderer = null;
+      this._threeRenderer = null;
+      this._gameCanvas = null;
+      this._domElementsContainer = null;
+      this._wasDisposed = true;
     }
 
     /**
@@ -955,6 +1007,12 @@ namespace gdjs {
 
     getGame() {
       return this._game;
+    }
+
+    private _throwIfDisposed(): void {
+      if (this._wasDisposed) {
+        throw 'The RuntimeGameRenderer has been disposed and should not be used anymore.';
+      }
     }
   }
 

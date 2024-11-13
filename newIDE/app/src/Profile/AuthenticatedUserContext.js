@@ -19,6 +19,7 @@ import {
   type Limits,
   type Usages,
   type Subscription,
+  type UserEarningsBalance,
 } from '../Utils/GDevelopServices/Usage';
 import {
   type AssetShortHeader,
@@ -43,13 +44,14 @@ export type AuthenticatedUser = {|
   assetPackPurchases: ?Array<Purchase>,
   recommendations: ?Array<Recommendation>,
   notifications: ?Array<Notification>,
+  userEarningsBalance: ?UserEarningsBalance,
   limits: ?Limits,
   authenticationError: ?AuthError,
   usages: ?Usages,
   subscription: ?Subscription,
   onLogin: (form: LoginForm) => Promise<void>,
   onLoginWithProvider: (provider: IdentityProvider) => Promise<void>,
-  onCancelLogin: () => void,
+  onCancelLoginOrSignUp: () => void,
   onLogout: () => Promise<void>,
   onCreateAccount: (
     form: RegisterForm,
@@ -72,6 +74,7 @@ export type AuthenticatedUser = {|
   onRefreshLimits: () => Promise<void>,
   onRefreshGameTemplatePurchases: () => Promise<void>,
   onRefreshAssetPackPurchases: () => Promise<void>,
+  onRefreshEarningsBalance: () => Promise<void>,
   onRefreshNotifications: () => Promise<void>,
   onPurchaseSuccessful: () => Promise<void>,
   onSendEmailVerification: () => Promise<void>,
@@ -84,29 +87,34 @@ export type AuthenticatedUser = {|
   achievements: ?Array<Achievement>,
 |};
 
+export const authenticatedUserPropertiesLoadingState = {
+  cloudProjects: null,
+  receivedAssetPacks: null,
+  receivedAssetShortHeaders: null,
+  receivedGameTemplates: null,
+  badges: null,
+  notifications: null,
+};
+
 export const initialAuthenticatedUser = {
   authenticated: false,
   firebaseUser: null,
   profile: null,
   loginState: null,
   creatingOrLoggingInAccount: false,
-  badges: null,
-  cloudProjects: null,
   cloudProjectsFetchingErrorLabel: null,
-  receivedAssetPacks: null,
-  receivedAssetShortHeaders: null,
-  receivedGameTemplates: null,
   gameTemplatePurchases: null,
   assetPackPurchases: null,
   recommendations: null,
-  notifications: null,
   subscription: null,
   usages: null,
+  userEarningsBalance: null,
   limits: null,
+  ...authenticatedUserPropertiesLoadingState,
   authenticationError: null,
   onLogin: async () => {},
   onLoginWithProvider: async () => {},
-  onCancelLogin: () => {},
+  onCancelLoginOrSignUp: () => {},
   onLogout: async () => {},
   onCreateAccount: async () => {},
   onEditProfile: async () => {},
@@ -123,6 +131,7 @@ export const initialAuthenticatedUser = {
   onRefreshLimits: async () => {},
   onRefreshGameTemplatePurchases: async () => {},
   onRefreshAssetPackPurchases: async () => {},
+  onRefreshEarningsBalance: async () => {},
   onRefreshNotifications: async () => {},
   onPurchaseSuccessful: async () => {},
   onSendEmailVerification: async () => {},
@@ -146,6 +155,7 @@ export const authenticatedUserLoggedOutAttributes = {
   receivedAssetShortHeaders: [], // Initialize to empty array to indicate that the loading is done.
   receivedGameTemplates: [], // Initialize to empty array to indicate that the loading is done.
   subscription: null,
+  userEarningsBalance: null,
   usages: null,
   limits: null,
 };

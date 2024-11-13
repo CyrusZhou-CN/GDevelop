@@ -35,6 +35,11 @@ export const Default = () => (
         initiallyFocusedObjectName={null}
         onCreateEventsFunction={action('on create events function')}
         onOpenCustomObjectEditor={action('onOpenCustomObjectEditor')}
+        onRenamedEventsBasedObject={action('onRenamedEventsBasedObject')}
+        onDeletedEventsBasedObject={action('onDeletedEventsBasedObject')}
+        onEventsBasedObjectChildrenEdited={action(
+          'onEventsBasedObjectChildrenEdited'
+        )}
         hotReloadPreviewButtonProps={fakeHotReloadPreviewButtonProps}
       />
     </FixedHeightFlexContainer>
@@ -44,7 +49,6 @@ export const Default = () => (
 export const WithObjectEditor = () => {
   const preferences: Preferences = {
     ...initialPreferences,
-    getShowEventBasedObjectsEditor: () => true,
   };
 
   return (
@@ -64,6 +68,11 @@ export const WithObjectEditor = () => {
             initiallyFocusedObjectName={null}
             onCreateEventsFunction={action('on create events function')}
             onOpenCustomObjectEditor={action('onOpenCustomObjectEditor')}
+            onRenamedEventsBasedObject={action('onRenamedEventsBasedObject')}
+            onDeletedEventsBasedObject={action('onDeletedEventsBasedObject')}
+            onEventsBasedObjectChildrenEdited={action(
+              'onEventsBasedObjectChildrenEdited'
+            )}
             hotReloadPreviewButtonProps={fakeHotReloadPreviewButtonProps}
           />
         </FixedHeightFlexContainer>

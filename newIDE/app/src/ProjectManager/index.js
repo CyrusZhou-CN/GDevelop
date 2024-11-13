@@ -19,15 +19,14 @@ import UnsavedChangesContext, {
 import ProjectManagerCommands from './ProjectManagerCommands';
 import { type HotReloadPreviewButtonProps } from '../HotReload/HotReloadPreviewButton';
 import { type ExtensionShortHeader } from '../Utils/GDevelopServices/Extension';
+import { type GamesList } from '../GameDashboard/UseGamesList';
 import { type ResourceManagementProps } from '../ResourcesList/ResourceSource';
 import InstalledExtensionDetails from './InstalledExtensionDetails';
 import { useShouldAutofocusInput } from '../UI/Responsive/ScreenTypeMeasurer';
 import { addDefaultLightToAllLayers } from '../ProjectCreation/CreateProject';
 import ErrorBoundary from '../UI/ErrorBoundary';
 import useForceUpdate from '../Utils/UseForceUpdate';
-import useGamesList from '../GameDashboard/UseGamesList';
 import AuthenticatedUserContext from '../Profile/AuthenticatedUserContext';
-import { GameDetailsDialog } from '../GameDashboard/GameDetailsDialog';
 
 import { AutoSizer } from 'react-virtualized';
 import Background from '../UI/Background';
@@ -75,6 +74,8 @@ import { type ShowConfirmDeleteDialogOptions } from '../UI/Alert/AlertContext';
 import GDevelopThemeContext from '../UI/Theme/GDevelopThemeContext';
 import { type GDevelopTheme } from '../UI/Theme';
 import { ExtensionStoreContext } from '../AssetStore/ExtensionStore/ExtensionStoreContext';
+import { type HTMLDataset } from '../Utils/HTMLDataset';
+import RouterContext from '../MainFrame/RouterContext';
 
 export const getProjectManagerItemId = (identifier: string) =>
   `project-manager-tab-${identifier}`;
@@ -117,7 +118,7 @@ export interface TreeViewItemContent {
   getName(): string | React.Node;
   getId(): string;
   getHtmlId(index: number): ?string;
-  getDataSet(): { [string]: string };
+  getDataSet(): ?HTMLDataset;
   getThumbnail(): ?string;
   onClick(): void;
   buildMenuTemplate(i18n: I18nType, index: number): Array<MenuItemTemplate>;
@@ -227,8 +228,8 @@ class LabelTreeViewItemContent implements TreeViewItemContent {
     return this.id;
   }
 
-  getDataSet(): { [string]: string } {
-    return {};
+  getDataSet(): ?HTMLDataset {
+    return null;
   }
 
   getThumbnail(): ?string {
@@ -315,8 +316,8 @@ class ActionTreeViewItemContent implements TreeViewItemContent {
     return this.id;
   }
 
-  getDataSet(): { [string]: string } {
-    return {};
+  getDataSet(): ?HTMLDataset {
+    return null;
   }
 
   getThumbnail(): ?string {
@@ -408,16 +409,20 @@ type Props = {|
   ...ExternalEventsTreeViewItemCallbacks,
   ...ExternalLayoutTreeViewItemCallbacks,
   onOpenResources: () => void,
-  onOpenPlatformSpecificAssets: () => void,
   eventsFunctionsExtensionsError: ?Error,
   onReloadEventsFunctionsExtensions: () => void,
   freezeUpdate: boolean,
   hotReloadPreviewButtonProps: HotReloadPreviewButtonProps,
   onInstallExtension: ExtensionShortHeader => void,
   onShareProject: () => void,
+  onOpenHomePage: () => void,
+  toggleProjectManager: () => void,
 
   // For resources:
   resourceManagementProps: ResourceManagementProps,
+
+  // Games
+  gamesList: GamesList,
 |};
 
 const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
@@ -439,7 +444,6 @@ const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
       onOpenExternalLayout,
       onOpenEventsFunctionsExtension,
       onOpenResources,
-      onOpenPlatformSpecificAssets,
       eventsFunctionsExtensionsError,
       onReloadEventsFunctionsExtensions,
       freezeUpdate,
@@ -447,6 +451,9 @@ const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
       onInstallExtension,
       onShareProject,
       resourceManagementProps,
+      gamesList,
+      onOpenHomePage,
+      toggleProjectManager,
     },
     ref
   ) => {
@@ -464,6 +471,8 @@ const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
     const forceUpdate = useForceUpdate();
     const { isMobile } = useResponsiveWindowSize();
     const { showDeleteConfirmation } = useAlertDialog();
+    const { fetchGames } = gamesList;
+    const { navigateToRoute } = React.useContext(RouterContext);
 
     const forceUpdateList = React.useCallback(
       () => {
@@ -497,6 +506,10 @@ const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
       setProjectPropertiesDialogOpen(true);
       setProjectPropertiesDialogInitialTab('loading-screen');
     }, []);
+    const openProjectIcons = React.useCallback(() => {
+      setProjectPropertiesDialogOpen(true);
+      setProjectPropertiesDialogInitialTab('icons');
+    }, []);
     const onProjectPropertiesApplied = React.useCallback(
       (options: { newName?: string }) => {
         triggerUnsavedChanges();
@@ -509,11 +522,6 @@ const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
       [triggerUnsavedChanges, onChangeProjectName]
     );
 
-    const [openGameDetails, setOpenGameDetails] = React.useState<boolean>(
-      false
-    );
-    const projectUuid = project.getProjectUuid();
-    const { games, fetchGames, onGameUpdated } = useGamesList();
     const { profile } = React.useContext(AuthenticatedUserContext);
     const userId = profile ? profile.id : null;
     React.useEffect(
@@ -522,17 +530,24 @@ const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
       },
       [fetchGames, userId]
     );
-    const gameMatchingProjectUuid = games
-      ? games.find(game => game.id === projectUuid)
-      : null;
     const onOpenGamesDashboardDialog = React.useCallback(
       () => {
-        setOpenGameDetails(true);
+        navigateToRoute('games-dashboard', {
+          'game-id': project.getProjectUuid(),
+        });
+        onOpenHomePage();
+        toggleProjectManager();
         // Refresh the games as it could have been modified using the game dashboard
         // in the "Manage" tab from the home page.
         fetchGames();
       },
-      [fetchGames]
+      [
+        fetchGames,
+        navigateToRoute,
+        onOpenHomePage,
+        toggleProjectManager,
+        project,
+      ]
     );
 
     const [
@@ -975,8 +990,8 @@ const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
                 new LeafTreeViewItem(
                   new ActionTreeViewItemContent(
                     gameIconsItemId,
-                    i18n._(t`Icons and thumbnail`),
-                    onOpenPlatformSpecificAssets,
+                    i18n._(t`Icons`),
+                    openProjectIcons,
                     'res/icons_default/picture_black.svg'
                   )
                 ),
@@ -1176,7 +1191,7 @@ const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
         externalEventsTreeViewItemProps,
         externalLayoutTreeViewItemProps,
         onOpenGamesDashboardDialog,
-        onOpenPlatformSpecificAssets,
+        openProjectIcons,
         onOpenResources,
         openProjectProperties,
         openProjectVariables,
@@ -1253,7 +1268,7 @@ const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
           onOpenProjectLoadingScreen={openProjectLoadingScreen}
           onOpenProjectVariables={openProjectVariables}
           onOpenResourcesDialog={onOpenResources}
-          onOpenPlatformSpecificAssetsDialog={onOpenPlatformSpecificAssets}
+          onOpenPlatformSpecificAssetsDialog={openProjectIcons}
           onOpenSearchExtensionDialog={openSearchExtensionDialog}
         />
         <Column>
@@ -1348,20 +1363,6 @@ const ProjectManager = React.forwardRef<Props, ProjectManagerInterface>(
                     setProjectVariablesEditorOpen(false);
                   }}
                   hotReloadPreviewButtonProps={hotReloadPreviewButtonProps}
-                />
-              )}
-              {openGameDetails && (
-                <GameDetailsDialog
-                  project={project}
-                  analyticsSource="projectManager"
-                  game={gameMatchingProjectUuid}
-                  onClose={() => setOpenGameDetails(false)}
-                  onGameDeleted={() => {
-                    setOpenGameDetails(false);
-                    fetchGames();
-                  }}
-                  onGameUpdated={onGameUpdated}
-                  onShareProject={onShareProject}
                 />
               )}
               {!!editedPropertiesLayout && (

@@ -152,12 +152,17 @@ export const EarnBadges = ({ achievements, badges, onOpenProfile }: Props) => {
         onActionButtonClick={onOpenProfile}
       />
       <LargeSpacer />
-      <ResponsiveLineStackLayout noMargin expand alignItems="stretch">
+      <ResponsiveLineStackLayout
+        noMargin
+        expand
+        alignItems="stretch"
+        noResponsiveLandscape
+      >
         <BadgeItem
           achievementId={'github-star'}
           achievements={achievements}
           badges={badges}
-          buttonLabel={<Trans>Star GDevelop on GitHub</Trans>}
+          buttonLabel={<Trans>Star GDevelop</Trans>}
           linkUrl={'https://github.com/4ian/GDevelop'}
         />
         <BadgeItem

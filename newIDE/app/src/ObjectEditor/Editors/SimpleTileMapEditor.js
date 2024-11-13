@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import type { EditorProps } from './EditorProps.flow';
-import ScrollView from '../../UI/ScrollView';
+import ScrollView, { type ScrollViewInterface } from '../../UI/ScrollView';
 import { ColumnStackLayout } from '../../UI/Layout';
 import SemiControlledTextField from '../../UI/SemiControlledTextField';
 import { Trans } from '@lingui/macro';
@@ -27,6 +27,7 @@ const SimpleTileMapEditor = ({
   resourceManagementProps,
   renderObjectNameField,
 }: EditorProps) => {
+  const scrollViewRef = React.useRef<?ScrollViewInterface>(null);
   const forceUpdate = useForceUpdate();
   const objectProperties = objectConfiguration.getProperties();
   const tileSize = parseFloat(objectProperties.get('tileSize').getValue());
@@ -67,12 +68,13 @@ const SimpleTileMapEditor = ({
       |},
       tileSize: number
     ) => {
-      const newRowCount = dimensions.height / tileSize;
-      const newColumnCount = dimensions.width / tileSize;
+      const newRowCount = Math.floor(dimensions.height / tileSize);
+      const newColumnCount = Math.floor(dimensions.width / tileSize);
 
       if (rowCount === newRowCount && columnCount === newColumnCount) {
         return;
       }
+      setError(null);
       objectConfiguration.updateProperty('rowCount', newRowCount.toString());
       objectConfiguration.updateProperty(
         'columnCount',
@@ -92,7 +94,6 @@ const SimpleTileMapEditor = ({
       if (!value) {
         return;
       }
-      setError(null);
       objectConfiguration.updateProperty('tileSize', value.toString());
       if (loadedAtlasImageDimensions) {
         recomputeTileSet(loadedAtlasImageDimensions, value);
@@ -128,9 +129,16 @@ const SimpleTileMapEditor = ({
     [columnCount, objectConfiguration, forceUpdate, onObjectUpdated]
   );
 
+  const onScrollY = React.useCallback(deltaY => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollBy(deltaY);
+    }
+  }, []);
+
   const onChangeAtlasImage = React.useCallback(
     () => {
       if (onObjectUpdated) onObjectUpdated();
+      setError(null);
       onSizeUpdated();
       forceUpdate();
     },
@@ -140,17 +148,11 @@ const SimpleTileMapEditor = ({
   React.useEffect(
     () => {
       if (!loadedAtlasImageDimensions) return;
-      const _rowCount = loadedAtlasImageDimensions.height / tileSize;
-      const _columnCount = loadedAtlasImageDimensions.width / tileSize;
-      if (!Number.isInteger(_rowCount) || !Number.isInteger(_columnCount)) {
-        setError(
-          <Trans>
-            The new atlas image size is not compatible with the tile size.
-          </Trans>
-        );
+      if (rowCount <= 0 || columnCount <= 0) {
+        setError(<Trans>The atlas image is smaller than the tile size.</Trans>);
       }
     },
-    [tileSize, loadedAtlasImageDimensions]
+    [rowCount, columnCount, loadedAtlasImageDimensions]
   );
 
   const onAtlasImageLoaded = React.useCallback(
@@ -173,13 +175,14 @@ const SimpleTileMapEditor = ({
   );
 
   return (
-    <ScrollView>
+    <ScrollView ref={scrollViewRef}>
       <ColumnStackLayout noMargin>
         {!!renderObjectNameField && renderObjectNameField()}
         {/* TODO: Should this be a Select field with all possible values given the atlas image size? */}
         <SemiControlledTextField
           floatingLabelFixed
           floatingLabelText={<Trans>Tile size</Trans>}
+          id="tileSize"
           onChange={value => setTileSize(Math.max(parseInt(value, 10) || 0, 0))}
           value={tileSize.toString()}
         />
@@ -213,8 +216,10 @@ const SimpleTileMapEditor = ({
               onSelectTileMapTile={onChangeTilesWithHitBox}
               showPaintingToolbar={false}
               allowMultipleSelection
+              allowRectangleSelection={false}
               onAtlasImageLoaded={onAtlasImageLoaded}
               interactive={true}
+              onScrollY={onScrollY}
             />
           </>
         )}

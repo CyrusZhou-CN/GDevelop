@@ -173,6 +173,11 @@ export class EventsFunctionsExtensionEditorContainer extends React.Component<Ren
             );
           }}
           hotReloadPreviewButtonProps={this.props.hotReloadPreviewButtonProps}
+          onEventsBasedObjectChildrenEdited={
+            this.props.onEventsBasedObjectChildrenEdited
+          }
+          onRenamedEventsBasedObject={this.props.onRenamedEventsBasedObject}
+          onDeletedEventsBasedObject={this.props.onDeletedEventsBasedObject}
         />
       </div>
     );

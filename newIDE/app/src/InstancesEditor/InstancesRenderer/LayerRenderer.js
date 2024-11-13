@@ -10,8 +10,18 @@ import * as THREE from 'three';
 import { shouldBeHandledByPinch } from '../PinchHandler';
 import { makeDoubleClickable } from './PixiDoubleClickEvent';
 import Rectangle from '../../Utils/Rectangle'; // TODO (3D): add support for zMin/zMax/depth.
-import { rotatePolygon, type Polygon } from '../../Utils/PolygonHelper';
+import {
+  flipPolygon,
+  rotatePolygon,
+  type Polygon,
+} from '../../Utils/PolygonHelper';
 import Rendered3DInstance from '../../ObjectsRendering/Renderers/Rendered3DInstance';
+import {
+  type BasicProfilingCounters,
+  increaseInstanceUpdate,
+  makeBasicProfilingCounters,
+  resetBasicProfilingCounters,
+} from './BasicProfilingCounters';
 const gd: libGDevelop = global.gd;
 
 export default class LayerRenderer {
@@ -78,6 +88,8 @@ export default class LayerRenderer {
   _threePlaneMesh: THREE.Mesh | null = null;
 
   _showObjectInstancesIn3D: boolean;
+
+  _basicProfilingCounters = makeBasicProfilingCounters();
 
   constructor({
     project,
@@ -182,7 +194,18 @@ export default class LayerRenderer {
               ? 'auto'
               : 'static';
         }
-        if (isVisible) renderedInstance.update();
+        if (isVisible) {
+          const objectName = instance.getObjectName();
+          const time = performance.now();
+          renderedInstance.update();
+          const duration = performance.now() - time;
+
+          increaseInstanceUpdate(
+            this._basicProfilingCounters,
+            objectName,
+            duration
+          );
+        }
 
         if (renderedInstance instanceof Rendered3DInstance) {
           const threeObject = renderedInstance.getThreeObject();
@@ -310,7 +333,9 @@ export default class LayerRenderer {
 
   getInstanceAABB(instance: gdInitialInstance, bounds: Rectangle): Rectangle {
     const angle = (instance.getAngle() * Math.PI) / 180;
-    if (angle === 0) {
+    const isFlippedX = instance.isFlippedX();
+    const isFlippedY = instance.isFlippedY();
+    if (angle === 0 && !isFlippedX && !isFlippedY) {
       return this.getUnrotatedInstanceAABB(instance, bounds);
     }
 
@@ -352,6 +377,7 @@ export default class LayerRenderer {
         centerY = (rotatedRectangle[0][1] + rotatedRectangle[2][1]) / 2;
       }
 
+      flipPolygon(rotatedRectangle, centerX, centerY, isFlippedX, isFlippedY);
       rotatePolygon(rotatedRectangle, centerX, centerY, angle);
     }
 
@@ -548,6 +574,8 @@ export default class LayerRenderer {
   }
 
   render() {
+    resetBasicProfilingCounters(this._basicProfilingCounters);
+
     this._computeViewBounds();
     this.instances.iterateOverInstancesWithZOrdering(
       // $FlowFixMe - gd.castObject is not supporting typings.
@@ -557,6 +585,10 @@ export default class LayerRenderer {
     this._updatePixiObjectsZOrder();
     this._updateVisibility();
     this._destroyUnusedInstanceRenderers();
+  }
+
+  getBasicProfilingCounters(): BasicProfilingCounters {
+    return this._basicProfilingCounters;
   }
 
   /**
@@ -791,6 +823,11 @@ export default class LayerRenderer {
         const renderedInstance = this.renderedInstances[i];
         if (renderedInstance.getInstance().getObjectName() === objectName) {
           renderedInstance.onRemovedFromScene();
+          if (!renderedInstance._wasDestroyed)
+            console.error(
+              'Rendered instance was not marked as destroyed by onRemovedFromScene - verify the implementation.',
+              renderedInstance
+            );
           delete this.renderedInstances[i];
         }
       }
@@ -808,6 +845,11 @@ export default class LayerRenderer {
         const renderedInstance = this.renderedInstances[i];
         if (!renderedInstance.wasUsed) {
           renderedInstance.onRemovedFromScene();
+          if (!renderedInstance._wasDestroyed)
+            console.error(
+              'Rendered instance was not marked as destroyed by onRemovedFromScene - verify the implementation.',
+              renderedInstance
+            );
           delete this.renderedInstances[i];
         } else renderedInstance.wasUsed = false;
       }

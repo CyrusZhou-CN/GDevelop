@@ -30,6 +30,7 @@ export type SceneEditorsDisplayProps = {|
   objectsContainer: gdObjectsContainer,
   projectScopedContainersAccessor: ProjectScopedContainersAccessor,
   initialInstances: gdInitialInstancesContainer,
+  lastSelectionType: 'instance' | 'object',
   instancesSelection: InstancesSelection,
   selectedLayer: string,
   onSelectInstances: (
@@ -39,7 +40,12 @@ export type SceneEditorsDisplayProps = {|
   ) => void,
   editInstanceVariables: (instance: ?gdInitialInstance) => void,
   editObjectByName: (objectName: string, initialTab?: ObjectEditorTab) => void,
-  onEditObject: gdObject => void,
+  editObjectInPropertiesPanel: (objectName: string) => void,
+  onEditObject: (object: gdObject, initialTab: ?ObjectEditorTab) => void,
+  onOpenEventBasedObjectEditor: (
+    extensionName: string,
+    eventsBasedObjectName: string
+  ) => void,
   selectedObjectFolderOrObjectsWithContext: ObjectFolderOrObjectWithContext[],
   onSelectLayer: (layerName: string) => void,
   editLayerEffects: (layer: ?gdLayer) => void,
@@ -122,7 +128,7 @@ export type SceneEditorsDisplayProps = {|
 export type SceneEditorsDisplayInterface = {|
   getName: () => 'mosaic' | 'swipeableDrawer',
   forceUpdateInstancesList: () => void,
-  forceUpdateInstancesPropertiesEditor: () => void,
+  forceUpdatePropertiesEditor: () => void,
   forceUpdateObjectsList: () => void,
   forceUpdateObjectGroupsList: () => void,
   scrollObjectGroupsListToObjectGroup: (objectGroup: gdObjectGroup) => void,
@@ -135,7 +141,7 @@ export type SceneEditorsDisplayInterface = {|
     setZoomFactor: (factor: number) => void,
     zoomToInitialPosition: () => void,
     zoomToFitContent: () => void,
-    zoomToFitSelection: (Array<gdInitialInstance>) => void,
+    zoomToFitSelection: () => void,
     centerViewOnLastInstance: (
       Array<gdInitialInstance>,
       offset?: ?[number, number]
@@ -162,6 +168,7 @@ export type SceneEditorsDisplayInterface = {|
       serializedInstances: Array<Object>,
       preventSnapToGrid?: boolean,
       addInstancesInTheForeground?: boolean,
+      doesObjectExistInContext: string => boolean,
     |}) => Array<gdInitialInstance>,
   |},
 |};

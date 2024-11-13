@@ -260,10 +260,10 @@ export const replaceLeaderboardsInProject = async ({
         project.getProjectUuid(),
         {
           sourceGameId: sourceGameId,
-          sourceLeaderboardId: leaderboardId.replace(/"/g, ''),
+          sourceLeaderboardId: leaderboardId,
         }
       );
-      replacedLeaderboardsMap[leaderboardId] = `"${duplicatedLeaderboard.id}"`;
+      replacedLeaderboardsMap[leaderboardId] = duplicatedLeaderboard.id;
       setProgress(previousProgress => previousProgress + progressStep);
       return null;
     } catch (error) {
@@ -289,18 +289,11 @@ export const replaceLeaderboardsInProject = async ({
     const renamedLeaderboardsMap = toNewGdMapStringString(
       replacedLeaderboardsMap
     );
-    const eventsLeaderboardReplacer = new gd.EventsLeaderboardsRenamer(
+    gd.WholeProjectRefactorer.renameLeaderboards(
       project,
       renamedLeaderboardsMap
     );
     renamedLeaderboardsMap.delete();
-
-    gd.ProjectBrowserHelper.exposeProjectEvents(
-      project,
-      // $FlowIgnore - eventsLeaderboardReplacer inherits from ArbitraryEventsWorker
-      eventsLeaderboardReplacer
-    );
-    eventsLeaderboardReplacer.delete();
   }
   setProgress(100);
 
@@ -314,13 +307,12 @@ export const findLeaderboardsToReplaceInProject = ({
 }: {|
   project: gdProject,
 |}) => {
-  const leaderboardsLister = new gd.EventsLeaderboardsLister(project);
-  // $FlowIgnore - leaderboardsLister inherits from ArbitraryEventsWorker
-  gd.ProjectBrowserHelper.exposeProjectEvents(project, leaderboardsLister);
-  const leaderboardIds = leaderboardsLister.getLeaderboardIds();
-  const leaderboardIdsArray = leaderboardIds.toNewVectorString().toJSArray();
-  leaderboardsLister.delete();
-  return leaderboardIdsArray;
+  const leaderboardIds = gd.WholeProjectRefactorer.findAllLeaderboardIds(
+    project
+  )
+    .toNewVectorString()
+    .toJSArray();
+  return leaderboardIds;
 };
 
 /**

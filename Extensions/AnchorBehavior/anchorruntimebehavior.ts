@@ -88,7 +88,6 @@ namespace gdjs {
       const workingPoint: FloatPoint = gdjs.staticArray(
         gdjs.AnchorRuntimeBehavior.prototype.doStepPreEvents
       ) as FloatPoint;
-      // TODO EBO Make it work with event based objects or hide this behavior for them.
       let parentMinX = instanceContainer.getUnrotatedViewportMinX();
       let parentMinY = instanceContainer.getUnrotatedViewportMinY();
       let parentMaxX = instanceContainer.getUnrotatedViewportMaxX();
@@ -111,10 +110,11 @@ namespace gdjs {
         }
 
         //Calculate the distances from the window's bounds.
-        const topLeftPixel = layer.convertCoords(
+        const topLeftPixel = this._convertCoords(
+          instanceContainer,
+          layer,
           this.owner.getDrawableX(),
           this.owner.getDrawableY(),
-          0,
           workingPoint
         );
 
@@ -141,10 +141,11 @@ namespace gdjs {
         }
 
         // It's fine to reuse workingPoint as topLeftPixel is no longer used.
-        const bottomRightPixel = layer.convertCoords(
+        const bottomRightPixel = this._convertCoords(
+          instanceContainer,
+          layer,
           this.owner.getDrawableX() + this.owner.getWidth(),
           this.owner.getDrawableY() + this.owner.getHeight(),
-          0,
           workingPoint
         );
 
@@ -225,19 +226,21 @@ namespace gdjs {
         }
 
         // It's fine to reuse workingPoint as topLeftPixel is no longer used.
-        const topLeftCoord = layer.convertInverseCoords(
+        const topLeftCoord = this._convertInverseCoords(
+          instanceContainer,
+          layer,
           leftPixel,
           topPixel,
-          0,
           workingPoint
         );
         const left = topLeftCoord[0];
         const top = topLeftCoord[1];
 
-        const bottomRightCoord = layer.convertInverseCoords(
+        const bottomRightCoord = this._convertInverseCoords(
+          instanceContainer,
+          layer,
           rightPixel,
           bottomPixel,
-          0,
           workingPoint
         );
         const right = bottomRightCoord[0];
@@ -270,8 +273,20 @@ namespace gdjs {
             this._rightEdgeAnchor !== HorizontalAnchor.None &&
             this._leftEdgeAnchor !== HorizontalAnchor.None
           ) {
-            this.owner.setWidth(right - left);
-            this.owner.setX(left);
+            const width = right - left;
+            this.owner.setX(
+              this.owner.getX() === this.owner.getDrawableX()
+                ? left
+                : // It uses the position of the origin relatively to the object
+                  // size to apply it with the new size.
+                  // This is the same as doing:
+                  // lerp(left, right, (this.owner.getX() - this.owner.getDrawableX() / this.owner.getWidth())
+                  // But, the division is done at the end to avoid rounding errors.
+                  left +
+                    ((this.owner.getX() - this.owner.getDrawableX()) * width) /
+                      this.owner.getWidth()
+            );
+            this.owner.setWidth(width);
           } else {
             if (this._leftEdgeAnchor !== HorizontalAnchor.None) {
               this.owner.setX(
@@ -292,8 +307,15 @@ namespace gdjs {
             this._bottomEdgeAnchor !== VerticalAnchor.None &&
             this._topEdgeAnchor !== VerticalAnchor.None
           ) {
-            this.owner.setHeight(bottom - top);
-            this.owner.setY(top);
+            const height = bottom - top;
+            this.owner.setY(
+              this.owner.getY() === this.owner.getDrawableY()
+                ? top
+                : top +
+                    ((this.owner.getY() - this.owner.getDrawableY()) * height) /
+                      this.owner.getHeight()
+            );
+            this.owner.setHeight(height);
           } else {
             if (this._topEdgeAnchor !== VerticalAnchor.None) {
               this.owner.setY(
@@ -314,6 +336,40 @@ namespace gdjs {
     }
 
     doStepPostEvents(instanceContainer: gdjs.RuntimeInstanceContainer) {}
+
+    private _convertCoords(
+      instanceContainer: gdjs.RuntimeInstanceContainer,
+      layer: gdjs.RuntimeLayer,
+      x: float,
+      y: float,
+      result: FloatPoint
+    ) {
+      const isParentACustomObject =
+        instanceContainer !== instanceContainer.getScene();
+      if (isParentACustomObject) {
+        result[0] = x;
+        result[1] = y;
+        return result;
+      }
+      return layer.convertCoords(x, y, 0, result);
+    }
+
+    private _convertInverseCoords(
+      instanceContainer: gdjs.RuntimeInstanceContainer,
+      layer: gdjs.RuntimeLayer,
+      x: float,
+      y: float,
+      result: FloatPoint
+    ) {
+      const isParentACustomObject =
+        instanceContainer !== instanceContainer.getScene();
+      if (isParentACustomObject) {
+        result[0] = x;
+        result[1] = y;
+        return result;
+      }
+      return layer.convertInverseCoords(x, y, 0, result);
+    }
   }
   gdjs.registerBehavior(
     'AnchorBehavior::AnchorBehavior',

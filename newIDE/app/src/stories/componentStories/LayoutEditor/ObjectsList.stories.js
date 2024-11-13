@@ -28,10 +28,14 @@ export const Default = () => (
         project={testProject.project}
         layout={testProject.testLayout}
         eventsBasedObject={null}
+        projectScopedContainersAccessor={
+          testProject.testSceneProjectScopedContainersAccessor
+        }
         globalObjectsContainer={testProject.project.getObjects()}
         objectsContainer={testProject.testLayout.getObjects()}
         resourceManagementProps={fakeResourceManagementProps}
         onEditObject={action('On edit object')}
+        onOpenEventBasedObjectEditor={action('On edit children')}
         onExportAssets={action('On export assets')}
         onAddObjectInstance={action('On add instance to the scene')}
         onObjectCreated={action('On object created')}
@@ -60,10 +64,14 @@ export const WithSerializedObjectView = () => (
           project={testProject.project}
           layout={testProject.testLayout}
           eventsBasedObject={null}
+          projectScopedContainersAccessor={
+            testProject.testSceneProjectScopedContainersAccessor
+          }
           globalObjectsContainer={testProject.project.getObjects()}
           objectsContainer={testProject.testLayout.getObjects()}
           resourceManagementProps={fakeResourceManagementProps}
           onEditObject={action('On edit object')}
+          onOpenEventBasedObjectEditor={action('On edit children')}
           onExportAssets={action('On export assets')}
           onAddObjectInstance={action('On add instance to the scene')}
           onObjectCreated={action('On object created')}
