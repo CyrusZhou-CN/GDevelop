@@ -24,15 +24,16 @@ void EventsFunctionTools::FreeEventsFunctionToObjectsContainer(
     const gd::EventsFunction& eventsFunction,
     gd::ObjectsContainer& outputObjectsContainer) {
   // Functions scope for objects is defined according
-  // to parameters
-  outputObjectsContainer.GetObjects().clear();
-  outputObjectsContainer.GetObjectGroups().Clear();
-
+  // to parameters.
   auto &parameters = eventsFunction.GetParametersForEvents(functionContainer);
   gd::ParameterMetadataTools::ParametersToObjectsContainer(
       project,
       parameters,
       outputObjectsContainer);
+
+  // TODO: in theory we should ensure stability of the groups across calls
+  // to this function. BUT groups in functions should probably have never been
+  // supported, so we're phasing this out in the UI.
   outputObjectsContainer.GetObjectGroups() = eventsFunction.GetObjectGroups();
 }
 
@@ -96,26 +97,6 @@ void EventsFunctionTools::ObjectEventsFunctionToObjectsContainer(
     gd::LogWarning("Child-objects can't be named Object because it's reserved"
                   "for the parent. ");
     return;
-  }
-
-  gd::EventsFunctionTools::CopyEventsBasedObjectChildrenToObjectsContainer(
-      eventsBasedObject, outputObjectsContainer);
-}
-
-void EventsFunctionTools::CopyEventsBasedObjectChildrenToObjectsContainer(
-    const gd::EventsBasedObject& eventsBasedObject,
-    gd::ObjectsContainer& outputObjectsContainer) {
-  auto &children = eventsBasedObject.GetObjects().GetObjects();
-  for (auto &childObject : children) {
-    auto child = childObject.get();
-    outputObjectsContainer.InsertObject(
-        *child, outputObjectsContainer.GetObjectsCount());
-  }
-  auto &childrenGroups = eventsBasedObject.GetObjects().GetObjectGroups();
-  for (size_t index = 0; index < childrenGroups.Count(); ++index) {
-    auto &childGroup = childrenGroups.Get(index);
-    outputObjectsContainer.GetObjectGroups().Insert(
-        childGroup, outputObjectsContainer.GetObjectGroups().Count());
   }
 }
 

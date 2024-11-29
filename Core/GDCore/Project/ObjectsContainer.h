@@ -3,10 +3,11 @@
  * Copyright 2008-2016 Florian Rival (Florian.Rival@gmail.com). All rights
  * reserved. This project is released under the MIT License.
  */
-#ifndef GDCORE_OBJECTSCONTAINER_H
-#define GDCORE_OBJECTSCONTAINER_H
+#pragma once
+
 #include <memory>
 #include <vector>
+#include <set>
 #include "GDCore/String.h"
 #include "GDCore/Project/ObjectGroupsContainer.h"
 #include "GDCore/Project/ObjectFolderOrObject.h"
@@ -35,14 +36,24 @@ namespace gd {
  */
 class GD_CORE_API ObjectsContainer {
  public:
+  enum SourceType {
+      Unknown,
+      Global,
+      Scene,
+      Object,
+      Function,
+  };
+
   /**
-   * \brief Default constructor creating a container without any objects.
+   * \brief Constructor creating a container without any objects.
    */
-  ObjectsContainer();
+  ObjectsContainer(const SourceType sourceType);
   virtual ~ObjectsContainer();
-  
+
   ObjectsContainer(const ObjectsContainer&);
   ObjectsContainer& operator=(const ObjectsContainer& rhs);
+
+  SourceType GetSourceType() const { return sourceType; }
 
   /** \name Objects management
    * Members functions related to objects management.
@@ -57,7 +68,7 @@ class GD_CORE_API ObjectsContainer {
   /**
    * \brief Return a reference to the object called \a name.
    */
-  Object& GetObject(const gd::String& name);
+  gd::Object& GetObject(const gd::String& name);
 
   /**
    * \brief Return a reference to the object called \a name.
@@ -68,7 +79,7 @@ class GD_CORE_API ObjectsContainer {
    * \brief Return a reference to the object at position \a index in the objects
    * list
    */
-  Object& GetObject(std::size_t index);
+  gd::Object& GetObject(std::size_t index);
 
   /**
    * \brief Return a reference to the object at position \a index in the objects
@@ -168,6 +179,8 @@ class GD_CORE_API ObjectsContainer {
   const std::vector<std::unique_ptr<gd::Object> >& GetObjects() const {
     return initialObjects;
   }
+
+  std::set<gd::String> GetAllObjectNames() const;
   ///@}
 
   /**
@@ -232,6 +245,7 @@ class GD_CORE_API ObjectsContainer {
   gd::ObjectGroupsContainer objectGroups;
 
  private:
+  SourceType sourceType = Unknown;
   std::unique_ptr<gd::ObjectFolderOrObject> rootFolder;
 
   /**
@@ -242,5 +256,3 @@ class GD_CORE_API ObjectsContainer {
 };
 
 }  // namespace gd
-
-#endif  // GDCORE_OBJECTSCONTAINER_H
