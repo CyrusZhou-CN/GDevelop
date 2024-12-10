@@ -149,7 +149,7 @@ module.exports = [
     "languageCode": "it_IT",
     "languageName": "Italian",
     "languageNativeName": "Italiano",
-    "translationRatio": 0.9757721896888276
+    "translationRatio": 0.9816282007119073
   },
   {
     "languageCode": "ja_JP",
