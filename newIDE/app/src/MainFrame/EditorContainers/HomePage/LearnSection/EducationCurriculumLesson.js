@@ -24,19 +24,7 @@ import Window from '../../../../Utils/Window';
 import FlatButton from '../../../../UI/FlatButton';
 import Play from '../../../../UI/CustomSvgIcons/Play';
 import ShinyCrown from '../../../../UI/CustomSvgIcons/ShinyCrown';
-
-const rankLabel = {
-  '1': <Trans>1st</Trans>,
-  '2': <Trans>2nd</Trans>,
-  '3': <Trans>3rd</Trans>,
-  '4': <Trans>4th</Trans>,
-  '5': <Trans>5th</Trans>,
-  '6': <Trans>6th</Trans>,
-  '7': <Trans>7th</Trans>,
-  '8': <Trans>8th</Trans>,
-  '9': <Trans>9th</Trans>,
-  '10': <Trans>10th</Trans>,
-};
+import { rankLabel } from '../../../../Utils/Ordinal';
 
 const styles = {
   container: { maxWidth: 850 },
@@ -181,7 +169,7 @@ const EducationCurriculumLesson = ({
           <div style={{ ...styles.textContainer, opacity: isLocked ? 0.6 : 1 }}>
             <ColumnStackLayout justifyContent="space-between" noMargin expand>
               <ColumnStackLayout noMargin expand>
-                {!isMobile && !isLandscape && title}
+                {!(isMobile && !isLandscape) && title}
                 {gameLink &&
                   isMobile &&
                   !isLandscape &&

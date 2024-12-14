@@ -4,6 +4,7 @@
  * reserved. This project is released under the MIT License.
  */
 #pragma once
+
 #include <map>
 #include <memory>
 #include <unordered_map>
