@@ -1971,6 +1971,11 @@ export class EventsSheetComponentWithoutHandle extends React.Component<
                     }
                     screenType={screenType}
                     windowSize={windowSize}
+                    eventsSheetWidth={
+                      this._containerDiv.current
+                        ? this._containerDiv.current.clientWidth
+                        : 0
+                    }
                     eventsSheetHeight={
                       this._containerDiv.current
                         ? this._containerDiv.current.clientHeight
