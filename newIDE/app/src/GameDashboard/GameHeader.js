@@ -4,6 +4,7 @@ import * as React from 'react';
 import { I18n } from '@lingui/react';
 import { t, Trans } from '@lingui/macro';
 import { type I18n as I18nType } from '@lingui/core';
+import Tooltip from '@material-ui/core/Tooltip';
 import { getGameMainImageUrl, type Game } from '../Utils/GDevelopServices/Game';
 import { GameThumbnail } from './GameThumbnail';
 import { useResponsiveWindowSize } from '../UI/Responsive/ResponsiveWindowMeasurer';
@@ -23,9 +24,10 @@ import RaisedButton from '../UI/RaisedButton';
 import Edit from '../UI/CustomSvgIcons/Edit';
 import GameLinkAndShareIcons from './GameLinkAndShareIcons';
 import { CompactToggleField } from '../UI/CompactToggleField';
-import { FixedHeightFlexContainer } from '../UI/Grid';
+import { FixedHeightFlexContainer, Line } from '../UI/Grid';
 import useOnResize from '../Utils/UseOnResize';
 import useForceUpdate from '../Utils/UseForceUpdate';
+import { getDetailedProjectDisplayDate } from './GameDashboardCard';
 
 const styles = {
   iconAndText: { display: 'flex', gap: 2, alignItems: 'flex-start' },
@@ -45,7 +47,7 @@ const GameHeader = ({
   onPublishOnGdGames,
 }: Props) => {
   useOnResize(useForceUpdate());
-  const { isMobile } = useResponsiveWindowSize();
+  const { isMobile, isLandscape } = useResponsiveWindowSize();
   const gdevelopTheme = React.useContext(GDevelopThemeContext);
   const gameMainImageUrl = getGameMainImageUrl(game);
 
@@ -64,7 +66,11 @@ const GameHeader = ({
       fontSize: 'small',
     };
     return (
-      <ResponsiveLineStackLayout alignItems="center" noColumnMargin>
+      <ResponsiveLineStackLayout
+        alignItems="center"
+        noColumnMargin
+        noResponsiveLandscape
+      >
         <div style={styles.iconAndText}>
           <DiscoverabilityIcon {...iconProps} />
           <Text {...textProps}>
@@ -102,9 +108,21 @@ const GameHeader = ({
   };
   const renderTitle = (i18n: I18nType) => (
     <ColumnStackLayout noMargin>
-      <Text color="secondary" noMargin>
-        <Trans>Published on {i18n.date(game.createdAt * 1000)}</Trans>
-      </Text>
+      <Line noMargin>
+        <Tooltip
+          placement="right"
+          title={getDetailedProjectDisplayDate(i18n, game.createdAt * 1000)}
+        >
+          <Text color="secondary" noMargin>
+            <Trans>
+              Created on
+              {i18n.date(game.createdAt * 1000, {
+                dateStyle: 'short',
+              })}
+            </Trans>
+          </Text>
+        </Tooltip>
+      </Line>
       <Text size="block-title" noMargin>
         {game.gameName}
       </Text>
@@ -153,7 +171,7 @@ const GameHeader = ({
     </FixedHeightFlexContainer>
   );
 
-  if (isMobile) {
+  if (isMobile && !isLandscape) {
     return (
       <I18n>
         {({ i18n }) => (

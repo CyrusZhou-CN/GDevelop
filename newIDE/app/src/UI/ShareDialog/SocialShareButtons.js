@@ -20,6 +20,7 @@ const useStyles = () =>
     createStyles({
       root: {
         padding: 5,
+        display: 'flex',
         cursor: 'pointer',
         '& svg': {
           transition: 'color 0.1s',
@@ -50,6 +51,7 @@ const styles = {
   container: {
     display: 'flex',
     flexWrap: 'wrap',
+    alignItems: 'center',
   },
 };
 
@@ -61,7 +63,7 @@ const SocialShareButtons = ({ url }: Props) => {
         url={url}
         className={classNames.root}
         style={styles.icon}
-        quote={`Try the game I just created with GDevelop.io`}
+        // Quote has been deprecated by Facebook, we can't fill the text of the share dialog, only the hashtag.
         hashtag="#gdevelop"
       >
         <Facebook />
