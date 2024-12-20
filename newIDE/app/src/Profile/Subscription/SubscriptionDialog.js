@@ -20,7 +20,6 @@ import {
   hasSubscriptionBeenManuallyAdded,
   isSubscriptionComingFromTeam,
 } from '../../Utils/GDevelopServices/Usage';
-import EmptyMessage from '../../UI/EmptyMessage';
 import { showErrorBox } from '../../UI/Messages/MessageBox';
 import {
   sendSubscriptionDialogShown,
@@ -406,9 +405,13 @@ export default function SubscriptionDialog({
         .filter(Boolean)
         .filter(plan => {
           if (filter === 'individual') {
-            return ['free', 'gdevelop_silver', 'gdevelop_gold'].includes(
-              plan.id
-            );
+            if (isPlanValid) {
+              return ['free', 'gdevelop_silver', 'gdevelop_gold'].includes(
+                plan.id
+              );
+            } else {
+              return ['gdevelop_silver', 'gdevelop_gold'].includes(plan.id);
+            }
           }
           if (filter === 'team') {
             return ['gdevelop_startup', 'gdevelop_enterprise'].includes(
@@ -419,13 +422,15 @@ export default function SubscriptionDialog({
             return ['gdevelop_education'].includes(plan.id);
           }
 
-          return plan.id !== 'gdevelop_education';
+          return !['gdevelop_education', 'free'].includes(plan.id);
         })
     : null;
 
   const dialogMaxWidth =
     !displayedSubscriptionPlanWithPricingSystems ||
     displayedSubscriptionPlanWithPricingSystems.length === 1
+      ? 'sm'
+      : displayedSubscriptionPlanWithPricingSystems.length < 3
       ? 'md'
       : displayedSubscriptionPlanWithPricingSystems.length < 4
       ? 'lg'
@@ -463,101 +468,92 @@ export default function SubscriptionDialog({
               />,
             ]}
             open={open}
-            fixedContent={
-              <>
-                {hasValidSubscriptionPlan(authenticatedUser.subscription) &&
-                  userSubscriptionPlanWithPricingSystems && (
-                    <Column noMargin>
-                      <Text>
-                        <Trans>Your plan:</Trans>
-                      </Text>
-                      <Paper
-                        background="medium"
-                        variant="outlined"
-                        style={styles.currentPlanPaper}
-                      >
-                        <Line
-                          justifyContent="space-between"
-                          alignItems="center"
-                          noMargin
-                        >
-                          <Line alignItems="center" noMargin>
-                            {getPlanIcon({
-                              subscriptionPlan: userSubscriptionPlanWithPricingSystems,
-                              logoSize: 20,
-                            })}
-                            <Text size="block-title">
-                              {selectMessageByLocale(
-                                i18n,
-                                userSubscriptionPlanWithPricingSystems.nameByLocale
-                              )}
-                            </Text>
-                          </Line>
-                          {!hasSubscriptionBeenManuallyAdded(
-                            authenticatedUser.subscription
-                          ) &&
-                            !isSubscriptionComingFromTeam(
-                              authenticatedUser.subscription
-                            ) &&
-                            !willCancelAtPeriodEnd &&
-                            userPricingSystemId !== 'REDEMPTION_CODE' && (
-                              <FlatButton
-                                primary
-                                label={<Trans>Cancel subscription</Trans>}
-                                onClick={() =>
-                                  buyUpdateOrCancelPlan(i18n, null)
-                                }
-                              />
-                            )}
-                        </Line>
-                      </Paper>
-                    </Column>
-                  )}
-                <Line justifyContent="space-between" alignItems="center">
-                  <Text size="block-title">
-                    <Trans>Subscription plans</Trans>
-                  </Text>
-                  <TwoStatesButton
-                    value={period}
-                    leftButton={{
-                      label: <Trans>Monthly</Trans>,
-                      value: 'month',
-                    }}
-                    rightButton={{
-                      label: <Trans>Yearly</Trans>,
-                      value: 'year',
-                    }}
-                    // $FlowIgnore
-                    onChange={setPeriod}
-                  />
-                </Line>
-                {period !== 'year' && maximumDiscount > 0 && (
-                  <HotMessage
-                    title={
-                      <Trans>
-                        Up to {maximumDiscount.toFixed(0)}% discount
-                      </Trans>
-                    }
-                    message={
-                      <Trans>
-                        Get a yearly subscription and enjoy discounts up to
-                        {maximumDiscount.toFixed(0)}%!
-                      </Trans>
-                    }
-                    onClickRightButton={() => setPeriod('year')}
-                    rightButtonLabel={
-                      isMobile ? (
-                        <Trans>Check out</Trans>
-                      ) : (
-                        <Trans>See yearly subs</Trans>
-                      )
-                    }
-                  />
-                )}
-              </>
-            }
           >
+            {isPlanValid && userSubscriptionPlanWithPricingSystems && (
+              <Column noMargin>
+                <Text>
+                  <Trans>Your plan:</Trans>
+                </Text>
+                <Paper
+                  background="medium"
+                  variant="outlined"
+                  style={styles.currentPlanPaper}
+                >
+                  <Line
+                    justifyContent="space-between"
+                    alignItems="center"
+                    noMargin
+                  >
+                    <Line alignItems="center" noMargin>
+                      {getPlanIcon({
+                        subscriptionPlan: userSubscriptionPlanWithPricingSystems,
+                        logoSize: 20,
+                      })}
+                      <Text size="block-title">
+                        {selectMessageByLocale(
+                          i18n,
+                          userSubscriptionPlanWithPricingSystems.nameByLocale
+                        )}
+                      </Text>
+                    </Line>
+                    {!hasSubscriptionBeenManuallyAdded(
+                      authenticatedUser.subscription
+                    ) &&
+                      !isSubscriptionComingFromTeam(
+                        authenticatedUser.subscription
+                      ) &&
+                      !willCancelAtPeriodEnd &&
+                      userPricingSystemId !== 'REDEMPTION_CODE' && (
+                        <FlatButton
+                          primary
+                          label={<Trans>Cancel subscription</Trans>}
+                          onClick={() => buyUpdateOrCancelPlan(i18n, null)}
+                        />
+                      )}
+                  </Line>
+                </Paper>
+              </Column>
+            )}
             <ColumnStackLayout noMargin>
+              <Line justifyContent="space-between" alignItems="center">
+                <Text size="block-title">
+                  <Trans>Get GDevelop Premium</Trans>
+                </Text>
+                <TwoStatesButton
+                  value={period}
+                  leftButton={{
+                    label: <Trans>Monthly</Trans>,
+                    value: 'month',
+                  }}
+                  rightButton={{
+                    label: <Trans>Yearly</Trans>,
+                    value: 'year',
+                  }}
+                  // $FlowIgnore
+                  onChange={setPeriod}
+                />
+              </Line>
+              {period !== 'year' && maximumDiscount > 0 && (
+                <HotMessage
+                  title={
+                    <Trans>Up to {maximumDiscount.toFixed(0)}% discount</Trans>
+                  }
+                  message={
+                    <Trans>
+                      Get a yearly subscription and enjoy discounts up to
+                      {maximumDiscount.toFixed(0)}%!
+                    </Trans>
+                  }
+                  onClickRightButton={() => setPeriod('year')}
+                  rightButtonLabel={
+                    isMobile ? (
+                      <Trans>Check out</Trans>
+                    ) : (
+                      <Trans>See yearly subs</Trans>
+                    )
+                  }
+                />
+              )}
               {willCancelAtPeriodEnd && (
                 <AlertMessage kind="warning">
                   <Trans>
@@ -733,7 +729,7 @@ export default function SubscriptionDialog({
                           if (pricingSystem) {
                             actions = [
                               <RaisedButton
-                                primary
+                                color="premium"
                                 key="upgrade"
                                 disabled={isLoading}
                                 fullWidth
@@ -772,23 +768,8 @@ export default function SubscriptionDialog({
               ) : (
                 <PlaceholderLoader />
               )}
-              {getPlanSpecificRequirements(
-                i18n,
-                displayedSubscriptionPlanWithPricingSystems
-              ).map(planSpecificRequirements => (
-                <AlertMessage
-                  kind="info"
-                  key={planSpecificRequirements.substring(0, 25)}
-                >
-                  {planSpecificRequirements}
-                </AlertMessage>
-              ))}
-              <EmptyMessage>
-                <Trans>
-                  No ties, cancel your subscription anytime. Payments done using
-                  Stripe.com and PayPal secure infrastructure.
-                </Trans>
-                <div>
+              <Line noMargin justifyContent="center">
+                <Text size="body" color="secondary">
                   <Trans>
                     Compare all the advantages of the different plans in this{' '}
                     <Link
@@ -803,8 +784,31 @@ export default function SubscriptionDialog({
                     </Link>
                     .
                   </Trans>
-                </div>
-              </EmptyMessage>
+                </Text>
+              </Line>
+              <Column noMargin>
+                <Text size="sub-title">
+                  ❤️ <Trans>Support What You Love</Trans>
+                </Text>
+                <Text size="body" color="secondary">
+                  The GDevelop project is open-source, powered by passion and
+                  community. Your membership helps the GDevelop company maintain
+                  servers, build new features, develop commercial offerings and
+                  keep the open-source project thriving. Our goal: make game
+                  development fast, fun and accessible to all.
+                </Text>
+              </Column>
+              {getPlanSpecificRequirements(
+                i18n,
+                displayedSubscriptionPlanWithPricingSystems
+              ).map(planSpecificRequirements => (
+                <AlertMessage
+                  kind="info"
+                  key={planSpecificRequirements.substring(0, 25)}
+                >
+                  {planSpecificRequirements}
+                </AlertMessage>
+              ))}
             </ColumnStackLayout>
           </Dialog>
           {hasMobileAppStoreSubscriptionPlan(

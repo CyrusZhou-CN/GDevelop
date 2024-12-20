@@ -11,7 +11,7 @@ import classNames from 'classnames';
 export type RaisedButtonPropsWithoutOnClick = {|
   label?: React.Node,
   primary?: boolean,
-  color?: 'primary' | 'success' | 'danger',
+  color?: 'primary' | 'success' | 'danger' | 'premium',
   size?: 'medium',
   disabled?: boolean,
   keyboardFocused?: boolean,
@@ -62,13 +62,14 @@ const RaisedButton = React.forwardRef<RaisedButtonProps, ButtonInterface>(
         variant="contained"
         size={size || 'small'}
         disableElevation
-        color={primary ? 'primary' : 'default'}
+        color={primary || color === 'primary' ? 'primary' : 'default'}
         autoFocus={keyboardFocused}
         focusRipple={focusRipple}
         disabled={disabled}
         className={classNames({
           [classes.buttonSuccess]: color === 'success',
           [classes.buttonDanger]: color === 'danger',
+          [classes.buttonPremium]: color === 'premium',
         })}
         style={
           style || !label
