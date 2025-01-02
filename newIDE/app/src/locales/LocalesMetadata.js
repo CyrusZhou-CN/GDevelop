@@ -221,7 +221,7 @@ module.exports = [
     "languageCode": "pl_PL",
     "languageName": "Polish",
     "languageNativeName": "Polski",
-    "translationRatio": 0.9769170138497917
+    "translationRatio": 0.9770296137822317
   },
   {
     "languageCode": "pseudo_LOCALE",
@@ -317,7 +317,7 @@ module.exports = [
     "languageCode": "uk_UA",
     "languageName": "Ukrainian",
     "languageNativeName": "Українська",
-    "translationRatio": 0.9902038058777165
+    "translationRatio": 0.9903164058101566
   },
   {
     "languageCode": "ur_PK",
@@ -347,7 +347,7 @@ module.exports = [
     "languageCode": "zh_CN",
     "languageName": "Chinese Simplified",
     "languageNativeName": "简化字",
-    "translationRatio": 0.9921180047291972
+    "translationRatio": 0.9922306046616371
   },
   {
     "languageCode": "zh_TW",
