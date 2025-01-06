@@ -807,15 +807,23 @@ namespace gdjs {
      */
     getBodyLayer(): number {
       return Jolt.ObjectLayerPairFilterMask.prototype.sGetObjectLayer(
-        // Make sure objects don't register in the wrong layer group.
-        this.bodyType === 'Static'
-          ? this.layers & gdjs.Physics3DSharedData.staticLayersMask
-          : this.layers & gdjs.Physics3DSharedData.dynamicLayersMask,
-        // Static objects accept all collisions as it's the mask of dynamic objects that matters.
-        this.bodyType === 'Static'
-          ? gdjs.Physics3DSharedData.allLayersMask
-          : this.masks
+        this.getLayersAccordingToBodyType(),
+        this.getMasksAccordingToBodyType()
       );
+    }
+
+    private getLayersAccordingToBodyType(): integer {
+      // Make sure objects don't register in the wrong layer group.
+      return this.bodyType === 'Static'
+        ? this.layers & gdjs.Physics3DSharedData.staticLayersMask
+        : this.layers & gdjs.Physics3DSharedData.dynamicLayersMask;
+    }
+
+    private getMasksAccordingToBodyType(): integer {
+      // Static objects accept all collisions as it's the mask of dynamic objects that matters.
+      return this.bodyType === 'Static'
+        ? gdjs.Physics3DSharedData.allLayersMask
+        : this.masks;
     }
 
     doStepPreEvents(instanceContainer: gdjs.RuntimeInstanceContainer) {
@@ -1689,6 +1697,15 @@ namespace gdjs {
       if (index !== -1) {
         this._currentContacts.splice(index, 1);
       }
+    }
+
+    canCollideAgainst(otherBehavior: gdjs.Physics3DRuntimeBehavior): boolean {
+      console.log(this.masks + ' & ' + otherBehavior.layers);
+      return (
+        (this.getMasksAccordingToBodyType() &
+          otherBehavior.getLayersAccordingToBodyType()) !==
+        0
+      );
     }
 
     static areObjectsColliding(
