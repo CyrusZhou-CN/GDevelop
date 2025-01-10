@@ -1700,7 +1700,6 @@ namespace gdjs {
     }
 
     canCollideAgainst(otherBehavior: gdjs.Physics3DRuntimeBehavior): boolean {
-      console.log(this.masks + ' & ' + otherBehavior.layers);
       return (
         (this.getMasksAccordingToBodyType() &
           otherBehavior.getLayersAccordingToBodyType()) !==
