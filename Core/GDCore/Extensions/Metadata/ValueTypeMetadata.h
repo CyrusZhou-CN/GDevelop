@@ -212,6 +212,8 @@ class GD_CORE_API ValueTypeMetadata {
              parameterType == "functionParameterName" ||
              parameterType == "externalLayoutName" ||
              parameterType == "leaderboardId" ||
+             parameterType == "keyboardKey" ||
+             parameterType == "mouseButton" ||
              parameterType == "identifier";
     } else if (type == "boolean") {
       return parameterType == "yesorno" || parameterType == "trueorfalse";
@@ -316,6 +318,7 @@ class GD_CORE_API ValueTypeMetadata {
   static const gd::String choiceValueType;
   static const gd::String behaviorValueType;
   static const gd::String leaderboardIdValueType;
+  static const gd::String objectAnimationNameValueType;
 };
 
 }  // namespace gd
