@@ -806,13 +806,13 @@ module.exports = {
           'SetCrossfadeDuration',
           _('Set crossfade duration'),
           _('Set the crossfade duration when switching to a new animation.'),
-          _('Set crossfade duration of _PARAM0_ to _PARAM1_'),
-          _('Duration'),
+          _('Set crossfade duration of _PARAM0_ to _PARAM1_ seconds'),
+          _('Animations and images'),
           'res/conditions/animation24.png',
-          'res/conditions/animation.svg'
+          'res/conditions/animation.png'
         )
         .addParameter('object', _('3D model'), 'Model3DObject', false)
-        .addParameter('number', _('Crossfade duration'), '', false)
+        .addParameter('number', _('Crossfade duration (in seconds)'), '', false)
         .setFunctionName('setCrossfadeDuration');
     }
 
@@ -2197,9 +2197,10 @@ module.exports = {
       }
 
       static getThumbnail(project, resourcesLoader, objectConfiguration) {
-        const textureResourceName = RenderedCube3DObject2DInstance._getResourceNameToDisplay(
-          objectConfiguration
-        );
+        const textureResourceName =
+          RenderedCube3DObject2DInstance._getResourceNameToDisplay(
+            objectConfiguration
+          );
         if (textureResourceName) {
           return resourcesLoader.getResourceFullUrl(
             project,
@@ -2211,18 +2212,20 @@ module.exports = {
       }
 
       updateTextureIfNeeded() {
-        const textureName = RenderedCube3DObject2DInstance._getResourceNameToDisplay(
-          this._associatedObjectConfiguration
-        );
+        const textureName =
+          RenderedCube3DObject2DInstance._getResourceNameToDisplay(
+            this._associatedObjectConfiguration
+          );
         if (textureName === this._renderedResourceName) return;
 
         this.updateTexture();
       }
 
       updateTexture() {
-        const textureName = RenderedCube3DObject2DInstance._getResourceNameToDisplay(
-          this._associatedObjectConfiguration
-        );
+        const textureName =
+          RenderedCube3DObject2DInstance._getResourceNameToDisplay(
+            this._associatedObjectConfiguration
+          );
 
         if (!textureName) {
           this._renderFallbackObject = true;
@@ -2563,7 +2566,8 @@ module.exports = {
           backFaceUpThroughWhichAxisRotation !==
           this._backFaceUpThroughWhichAxisRotation
         ) {
-          this._backFaceUpThroughWhichAxisRotation = backFaceUpThroughWhichAxisRotation;
+          this._backFaceUpThroughWhichAxisRotation =
+            backFaceUpThroughWhichAxisRotation;
           uvMappingDirty = true;
         }
 
@@ -2620,9 +2624,10 @@ module.exports = {
             continue;
           }
 
-          const shouldRepeatTexture = this._shouldRepeatTextureOnFace[
-            materialIndexToFaceIndex[materialIndex]
-          ];
+          const shouldRepeatTexture =
+            this._shouldRepeatTextureOnFace[
+              materialIndexToFaceIndex[materialIndex]
+            ];
 
           const shouldOrientateFacesTowardsY = this._facesOrientation === 'Y';
 
@@ -2657,16 +2662,13 @@ module.exports = {
                 }
               } else {
                 if (shouldOrientateFacesTowardsY) {
-                  [x, y] = noRepeatTextureVertexIndexToUvMapping[
-                    vertexIndex % 4
-                  ];
+                  [x, y] =
+                    noRepeatTextureVertexIndexToUvMapping[vertexIndex % 4];
                 } else {
-                  [
-                    x,
-                    y,
-                  ] = noRepeatTextureVertexIndexToUvMappingForLeftAndRightFacesTowardsZ[
-                    vertexIndex % 4
-                  ];
+                  [x, y] =
+                    noRepeatTextureVertexIndexToUvMappingForLeftAndRightFacesTowardsZ[
+                      vertexIndex % 4
+                    ];
                 }
               }
               break;
@@ -2696,16 +2698,13 @@ module.exports = {
                 }
               } else {
                 if (shouldOrientateFacesTowardsY) {
-                  [x, y] = noRepeatTextureVertexIndexToUvMapping[
-                    vertexIndex % 4
-                  ];
+                  [x, y] =
+                    noRepeatTextureVertexIndexToUvMapping[vertexIndex % 4];
                 } else {
-                  [
-                    x,
-                    y,
-                  ] = noRepeatTextureVertexIndexToUvMappingForLeftAndRightFacesTowardsZ[
-                    vertexIndex % 4
-                  ];
+                  [x, y] =
+                    noRepeatTextureVertexIndexToUvMappingForLeftAndRightFacesTowardsZ[
+                      vertexIndex % 4
+                    ];
                   x = -x;
                   y = -y;
                 }

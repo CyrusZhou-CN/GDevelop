@@ -23,7 +23,7 @@ Model3DObjectConfiguration::Model3DObjectConfiguration()
     : width(100), height(100), depth(100), rotationX(0), rotationY(0),
       rotationZ(0), modelResourceName(""), materialType("StandardWithoutMetalness"),
       originLocation("ModelOrigin"), centerLocation("ModelOrigin"),
-      keepAspectRatio(true), crossfadeDuration(0.0f) {}
+      keepAspectRatio(true), crossfadeDuration(0.1f) {}
 
 bool Model3DObjectConfiguration::UpdateProperty(const gd::String &propertyName,
                                                 const gd::String &newValue) {
@@ -175,7 +175,8 @@ Model3DObjectConfiguration::GetProperties() const {
       .SetValue(gd::String::From(crossfadeDuration))
       .SetType("number")
       .SetLabel(_("Crossfade duration"))
-      .SetGroup(_("Animations"));
+      .SetGroup(_("Animations"))
+      .SetMeasurementUnit(gd::MeasurementUnit::GetSecond());
 
   return objectProperties;
 }
@@ -237,7 +238,7 @@ void Model3DObjectConfiguration::DoSerializeTo(
   content.SetAttribute("originLocation", originLocation);
   content.SetAttribute("centerLocation", centerLocation);
   content.SetAttribute("keepAspectRatio", keepAspectRatio);
-  content.SetAttribute("crossFadeDuration", crossfadeDuration);
+  content.SetAttribute("crossfadeDuration", crossfadeDuration);
 
   auto &animationsElement = content.AddChild("animations");
   animationsElement.ConsiderAsArrayOf("animation");
