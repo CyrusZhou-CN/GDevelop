@@ -46,6 +46,23 @@ const styles = {
   },
 };
 
+const CutOutFiller = () => (
+  <div
+    style={{
+      backgroundColor: 'rgba(0,0,0,.25)',
+      pointerEvents: 'auto',
+    }}
+  />
+);
+
+const CutOutGap = () => (
+  <div
+    style={{
+      pointerEvents: 'none',
+    }}
+  />
+);
+
 function InAppTutorialElementHighlighter({ element }: Props) {
   const forceUpdate = useForceUpdate();
   useOnResize(forceUpdate);
@@ -129,20 +146,50 @@ function InAppTutorialElementHighlighter({ element }: Props) {
     [scrollDirection]
   );
 
+  const elementRectangleCssPosition = elementRectangle.toCSSPosition();
+
   return (
     <>
       {showHighlighter && (
+        // Dimmer.
         <div
-          id="in-app-tutorial-element-highlighter"
           style={{
-            ...styles.rectangleHighlight,
-            ...elementRectangle.toCSSPosition(),
-            borderRadius: elementComputedStyle.getPropertyValue(
-              'border-radius'
-            ),
-            zIndex: getDisplayZIndexForHighlighter(element),
+            // 3 columns
+            gridTemplateColumns: `${elementRectangleCssPosition.left}px ${
+              elementRectangleCssPosition.width
+            }px 1fr`,
+            // 3 rows
+            gridTemplateRows: `${elementRectangleCssPosition.top}px ${
+              elementRectangleCssPosition.height
+            }px 1fr`,
+            position: 'fixed',
+            inset: 0,
+            display: 'grid',
+            pointerEvents: 'none',
+            zIndex: aboveMaterialUiMaxZIndex,
           }}
-        />
+        >
+          <CutOutFiller />
+          <CutOutFiller />
+          <CutOutFiller />
+          <CutOutFiller />
+          <CutOutGap />
+          <CutOutFiller />
+          <CutOutFiller />
+          <CutOutFiller />
+          <CutOutFiller />
+          <div
+            id="in-app-tutorial-element-highlighter"
+            style={{
+              ...styles.rectangleHighlight,
+              ...elementRectangle.toCSSPosition(),
+              borderRadius: elementComputedStyle.getPropertyValue(
+                'border-radius'
+              ),
+              zIndex: getDisplayZIndexForHighlighter(element),
+            }}
+          />
+        </div>
       )}
       {!showHighlighter && Icon && scrollParentRectangle && (
         <div
