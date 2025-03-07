@@ -3359,7 +3359,11 @@ const MainFrame = (props: Props) => {
         initialStepIndex,
         initialProjectData,
       });
-      sendInAppTutorialStarted({ tutorialId, scenario });
+      sendInAppTutorialStarted({
+        tutorialId,
+        scenario,
+        isUIRestricted: !!selectedInAppTutorialShortHeader.shouldRestrictUI,
+      });
       setSelectedInAppTutorialInfo(null);
     },
     [
@@ -4065,6 +4069,7 @@ const MainFrame = (props: Props) => {
           startStepIndex={startStepIndex}
           startProjectData={startProjectData}
           project={currentProject}
+          quitInAppTutorialDialogOpen={quitInAppTutorialDialogOpen}
           i18n={props.i18n}
           endTutorial={({
             shouldCloseProject,
