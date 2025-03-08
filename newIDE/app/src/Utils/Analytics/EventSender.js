@@ -621,3 +621,44 @@ export const sendInAppTutorialProgress = ({
     nextCheckTimeoutId: setTimeout(() => immediatelyRecordEvent(true), 30000),
   };
 };
+
+export const sendAssetSwapStart = ({
+  originalObjectName,
+  objectType,
+}: {|
+  originalObjectName: string,
+  objectType: string,
+|}) => {
+  recordEvent('asset-swap-start', {
+    originalObjectName,
+    objectType,
+  });
+};
+
+export const sendAssetSwapFinished = ({
+  originalObjectName,
+  newObjectName,
+  objectType,
+}: {|
+  originalObjectName: string,
+  newObjectName: string,
+  objectType: string,
+|}) => {
+  recordEvent('asset-swap-finished', {
+    originalObjectName,
+    newObjectName,
+    objectType,
+  });
+};
+
+const canSendPlaySectionOpened = makeCanSendEvent({
+  minimumTimeBetweenEvents: 1000 * 60 * 60 * 2, // Only once every 2 hours.
+});
+
+export const sendPlaySectionOpened = () => {
+  if (!canSendPlaySectionOpened('play-section-opened')) {
+    return;
+  }
+
+  recordEvent('play-section-opened');
+};
