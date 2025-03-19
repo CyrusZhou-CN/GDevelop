@@ -1,7 +1,7 @@
 {
   "firstLayout": "",
   "gdVersion": {
-    "build": 225,
+    "build": 226,
     "major": 5,
     "minor": 5,
     "revision": 0
@@ -3277,8 +3277,8 @@
             "BarRightPadding": 6,
             "BarBottomPadding": 6,
             "LabelMargin": 6,
-            "MinValue": 0.25,
-            "MaxValue": 4,
+            "MinValue": -2,
+            "MaxValue": 2,
             "InitialValue": 1,
             "StepSize": 0.125
           },
@@ -5006,7 +5006,7 @@
           ],
           "content": {
             "centerLocation": "ModelOrigin",
-            "crossfadeDuration": 0,
+            "crossfadeDuration": 0.5,
             "depth": 78,
             "height": 78,
             "keepAspectRatio": true,
@@ -5767,7 +5767,7 @@
                   "parameters": [
                     "PausedLabel",
                     "=",
-                    "\"Paused: \" + RedHero.AnimationTest::AnimationPaused() + \", \" + FemalWitch.AnimationTest::AnimationPaused() + \", \" + Spine.AnimationTest::AnimationPaused()"
+                    "\"Paused: \" + RedHero.AnimationTest::AnimationPaused() + \", \" + Spine.AnimationTest::AnimationPaused() + \", \" + FemalWitch.AnimationTest::AnimationPaused()"
                   ]
                 },
                 {
@@ -5777,7 +5777,7 @@
                   "parameters": [
                     "EndedLabel",
                     "=",
-                    "\"Ended: \" + RedHero.AnimationTest::AnimationFinished() + \", \" + FemalWitch.AnimationTest::AnimationFinished() + \", \" + Spine.AnimationTest::AnimationFinished()"
+                    "\"Ended: \" + RedHero.AnimationTest::AnimationFinished() + \", \" + Spine.AnimationTest::AnimationFinished() + \", \" + FemalWitch.AnimationTest::AnimationFinished()"
                   ]
                 }
               ]
@@ -18770,6 +18770,20 @@
               "events": [
                 {
                   "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "SetReturnString"
+                      },
+                      "parameters": [
+                        "\"false\""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
                   "conditions": [
                     {
                       "type": {
@@ -18788,31 +18802,6 @@
                       },
                       "parameters": [
                         "\"true\""
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "BuiltinCommonInstructions::Standard",
-                  "conditions": [
-                    {
-                      "type": {
-                        "inverted": true,
-                        "value": "AnimatableCapability::AnimatableBehavior::HasAnimationEnded"
-                      },
-                      "parameters": [
-                        "Object",
-                        "Animatable"
-                      ]
-                    }
-                  ],
-                  "actions": [
-                    {
-                      "type": {
-                        "value": "SetReturnString"
-                      },
-                      "parameters": [
-                        "\"false\""
                       ]
                     }
                   ]
@@ -18844,6 +18833,20 @@
               "events": [
                 {
                   "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "SetReturnString"
+                      },
+                      "parameters": [
+                        "\"false\""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
                   "conditions": [
                     {
                       "type": {
@@ -18862,31 +18865,6 @@
                       },
                       "parameters": [
                         "\"true\""
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "BuiltinCommonInstructions::Standard",
-                  "conditions": [
-                    {
-                      "type": {
-                        "inverted": true,
-                        "value": "AnimatableCapability::AnimatableBehavior::IsAnimationPaused"
-                      },
-                      "parameters": [
-                        "Object",
-                        "Animatable"
-                      ]
-                    }
-                  ],
-                  "actions": [
-                    {
-                      "type": {
-                        "value": "SetReturnString"
-                      },
-                      "parameters": [
-                        "\"false\""
                       ]
                     }
                   ]
