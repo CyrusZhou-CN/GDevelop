@@ -9,7 +9,6 @@ import {
   TitleBarRightSafeMargins,
 } from '../UI/TitleBarSafeMargins';
 import RaisedButton from '../UI/RaisedButton';
-import { Column } from '../UI/Grid';
 import RobotIcon from '../ProjectCreation/RobotIcon';
 
 const WINDOW_DRAGGABLE_PART_CLASS_NAME = 'title-bar-draggable-part';
