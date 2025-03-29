@@ -13,9 +13,6 @@ import { type EditorTab } from './EditorTabs/EditorTabsHandler';
 import { getTabId } from './EditorTabs/DraggableEditorTabs';
 import { useScreenType } from '../UI/Responsive/ScreenTypeMeasurer';
 import TabsTitlebarTooltip from './TabsTitlebarTooltip';
-import RaisedButton from '../UI/RaisedButton';
-import RobotIcon from '../ProjectCreation/RobotIcon';
-import PreferencesContext from './Preferences/PreferencesContext';
 
 const WINDOW_DRAGGABLE_PART_CLASS_NAME = 'title-bar-draggable-part';
 const WINDOW_NON_DRAGGABLE_PART_CLASS_NAME = 'title-bar-non-draggable-part';
@@ -45,7 +42,10 @@ const styles = {
 type TabsTitlebarProps = {|
   hidden: boolean,
   toggleProjectManager: () => void,
-  renderTabs: (onHoverEditorTab: (?EditorTab) => void) => React.Node,
+  renderTabs: (
+    onEditorTabHovered: (?EditorTab, {| isLabelTruncated: boolean |}) => void,
+    onEditorTabClosing: () => void
+  ) => React.Node,
   hasAskAiOpened: boolean,
   onOpenAskAi: () => void,
 |};
@@ -61,7 +61,6 @@ export default function TabsTitlebar({
   onOpenAskAi,
 }: TabsTitlebarProps) {
   const isTouchscreen = useScreenType() === 'touch';
-  const preferences = React.useContext(PreferencesContext);
   const gdevelopTheme = React.useContext(GDevelopThemeContext);
   const backgroundColor = gdevelopTheme.titlebar.backgroundColor;
   const [tooltipData, setTooltipData] = React.useState<?{|
@@ -77,8 +76,11 @@ export default function TabsTitlebar({
     [backgroundColor]
   );
 
-  const onHoverEditorTab = React.useCallback(
-    (editorTab: ?EditorTab) => {
+  const onEditorTabHovered = React.useCallback(
+    (
+      editorTab: ?EditorTab,
+      { isLabelTruncated }: {| isLabelTruncated: boolean |}
+    ) => {
       if (isTouchscreen) {
         setTooltipData(null);
         return;
@@ -89,7 +91,7 @@ export default function TabsTitlebar({
         tooltipTimeoutId.current = null;
       }
 
-      if (editorTab) {
+      if (editorTab && isLabelTruncated) {
         const element = document.getElementById(getTabId(editorTab));
         if (element) {
           tooltipTimeoutId.current = setTimeout(
@@ -109,6 +111,17 @@ export default function TabsTitlebar({
     },
     [isTouchscreen, tooltipData]
   );
+
+  const onEditorTabClosing = React.useCallback(() => {
+    // Always clear the tooltip when a tab is closed,
+    // as they are multiple actions that can be done to
+    // close it, it's safer (close all, close others, close one).
+    if (tooltipTimeoutId.current) {
+      clearTimeout(tooltipTimeoutId.current);
+      tooltipTimeoutId.current = null;
+    }
+    setTooltipData(null);
+  }, []);
 
   React.useEffect(
     () => {
@@ -146,8 +159,8 @@ export default function TabsTitlebar({
       >
         <MenuIcon />
       </IconButton>
-      {renderTabs(onHoverEditorTab)}
-      {!preferences.values.showAiAskButtonInTitleBar ||
+      {renderTabs(onEditorTabHovered, onEditorTabClosing)}
+      {/* {!preferences.values.showAiAskButtonInTitleBar ||
       hasAskAiOpened ? null : (
         <div style={styles.askAiContainer}>
           <RaisedButton
@@ -157,7 +170,7 @@ export default function TabsTitlebar({
             onClick={onOpenAskAi}
           />
         </div>
-      )}
+      )} */}
       <TitleBarRightSafeMargins />
       {tooltipData && (
         <TabsTitlebarTooltip
