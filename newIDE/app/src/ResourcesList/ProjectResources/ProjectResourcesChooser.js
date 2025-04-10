@@ -11,19 +11,19 @@ import PlaceholderLoader from '../../UI/PlaceholderLoader';
 import { type ResourceKind } from '../ResourceSource';
 import EmptyMessage from '../../UI/EmptyMessage';
 
-type ResourceListProps = {|
+type ProjectResourcesListProps = {|
   project: gdProject,
   onSelectResource: gdResource => void,
   selectedResources: gdResource[],
   searchResults: gdResource[],
 |};
 
-const ResourceList = ({
+const ProjectResourcesList = ({
   project,
   searchResults,
   onSelectResource,
   selectedResources,
-}: ResourceListProps) => {
+}: ProjectResourcesListProps) => {
   return (
     <Line
       expand
@@ -129,7 +129,7 @@ const ProjectResourcesChooser = ({
       {!searchResults ? (
         <PlaceholderLoader />
       ) : (
-        <ResourceList
+        <ProjectResourcesList
           project={project}
           searchResults={searchResults}
           selectedResources={selectedResources}

@@ -1,16 +1,15 @@
 // @flow
 import * as React from 'react';
 import ButtonBase from '@material-ui/core/ButtonBase';
-import { Trans } from '@lingui/macro';
 import ResourcesLoader from '../../ResourcesLoader';
 import GDevelopThemeContext from '../../UI/Theme/GDevelopThemeContext';
 import CheckeredBackground from '../CheckeredBackground';
 import { CorsAwareImage } from '../../UI/CorsAwareImage';
 import Text from '../../UI/Text';
-import { Column, Line } from '../../UI/Grid';
-import RaisedButton from '../../UI/RaisedButton';
-import FlatButton from '../../UI/FlatButton';
 import { getDefaultResourceThumbnail } from '..';
+import Model3DPreview from '../ResourcePreview/Model3DPreview';
+import { getPixelatedImageRendering } from '../../Utils/CssHelpers';
+import { isProjectImageResourceSmooth } from '../ResourcePreview/ImagePreview';
 
 const paddingSize = 10;
 const styles = {
@@ -26,9 +25,15 @@ const styles = {
     verticalAlign: 'middle',
     pointerEvents: 'none',
   },
+  previewImagePixelated: {
+    imageRendering: getPixelatedImageRendering(),
+  },
   cardContainer: {
     overflow: 'hidden',
     position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   titleContainer: {
     position: 'absolute',
@@ -54,111 +59,49 @@ const styles = {
   },
 };
 
-type ImageCardProps = {|
-  project: gdProject,
-  size: number,
-  isSelected?: boolean,
+type ImagePreviewProps = {|
   resource: gdResource,
-  onChoose: () => void,
-  imageStyle?: {|
-    width: number,
-    height: number,
-    filter?: string,
-  |},
+  project: gdProject,
 |};
-
-const ImageCard = ({
-  project,
-  resource,
-  onChoose,
-  size,
-  isSelected,
-  imageStyle,
-}: ImageCardProps) => {
-  const gdevelopTheme = React.useContext(GDevelopThemeContext);
+const ImagePreview = ({ resource, project }: ImagePreviewProps) => {
   const resourceName = resource.getName();
   const resourceThumbnail = ResourcesLoader.getResourceFullUrl(
     project,
-    resource.getName(),
+    resourceName,
     {}
   );
+  const isImageResourceSmooth = isProjectImageResourceSmooth(
+    project,
+    resourceName
+  );
   return (
-    <ButtonBase onClick={onChoose} focusRipple>
-      <div
-        style={{
-          ...styles.cardContainer,
-          width: size,
-          height: size,
-          outline: isSelected
-            ? `1px solid ${gdevelopTheme.palette.secondary}`
-            : undefined,
-        }}
-      >
-        <div style={{ ...styles.previewContainer, width: size, height: size }}>
-          <CheckeredBackground />
-          <CorsAwareImage
-            key={resourceName}
-            style={{
-              ...styles.previewImage,
-              maxWidth: 128 - 2 * paddingSize,
-              maxHeight: 128 - 2 * paddingSize,
-              ...imageStyle,
-            }}
-            src={resourceThumbnail}
-            alt={resourceName}
-          />
-        </div>
-        <div style={styles.titleContainer}>
-          <Text noMargin style={styles.title} color="inherit">
-            {resourceName}
-          </Text>
-        </div>
-      </div>
-    </ButtonBase>
+    <CorsAwareImage
+      key={resourceName}
+      style={{
+        ...styles.previewImage,
+        maxWidth: 128 - 2 * paddingSize,
+        maxHeight: 128 - 2 * paddingSize,
+        ...(!isImageResourceSmooth ? styles.previewImagePixelated : undefined),
+      }}
+      src={resourceThumbnail}
+      alt={resourceName}
+    />
   );
 };
 
-type GenericCardProps = {|
+type DefaultPreviewProps = {|
   resource: gdResource,
-  isSelected?: boolean,
-  size: number,
-  onChoose: () => void,
 |};
-
-const GenericCard = ({
-  resource,
-  isSelected,
-  onChoose,
-  size,
-}: GenericCardProps) => {
+const DefaultPreview = ({ resource }: DefaultPreviewProps) => {
   const resourceName = resource.getName();
   const resourceThumbnailSrc = getDefaultResourceThumbnail(resource);
   return (
-    <div style={{ ...styles.cardContainer, width: size, height: size }}>
-      <Column>
-        <Line justifyContent="center">
-          <CheckeredBackground />
-          <CorsAwareImage
-            title={resourceName}
-            alt={resourceName}
-            src={resourceThumbnailSrc}
-            style={styles.resourceSimpleImage}
-          />
-        </Line>
-        <Line justifyContent="center">
-          {!isSelected ? (
-            <RaisedButton onClick={onChoose} label={<Trans>Select</Trans>} />
-          ) : (
-            <FlatButton label={<Trans>Unselect</Trans>} onClick={onChoose} />
-          )}
-        </Line>
-      </Column>
-      <div style={styles.titleContainer}>
-        <Text noMargin style={styles.title}>
-          {resourceName}
-        </Text>
-      </div>
-    </div>
+    <CorsAwareImage
+      title={resourceName}
+      alt={resourceName}
+      src={resourceThumbnailSrc}
+      style={styles.resourceSimpleImage}
+    />
   );
 };
 
@@ -177,27 +120,50 @@ export const ProjectResourceCard = ({
   size,
   isSelected,
 }: Props) => {
-  const resourceKind = resource.getKind();
+  const gdevelopTheme = React.useContext(GDevelopThemeContext);
+  const resourceName = resource.getName();
 
-  switch (resourceKind) {
-    case 'image':
-      return (
-        <ImageCard
-          project={project}
-          isSelected={isSelected}
-          resource={resource}
-          onChoose={onChoose}
-          size={size}
-        />
-      );
-    default:
-      return (
-        <GenericCard
-          onChoose={onChoose}
-          isSelected={isSelected}
-          resource={resource}
-          size={size}
-        />
-      );
-  }
+  const renderResourcePreview = () => {
+    switch (resource.getKind()) {
+      case 'image':
+        return <ImagePreview resource={resource} project={project} />;
+      case 'model3D':
+        return (
+          // For the moment, Model3DPreview does not have any controls
+          // If it does, probably create a different component.
+          <Model3DPreview
+            modelUrl={ResourcesLoader.getResourceFullUrl(
+              project,
+              resourceName,
+              {}
+            )}
+          />
+        );
+      default:
+        return <DefaultPreview resource={resource} />;
+    }
+  };
+
+  return (
+    <ButtonBase onClick={onChoose} focusRipple>
+      <div
+        style={{
+          ...styles.cardContainer,
+          width: size,
+          height: size,
+          outline: isSelected
+            ? `1px solid ${gdevelopTheme.palette.secondary}`
+            : undefined,
+        }}
+      >
+        <CheckeredBackground />
+        {renderResourcePreview()}
+        <div style={styles.titleContainer}>
+          <Text noMargin style={styles.title}>
+            {resourceName}
+          </Text>
+        </div>
+      </div>
+    </ButtonBase>
+  );
 };

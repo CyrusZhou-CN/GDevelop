@@ -400,10 +400,12 @@ const SpritesList = ({
         });
       }
 
-      if (directionSpritesCountBeforeAdding === 0 && resources.length > 1) {
-        const resourcesByAnimation = resourceSource.shouldGuessAnimationsFromName
-          ? groupResourcesByAnimations(resources)
-          : new Map<string, Array<gdResource>>();
+      if (
+        directionSpritesCountBeforeAdding === 0 &&
+        resources.length > 1 &&
+        resourceSource.shouldGuessAnimationsFromName
+      ) {
+        const resourcesByAnimation = groupResourcesByAnimations(resources);
         if (resourcesByAnimation.size > 1) {
           addAnimations(resourcesByAnimation);
         } else {
