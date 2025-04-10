@@ -442,10 +442,7 @@ const AnimationList = React.forwardRef<
     );
 
     const importImages = React.useCallback(
-      async (
-        resourceSource: ResourceSource,
-        { shouldAddResources }: {| shouldAddResources: boolean |}
-      ) => {
+      async (resourceSource: ResourceSource) => {
         const resources = await resourceManagementProps.onChooseResource({
           initialSourceName: resourceSource.name,
           multiSelection: true,
@@ -454,7 +451,7 @@ const AnimationList = React.forwardRef<
         if (resources.length === 0) {
           return;
         }
-        if (shouldAddResources) {
+        if (resourceSource.shouldCreateResource) {
           resources.forEach(resource => {
             applyResourceDefaults(project, resource);
             project.getResourcesManager().addResource(resource);
@@ -676,9 +673,7 @@ const AnimationList = React.forwardRef<
                   helpPagePath="/objects/sprite"
                   tutorialId="intermediate-changing-animations"
                   onAction={() => {
-                    importImages(resourceSources[0], {
-                      shouldAddResources: true,
-                    });
+                    importImages(resourceSources[0]);
                   }}
                   actionBuildSplitMenuTemplate={
                     resourceSources.length < 2
@@ -686,12 +681,7 @@ const AnimationList = React.forwardRef<
                       : i18n =>
                           resourceSources.map(resourceSource => ({
                             label: i18n._(resourceSource.displayName),
-                            click: () =>
-                              importImages(resourceSource, {
-                                shouldAddResources: !resourceSource.name.startsWith(
-                                  'project-resources'
-                                ),
-                              }),
+                            click: () => importImages(resourceSource),
                           }))
                   }
                   onSecondaryAction={() => {
