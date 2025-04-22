@@ -397,7 +397,8 @@ namespace gdjs {
       this.bullet = behaviorData.bullet;
       this.fixedRotation = behaviorData.fixedRotation;
       this.shape = behaviorData.shape;
-      this.shapeOrientation = behaviorData.shapeOrientation;
+      this.shapeOrientation =
+        behaviorData.shape === 'Box' ? 'Z' : behaviorData.shapeOrientation;
       this.shapeDimensionA = behaviorData.shapeDimensionA;
       this.shapeDimensionB = behaviorData.shapeDimensionB;
       this.shapeDimensionC = behaviorData.shapeDimensionC;
