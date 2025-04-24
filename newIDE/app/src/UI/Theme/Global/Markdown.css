@@ -5,6 +5,8 @@
   font-size: 14px;
   line-height: 20px;
   letter-spacing: 0.01em;
+  min-width: 0; /** Prevents horizontal overflow */
+  word-break: break-word; /* Prevent horizontal overflow for long lines */
 }
 
 .gd-markdown.text-ellipsis {
@@ -16,6 +18,15 @@
 .gd-markdown.standalone-text-container {
   line-height: 1.3;
 }
+.gd-markdown .generated-list-item {
+  margin-block-start: 0;
+  margin-block-end: 0;
+  list-style-type: none;
+}
+.gd-markdown .generated-list-item p {
+  margin-block-start: 4px;
+  margin-block-end: 4px;
+}
 
 .gd-markdown h1 {
   margin-bottom: 10px;
@@ -25,8 +36,15 @@
   margin-bottom: 10px;
 }
 
+.gd-markdown h3 {
+  margin-top: 20px;
+  margin-bottom: 5px;
+}
+
 .gd-markdown ul {
   word-break: break-word;
+  margin-block-start: 8px;
+  margin-block-end: 8px;
 }
 
 .gd-markdown blockquote {
@@ -40,11 +58,17 @@
   cursor: pointer;
 }
 
+.gd-markdown pre {
+  overflow-x: scroll; /* Prevent horizontal overflow for long code blocks */
+  white-space: pre-wrap; /* Wrap long lines */
+}
+
 .gd-markdown code {
   font-family: 'Lucida Console', Monaco, monospace;
   -webkit-user-select: text;
   user-select: text;
   cursor: text;
+  font-size: 13px;
 }
 
 .gd-markdown img {

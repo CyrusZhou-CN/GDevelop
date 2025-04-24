@@ -41,7 +41,7 @@ import { CreditsPackageStoreStateProvider } from '../AssetStore/CreditsPackages/
 import { ProductLicenseStoreStateProvider } from '../AssetStore/ProductLicense/ProductLicenseStoreContext';
 import { MarketingPlansStoreStateProvider } from '../MarketingPlans/MarketingPlansStoreContext';
 import { CourseChapterStoreStateProvider } from '../Course/CourseChapterStoreContext';
-import GamesPlatformFrameStateProvider from './EditorContainers/HomePage/PlaySection/GamesPlatformFrameContext';
+import { Resource3DPreviewProvider } from '../ResourcesList/ResourcePreview/Resource3DPreviewContext';
 
 type Props = {|
   authentication: Authentication,
@@ -83,6 +83,7 @@ const Providers = ({
                         <AlertProvider>
                           <AuthenticatedUserProvider
                             authentication={authentication}
+                            preferencesValues={values}
                           >
                             <PublicProfileProvider>
                               <I18n update>
@@ -110,18 +111,22 @@ const Providers = ({
                                                     <CourseChapterStoreStateProvider>
                                                       <ProductLicenseStoreStateProvider>
                                                         <MarketingPlansStoreStateProvider>
-                                                          <ExtensionStoreStateProvider>
-                                                            <BehaviorStoreStateProvider>
+                                                          <ExtensionStoreStateProvider
+                                                            i18n={i18n}
+                                                          >
+                                                            <BehaviorStoreStateProvider
+                                                              i18n={i18n}
+                                                            >
                                                               <TutorialStateProvider>
                                                                 <AnnouncementsFeedStateProvider>
                                                                   <PrivateAssetsAuthorizationProvider>
-                                                                    <GamesPlatformFrameStateProvider>
+                                                                    <Resource3DPreviewProvider>
                                                                       {children(
                                                                         {
                                                                           i18n,
                                                                         }
                                                                       )}
-                                                                    </GamesPlatformFrameStateProvider>
+                                                                    </Resource3DPreviewProvider>
                                                                   </PrivateAssetsAuthorizationProvider>
                                                                 </AnnouncementsFeedStateProvider>
                                                               </TutorialStateProvider>

@@ -84,20 +84,24 @@ export const CompactResourceSelectorWithThumbnail = ({
 
         if (!resources.length) return;
         const resource = resources[0];
-        applyResourceDefaults(project, resource);
-
-        // addResource will check if a resource with the same name exists, and if it is
-        // the case, no new resource will be added.
-        project.getResourcesManager().addResource(resource);
 
         const resourceName: string = resource.getName();
 
-        // Important, we are responsible for deleting the resources that were given to us.
-        // Otherwise we have a memory leak, as calling addResource is making a copy of the resource.
-        resources.forEach(resource => resource.delete());
+        if (source.shouldCreateResource) {
+          applyResourceDefaults(project, resource);
 
-        await resourceManagementProps.onFetchNewlyAddedResources();
-        triggerResourcesHaveChanged();
+          // addResource will check if a resource with the same name exists, and if it is
+          // the case, no new resource will be added.
+          project.getResourcesManager().addResource(resource);
+
+          // Important, we are responsible for deleting the resources that were given to us.
+          // Otherwise we have a memory leak, as calling addResource is making a copy of the resource.
+          resources.forEach(resource => resource.delete());
+
+          await resourceManagementProps.onFetchNewlyAddedResources();
+          triggerResourcesHaveChanged();
+        }
+
         onChange(resourceName);
       } catch (err) {
         // Should never happen, errors should be shown in the interface.
@@ -267,9 +271,13 @@ export const CompactResourceSelectorWithThumbnail = ({
             label: i18n._(resourceSource.displayName),
             click: () => addFrom(resourceSource),
           })),
-          {
-            type: 'separator',
-          },
+          ...(externalEditors.length
+            ? [
+                {
+                  type: 'separator',
+                },
+              ]
+            : []),
           ...externalEditors.map(externalEditor => ({
             label: resourceName
               ? i18n._(externalEditor.editDisplayName)

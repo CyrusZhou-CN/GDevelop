@@ -21,7 +21,7 @@ module.exports = {
       .setExtensionInformation(
         'Physics3D',
         _('3D physics engine'),
-        "The physics engine simulates realistic object physics, with gravity, forces, joints, etc. It's perfect for games that need to have realistic behaving objects and a gameplay centered around it.",
+        "The 3D physics engine simulates realistic object physics, with gravity, forces, collisions, joints, etc. It's perfect for almost all 3D games.",
         'Florian Rival',
         'MIT'
       )
@@ -481,7 +481,9 @@ module.exports = {
           'Physics3DBehavior',
           _('3D physics engine'),
           'Physics3D',
-          _('Simulate realistic object physics with gravity, forces, etc.'),
+          _(
+            'Simulate realistic 3D physics for this object including gravity, forces, collisions, etc.'
+          ),
           '',
           'JsPlatform/Extensions/physics3d.svg',
           'Physics3DBehavior',
@@ -915,7 +917,7 @@ module.exports = {
           'number',
           'LinearVelocityX',
           _('Linear velocity X'),
-          _('the object linear velocity on X.'),
+          _('the object linear velocity on X'),
           _('the linear velocity on X'),
           _('Velocity'),
           'JsPlatform/Extensions/physics3d.svg'
@@ -936,7 +938,7 @@ module.exports = {
           'number',
           'LinearVelocityY',
           _('Linear velocity Y'),
-          _('the object linear velocity on Y.'),
+          _('the object linear velocity on Y'),
           _('the linear velocity on Y'),
           _('Velocity'),
           'JsPlatform/Extensions/physics3d.svg'
@@ -957,7 +959,7 @@ module.exports = {
           'number',
           'LinearVelocityZ',
           _('Linear velocity Z'),
-          _('the object linear velocity on Z.'),
+          _('the object linear velocity on Z'),
           _('the linear velocity on Z'),
           _('Velocity'),
           'JsPlatform/Extensions/physics3d.svg'
@@ -978,7 +980,7 @@ module.exports = {
           'number',
           'LinearVelocityLength',
           _('Linear velocity'),
-          _('the object linear velocity length.'),
+          _('the object linear velocity length'),
           _('the linear velocity length'),
           _('Velocity'),
           'JsPlatform/Extensions/physics3d.svg'
@@ -998,7 +1000,7 @@ module.exports = {
           'number',
           'AngularVelocityX',
           _('Angular velocity X'),
-          _('the object angular velocity around X.'),
+          _('the object angular velocity around X'),
           _('the angular velocity around X'),
           _('Velocity'),
           'JsPlatform/Extensions/physics3d.svg'
@@ -1019,7 +1021,7 @@ module.exports = {
           'number',
           'AngularVelocityY',
           _('Angular velocity Y'),
-          _('the object angular velocity around Y.'),
+          _('the object angular velocity around Y'),
           _('the angular velocity around Y'),
           _('Velocity'),
           'JsPlatform/Extensions/physics3d.svg'
@@ -1040,7 +1042,7 @@ module.exports = {
           'number',
           'AngularVelocityZ',
           _('Angular velocity Z'),
-          _('the object angular velocity around Z.'),
+          _('the object angular velocity around Z'),
           _('the angular velocity around Z'),
           _('Velocity'),
           'JsPlatform/Extensions/physics3d.svg'
@@ -1567,7 +1569,7 @@ module.exports = {
           .getOrCreate('physics3D')
           .setValue(behaviorContent.getChild('physics3D').getStringValue())
           .setType('Behavior')
-          .setLabel('3D capability')
+          .setLabel('3D physics')
           .setQuickCustomizationVisibility(gd.QuickCustomization.Hidden)
           .addExtraInfo('Physics3D::Physics3DBehavior');
 
@@ -2142,7 +2144,7 @@ module.exports = {
           'number',
           'ForwardAcceleration',
           _('Forward acceleration'),
-          _('the forward acceleration of an object.'),
+          _('the forward acceleration of an object'),
           _('the forward acceleration'),
           _('Character configuration'),
           'JsPlatform/Extensions/physics_character3d.svg'
@@ -2164,7 +2166,7 @@ module.exports = {
           'number',
           'ForwardDeceleration',
           _('Forward deceleration'),
-          _('the forward deceleration of an object.'),
+          _('the forward deceleration of an object'),
           _('the forward deceleration'),
           _('Character configuration'),
           'JsPlatform/Extensions/physics_character3d.svg'
@@ -2186,7 +2188,7 @@ module.exports = {
           'number',
           'ForwardSpeedMax',
           _('Forward max speed'),
-          _('the forward max speed of the object.'),
+          _('the forward max speed of the object'),
           _('the forward max speed'),
           _('Character configuration'),
           'JsPlatform/Extensions/physics_character3d.svg'
@@ -2230,7 +2232,7 @@ module.exports = {
           'number',
           'SidewaysAcceleration',
           _('Sideways acceleration'),
-          _('the sideways acceleration of an object.'),
+          _('the sideways acceleration of an object'),
           _('the sideways acceleration'),
           _('Character configuration'),
           'JsPlatform/Extensions/physics_character3d.svg'
@@ -2252,7 +2254,7 @@ module.exports = {
           'number',
           'SidewaysDeceleration',
           _('Sideways deceleration'),
-          _('the sideways deceleration of an object.'),
+          _('the sideways deceleration of an object'),
           _('the sideways deceleration'),
           _('Character configuration'),
           'JsPlatform/Extensions/physics_character3d.svg'
@@ -2274,7 +2276,7 @@ module.exports = {
           'number',
           'SidewaysSpeedMax',
           _('Sideways max speed'),
-          _('the sideways max speed of the object.'),
+          _('the sideways max speed of the object'),
           _('the sideways max speed'),
           _('Character configuration'),
           'JsPlatform/Extensions/physics_character3d.svg'
@@ -2343,7 +2345,7 @@ module.exports = {
           'number',
           'JumpSpeed',
           _('Jump speed'),
-          _('the jump speed of an object. Its value is always positive.'),
+          _('the jump speed of an object. Its value is always positive'),
           _('the jump speed'),
           _('Character configuration'),
           'JsPlatform/Extensions/physics_character3d.svg'
@@ -2387,7 +2389,7 @@ module.exports = {
           'number',
           'Gravity',
           _('Gravity'),
-          _('the gravity applied on an object.'),
+          _('the gravity applied on an object'),
           _('the gravity'),
           _('Character configuration'),
           'JsPlatform/Extensions/physics_character3d.svg'
@@ -2409,7 +2411,7 @@ module.exports = {
           'number',
           'FallingSpeedMax',
           _('Maximum falling speed'),
-          _('the maximum falling speed of an object.'),
+          _('the maximum falling speed of an object'),
           _('the maximum falling speed'),
           _('Character configuration'),
           'JsPlatform/Extensions/physics_character3d.svg'

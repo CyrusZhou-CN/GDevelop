@@ -1259,6 +1259,8 @@ export class SharedPtrSerializerElement extends EmscriptenObject {
 export class Serializer extends EmscriptenObject {
   static toJSON(element: SerializerElement): string;
   static fromJSON(json: string): SerializerElement;
+  static fromJSObject(object: Object): gdSerializerElement;
+  static toJSObject(element: gdSerializerElement): any;
 }
 
 export class ObjectAssetSerializer extends EmscriptenObject {
@@ -1701,7 +1703,6 @@ export class PlatformExtension extends EmscriptenObject {
   getLicense(): string;
   getHelpPath(): string;
   getIconUrl(): string;
-  isBuiltin(): boolean;
   getNameSpace(): string;
   addDuplicatedAction(newActionName: string, copiedActionName: string): InstructionMetadata;
   addDuplicatedCondition(newConditionName: string, copiedConditionName: string): InstructionMetadata;
@@ -2067,7 +2068,9 @@ export class MetadataProvider extends EmscriptenObject {
   static getObjectStrExpressionMetadata(p: Platform, objectType: string, type: string): ExpressionMetadata;
   static getBehaviorStrExpressionMetadata(p: Platform, autoType: string, type: string): ExpressionMetadata;
   static isBadExpressionMetadata(metadata: ExpressionMetadata): boolean;
+  static isBadInstructionMetadata(metadata: InstructionMetadata): boolean;
   static isBadBehaviorMetadata(metadata: BehaviorMetadata): boolean;
+  static isBadObjectMetadata(metadata: ObjectMetadata): boolean;
 }
 
 export class ProjectDiagnostic extends EmscriptenObject {

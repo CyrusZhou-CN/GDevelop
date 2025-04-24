@@ -42,9 +42,9 @@ import useEducationForm from './UseEducationForm';
 import { type NewProjectSetup } from '../../../ProjectCreation/NewProjectSetupDialog';
 import { type ObjectWithContext } from '../../../ObjectsList/EnumerateObjects';
 import { type GamesList } from '../../../GameDashboard/UseGamesList';
+import { type GamesPlatformFrameTools } from './PlaySection/UseGamesPlatformFrame';
 import { type CourseChapter } from '../../../Utils/GDevelopServices/Asset';
 import useCourses from './UseCourses';
-import { GamesPlatformFrameContext } from './PlaySection/GamesPlatformFrameContext';
 
 const getRequestedTab = (routeArguments: RouteArguments): HomeTab | null => {
   if (
@@ -116,6 +116,9 @@ type Props = {|
   // Games
   gamesList: GamesList,
 
+  // Games platform
+  gamesPlatformFrameTools: GamesPlatformFrameTools,
+
   // Project opening
   canOpen: boolean,
   onChooseProject: () => void,
@@ -146,7 +149,8 @@ type Props = {|
   ) => Promise<void>,
   onOpenTemplateFromTutorial: (tutorialId: string) => Promise<void>,
   onOpenTemplateFromCourseChapter: (
-    courseChapter: CourseChapter
+    CourseChapter,
+    templateId?: string
   ) => Promise<void>,
 
   // Project save
@@ -199,6 +203,7 @@ export const HomePage = React.memo<Props>(
         onOpenTemplateFromTutorial,
         onOpenTemplateFromCourseChapter,
         gamesList,
+        gamesPlatformFrameTools,
       }: Props,
       ref
     ) => {
@@ -212,7 +217,7 @@ export const HomePage = React.memo<Props>(
       const {
         startTimeoutToUnloadIframe,
         loadIframeOrRemoveTimeout,
-      } = React.useContext(GamesPlatformFrameContext);
+      } = gamesPlatformFrameTools;
       const userSurveyStartedRef = React.useRef<boolean>(false);
       const userSurveyHiddenRef = React.useRef<boolean>(false);
       const { fetchTutorials } = React.useContext(TutorialContext);
@@ -244,8 +249,11 @@ export const HomePage = React.memo<Props>(
         onResetEducationForm,
       } = useEducationForm({ authenticatedUser });
       const {
+        courses,
         selectedCourse,
-        courseChapters,
+        courseChaptersByCourseId,
+        onSelectCourse,
+        fetchCourses,
         areChaptersReady,
         onCompleteTask,
         isTaskCompleted,
@@ -328,18 +336,16 @@ export const HomePage = React.memo<Props>(
               // Do not process requested tab before courses are ready.
               return;
             }
-
-            if (courseId && selectedCourse && selectedCourse.id === courseId) {
-              setLearnCategory('course');
-              removeRouteArguments(['course-id']);
-            }
+            onSelectCourse(courseId);
+            setLearnCategory('course');
+            removeRouteArguments(['course-id']);
           }
 
           removeRouteArguments(['initial-dialog']);
         },
         [
           routeArguments,
-          selectedCourse,
+          onSelectCourse,
           removeRouteArguments,
           setInitialPackUserFriendlySlug,
           setInitialGameTemplateUserFriendlySlug,
@@ -377,6 +383,16 @@ export const HomePage = React.memo<Props>(
           }
         },
         [fetchGames, activeTab, games]
+      );
+
+      // Only fetch courses if the user decides to open the Learn section.
+      React.useEffect(
+        () => {
+          if (activeTab === 'learn' && !courses) {
+            fetchCourses();
+          }
+        },
+        [fetchCourses, activeTab, courses]
       );
 
       // Fetch user cloud projects when home page becomes active
@@ -525,6 +541,10 @@ export const HomePage = React.memo<Props>(
         ]
       );
 
+      const premiumCourse = courses
+        ? courses.find(course => course.id === 'premium-course')
+        : null;
+
       return (
         <I18n>
           {({ i18n }) => (
@@ -584,8 +604,20 @@ export const HomePage = React.memo<Props>(
                       }
                       selectedCategory={learnCategory}
                       onSelectCategory={setLearnCategory}
+                      onSelectCourse={onSelectCourse}
+                      courses={courses}
+                      previewedCourse={premiumCourse}
+                      previewedCourseChapters={
+                        premiumCourse
+                          ? courseChaptersByCourseId[premiumCourse.id]
+                          : null
+                      }
                       course={selectedCourse}
-                      courseChapters={courseChapters}
+                      courseChapters={
+                        selectedCourse
+                          ? courseChaptersByCourseId[selectedCourse.id]
+                          : null
+                      }
                       onCompleteCourseTask={onCompleteTask}
                       isCourseTaskCompleted={isTaskCompleted}
                       getCourseChapterCompletion={getChapterCompletion}
@@ -595,7 +627,11 @@ export const HomePage = React.memo<Props>(
                       }
                     />
                   )}
-                  {activeTab === 'play' && <PlaySection />}
+                  {activeTab === 'play' && (
+                    <PlaySection
+                      gamesPlatformFrameTools={gamesPlatformFrameTools}
+                    />
+                  )}
                   {activeTab === 'shop' && (
                     <StoreSection
                       project={project}
@@ -688,5 +724,6 @@ export const renderHomePageContainer = (
     canSave={props.canSave}
     resourceManagementProps={props.resourceManagementProps}
     gamesList={props.gamesList}
+    gamesPlatformFrameTools={props.gamesPlatformFrameTools}
   />
 );

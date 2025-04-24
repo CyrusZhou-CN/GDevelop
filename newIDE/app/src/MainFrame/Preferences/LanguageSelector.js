@@ -7,6 +7,7 @@ import { Column } from '../../UI/Grid';
 import Window from '../../Utils/Window';
 import PreferencesContext from './PreferencesContext';
 import LocalesMetadata from '../../locales/LocalesMetadata';
+import ExtensionLocalesMetadata from '../../locales/ExtensionLocalesMetadata';
 import Text from '../../UI/Text';
 import Link from '../../UI/Link';
 import { LineStackLayout } from '../../UI/Layout';
@@ -23,25 +24,50 @@ const displayLocaleMetadata = localeMetadata => {
   return true;
 };
 
-const localesToDisplay = LocalesMetadata.filter(displayLocaleMetadata);
-const goodProgressLocales = localesToDisplay.filter(
-  localeMetadata => localeMetadata.translationRatio > 0.5
+const localesToDisplay = LocalesMetadata.filter(displayLocaleMetadata).map(
+  localeMetadata => {
+    const extensionLocaleMetadata = ExtensionLocalesMetadata.find(
+      extensionLocaleMetadata =>
+        extensionLocaleMetadata.languageCode === localeMetadata.languageCode
+    );
+    const editorTranslationRatio = localeMetadata.translationRatio || 0;
+    // We do a simple 50/50 split between the main GDevelop locales and the extension locales.
+    // This is not perfect, but gives a rough idea of the translation progress.
+    const translationRatioExtension = extensionLocaleMetadata
+      ? extensionLocaleMetadata.translationRatio
+      : 0;
+
+    const translationRatio =
+      (editorTranslationRatio + translationRatioExtension) / 2;
+    return {
+      ...localeMetadata,
+      translationRatio,
+    };
+  }
 );
-const startedLocales = localesToDisplay.filter(
-  localeMetadata => localeMetadata.translationRatio < 0.5
+const goodProgressLocales = localesToDisplay.filter(
+  localeMetadata => localeMetadata.translationRatio > 0.3
+);
+const incompleteLocales = localesToDisplay.filter(
+  localeMetadata => localeMetadata.translationRatio < 0.3
 );
 
 const renderLanguageSelectOption = localeMetadata => {
   const translationRatio = localeMetadata.translationRatio || 0;
   const percent = (100 * localeMetadata.translationRatio).toFixed(0);
+  const isIncomplete = translationRatio < 0.3;
   const isStarted = translationRatio > 0;
+
+  const label = !isIncomplete
+    ? `${localeMetadata.languageNativeName} (${localeMetadata.languageName})`
+    : `${localeMetadata.languageNativeName} (${
+        localeMetadata.languageName
+      } - ${percent}% translated)`;
 
   return (
     <SelectOption
       value={localeMetadata.languageCode}
-      label={`${localeMetadata.languageNativeName} (${
-        localeMetadata.languageName
-      })${isStarted ? ` - ~${percent}%` : ''}`}
+      label={label}
       disabled={!isStarted}
       key={localeMetadata.languageCode}
     />
@@ -71,7 +97,7 @@ const LanguageSelector = ({ onLanguageChanged }: Props) => {
             {goodProgressLocales.map(localeMetadata =>
               renderLanguageSelectOption(localeMetadata)
             )}
-            {startedLocales.map(localeMetadata =>
+            {incompleteLocales.map(localeMetadata =>
               renderLanguageSelectOption(localeMetadata)
             )}
           </CompactSelectField>
@@ -86,7 +112,7 @@ const LanguageSelector = ({ onLanguageChanged }: Props) => {
               Window.openExternalURL('https://crowdin.com/project/gdevelop')
             }
           >
-            help to translate GDevelop in your language
+            help translate GDevelop into your language
           </Link>
           .
         </Trans>

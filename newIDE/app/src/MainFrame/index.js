@@ -18,6 +18,7 @@ import AboutDialog from './AboutDialog';
 import ProjectManager from '../ProjectManager';
 import LoaderModal from '../UI/LoaderModal';
 import CloseConfirmDialog from '../UI/CloseConfirmDialog';
+import ProfileDialog from '../Profile/ProfileDialog';
 import Window from '../Utils/Window';
 import { showErrorBox } from '../UI/Messages/MessageBox';
 import { TabContentContainer } from '../UI/ClosableTabs';
@@ -46,6 +47,7 @@ import {
   notifyPreviewOrExportWillStart,
   moveTabToTheRightOfHoveredTab,
   getCustomObjectEditor,
+  hasEditorTabOpenedWithKey,
 } from './EditorTabs/EditorTabsHandler';
 import { renderDebuggerEditorContainer } from './EditorContainers/DebuggerEditorContainer';
 import { renderEventsEditorContainer } from './EditorContainers/EventsEditorContainer';
@@ -55,6 +57,7 @@ import { renderExternalLayoutEditorContainer } from './EditorContainers/External
 import { renderEventsFunctionsExtensionEditorContainer } from './EditorContainers/EventsFunctionsExtensionEditorContainer';
 import { renderCustomObjectEditorContainer } from './EditorContainers/CustomObjectEditorContainer';
 import { renderHomePageContainer } from './EditorContainers/HomePage';
+import { renderAskAiContainer } from './EditorContainers/AskAi';
 import { renderResourcesEditorContainer } from './EditorContainers/ResourcesEditorContainer';
 import { type RenderEditorContainerPropsWithRef } from './EditorContainers/BaseEditor';
 import ErrorBoundary, {
@@ -197,8 +200,9 @@ import { type ObjectWithContext } from '../ObjectsList/EnumerateObjects';
 import useGamesList from '../GameDashboard/UseGamesList';
 import useCapturesManager from './UseCapturesManager';
 import useHomepageWitchForRouting from './UseHomepageWitchForRouting';
-import { GamesPlatformFrameContext } from './EditorContainers/HomePage/PlaySection/GamesPlatformFrameContext';
+import RobotIcon from '../ProjectCreation/RobotIcon';
 import PublicProfileContext from '../Profile/PublicProfileContext';
+import { useGamesPlatformFrame } from './EditorContainers/HomePage/PlaySection/UseGamesPlatformFrame';
 
 const GD_STARTUP_TIMES = global.GD_STARTUP_TIMES || [];
 
@@ -216,6 +220,7 @@ const editorKindToRenderer: {
   'custom object': renderCustomObjectEditorContainer,
   'start page': renderHomePageContainer,
   resources: renderResourcesEditorContainer,
+  'ask-ai': renderAskAiContainer,
 };
 
 const defaultSnackbarAutoHideDuration = 3000;
@@ -382,6 +387,7 @@ const MainFrame = (props: Props) => {
     false
   );
   const [aboutDialogOpen, openAboutDialog] = React.useState<boolean>(false);
+  const [profileDialogOpen, openProfileDialog] = React.useState<boolean>(false);
   const [
     preferencesDialogOpen,
     openPreferencesDialog,
@@ -530,10 +536,6 @@ const MainFrame = (props: Props) => {
       : false,
   });
 
-  const { iframeVisible: gamesPlatformIframeVisible } = React.useContext(
-    GamesPlatformFrameContext
-  );
-
   const gamesList = useGamesList();
 
   const {
@@ -578,6 +580,8 @@ const MainFrame = (props: Props) => {
       const label =
         kind === 'resources'
           ? i18n._(t`Resources`)
+          : kind === 'ask-ai'
+          ? i18n._(t`Ask AI`)
           : kind === 'start page'
           ? undefined
           : kind === 'debugger'
@@ -635,6 +639,8 @@ const MainFrame = (props: Props) => {
         ) : kind === 'events functions extension' ||
           kind === 'custom object' ? (
           <ExtensionIcon />
+        ) : kind === 'ask-ai' ? (
+          <RobotIcon size={16} />
         ) : null;
 
       const closable = kind !== 'start page';
@@ -781,8 +787,12 @@ const MainFrame = (props: Props) => {
     // dialog is closed after a language change. We then reload GDevelop
     // extensions so that they declare all objects/actions/condition/etc...
     // using the new language.
+    console.info('Language changed, reloading extensions...');
     gd.MeasurementUnit.applyTranslation();
     gd.JsPlatform.get().reloadBuiltinExtensions();
+    eventsFunctionsExtensionsState.reloadProjectEventsFunctionsExtensions(
+      currentProject
+    );
     _loadExtensions().catch(() => {});
   };
 
@@ -1229,6 +1239,18 @@ const MainFrame = (props: Props) => {
     createProjectFromPrivateGameTemplate,
     createProjectFromAIGeneration,
     storageProviders: props.storageProviders,
+  });
+
+  const onOpenProfileDialog = React.useCallback(
+    () => {
+      openProfileDialog(true);
+    },
+    [openProfileDialog]
+  );
+
+  const gamesPlatformFrameTools = useGamesPlatformFrame({
+    fetchAndOpenNewProjectSetupDialogForExample,
+    onOpenProfileDialog,
   });
 
   const closeApp = React.useCallback((): void => {
@@ -1962,6 +1984,19 @@ const MainFrame = (props: Props) => {
         editorTabs: openEditorTab(
           state.editorTabs,
           getEditorOpeningOptions({ kind: 'start page', name: '' })
+        ),
+      }));
+    },
+    [setState, getEditorOpeningOptions]
+  );
+
+  const openAskAi = React.useCallback(
+    () => {
+      setState(state => ({
+        ...state,
+        editorTabs: openEditorTab(
+          state.editorTabs,
+          getEditorOpeningOptions({ kind: 'ask-ai', name: '' })
         ),
       }));
     },
@@ -3131,7 +3166,8 @@ const MainFrame = (props: Props) => {
 
   useOpenInitialDialog({
     openInAppTutorialDialog: selectInAppTutorial,
-    openProfileDialog: authenticatedUser.onOpenProfileDialog,
+    openProfileDialog: onOpenProfileDialog,
+    openAskAi,
   });
 
   const onChangeProjectName = async (newName: string): Promise<void> => {
@@ -3254,16 +3290,20 @@ const MainFrame = (props: Props) => {
   );
 
   const openTemplateFromCourseChapter = React.useCallback(
-    async (courseChapter: CourseChapter) => {
+    async (courseChapter: CourseChapter, templateId?: string) => {
       const projectIsClosed = await askToCloseProject();
       if (!projectIsClosed) {
         return;
       }
       try {
-        await createProjectFromCourseChapter(courseChapter, {
-          storageProvider: emptyStorageProvider,
-          saveAsLocation: null,
-          // Remaining will be set by the template.
+        await createProjectFromCourseChapter({
+          courseChapter,
+          templateId,
+          newProjectSetup: {
+            storageProvider: emptyStorageProvider,
+            saveAsLocation: null,
+            // Remaining will be set by the template.
+          },
         });
       } catch (error) {
         showErrorBox({
@@ -3439,9 +3479,6 @@ const MainFrame = (props: Props) => {
   }, []);
 
   const {
-    configureNewProjectActions: configureNewProjectActionsForGamesPlatformFrame,
-  } = React.useContext(GamesPlatformFrameContext);
-  const {
     configureNewProjectActions: configureNewProjectActionsForProfile,
   } = React.useContext(PublicProfileContext);
 
@@ -3513,9 +3550,6 @@ const MainFrame = (props: Props) => {
               );
           }
 
-          configureNewProjectActionsForGamesPlatformFrame({
-            fetchAndOpenNewProjectSetupDialogForExample,
-          });
           configureNewProjectActionsForProfile({
             fetchAndOpenNewProjectSetupDialogForExample,
           });
@@ -3562,7 +3596,7 @@ const MainFrame = (props: Props) => {
     onOpenExternalLayout: openExternalLayout,
     onOpenEventsFunctionsExtension: openEventsFunctionsExtension,
     onOpenCommandPalette: openCommandPalette,
-    onOpenProfile: authenticatedUser.onOpenProfileDialog,
+    onOpenProfile: onOpenProfileDialog,
   });
 
   const resourceManagementProps: ResourceManagementProps = React.useMemo(
@@ -3586,6 +3620,10 @@ const MainFrame = (props: Props) => {
     ]
   );
 
+  const hideAskAi =
+    !!authenticatedUser.limits &&
+    !!authenticatedUser.limits.capabilities.classrooms &&
+    authenticatedUser.limits.capabilities.classrooms.hideAskAi;
   const showLoader = isProjectOpening || isLoadingProject || previewLoading;
   const shortcutMap = useShortcutMap();
   const buildMainMenuProps = {
@@ -3595,6 +3633,7 @@ const MainFrame = (props: Props) => {
     recentProjectFiles: preferences.getRecentProjectFiles({ limit: 20 }),
     shortcutMap,
     isApplicationTopLevelMenu: false,
+    hideAskAi,
   };
   const mainMenuCallbacks = {
     onChooseProject: () => openOpenFromStorageProviderDialog(),
@@ -3613,7 +3652,8 @@ const MainFrame = (props: Props) => {
     onOpenAbout: () => openAboutDialog(true),
     onOpenPreferences: () => openPreferencesDialog(true),
     onOpenLanguage: () => openLanguageDialog(true),
-    onOpenProfile: authenticatedUser.onOpenProfileDialog,
+    onOpenProfile: onOpenProfileDialog,
+    onOpenAskAi: openAskAi,
     setElectronUpdateStatus: setElectronUpdateStatus,
   };
 
@@ -3623,6 +3663,7 @@ const MainFrame = (props: Props) => {
     !!state.currentProject &&
     !isSavingProject &&
     (!currentFileMetadata || !isProjectOwnedBySomeoneElse);
+  const hasAskAiOpened = hasEditorTabOpenedWithKey(state.editorTabs, 'ask-ai');
 
   return (
     <div
@@ -3697,29 +3738,44 @@ const MainFrame = (props: Props) => {
       <TabsTitlebar
         hidden={tabsTitleBarAndEditorToolbarHidden}
         toggleProjectManager={toggleProjectManager}
-        renderTabs={onHoverEditorTab => (
+        renderTabs={(onEditorTabHovered, onEditorTabClosing) => (
           <DraggableEditorTabs
             hideLabels={false}
             editorTabs={state.editorTabs}
             onClickTab={(id: number) => _onChangeEditorTab(id)}
-            onCloseTab={(editorTab: EditorTab) => _onCloseEditorTab(editorTab)}
-            onCloseOtherTabs={(editorTab: EditorTab) =>
-              _onCloseOtherEditorTabs(editorTab)
-            }
-            onCloseAll={_onCloseAllEditorTabs}
+            onCloseTab={(editorTab: EditorTab) => {
+              // Call onEditorTabClosing before to ensure any tooltip is removed before the tab is closed.
+              onEditorTabClosing();
+              _onCloseEditorTab(editorTab);
+            }}
+            onCloseOtherTabs={(editorTab: EditorTab) => {
+              // Call onEditorTabClosing before to ensure any tooltip is removed before the tab is closed.
+              onEditorTabClosing();
+              _onCloseOtherEditorTabs(editorTab);
+            }}
+            onCloseAll={() => {
+              // Call onEditorTabClosing before to ensure any tooltip is removed before the tab is closed.
+              onEditorTabClosing();
+              _onCloseAllEditorTabs();
+            }}
             onTabActivated={(editorTab: EditorTab) =>
               _onEditorTabActivated(editorTab)
             }
             onDropTab={onDropEditorTab}
-            onHoverTab={onHoverEditorTab}
+            onHoverTab={(
+              editorTab: ?EditorTab,
+              options: {| isLabelTruncated: boolean |}
+            ) => onEditorTabHovered(editorTab, options)}
           />
         )}
+        hasAskAiOpened={hasAskAiOpened}
+        onOpenAskAi={openAskAi}
       />
       <Toolbar
         ref={toolbar}
         hidden={tabsTitleBarAndEditorToolbarHidden}
         showProjectButtons={
-          !['start page', 'debugger', null].includes(
+          !['start page', 'debugger', 'ask-ai', null].includes(
             getCurrentTab(state.editorTabs)
               ? getCurrentTab(state.editorTabs).key
               : null
@@ -3753,6 +3809,9 @@ const MainFrame = (props: Props) => {
         onQuitVersionHistory={onQuitVersionHistory}
         canQuitVersionHistory={!isSavingProject}
       />
+      {// Render games platform frame before the editors, so the editor have priority
+      // in what to display (ex: Loader of play section)
+      gamesPlatformFrameTools.renderGamesPlatformFrame()}
       <LeaderboardProvider
         gameId={
           state.currentProject ? state.currentProject.getProjectUuid() : ''
@@ -3768,7 +3827,7 @@ const MainFrame = (props: Props) => {
               active={isCurrentTab}
               // Deactivate pointer events when the play tab is active, so the iframe
               // can be interacted with.
-              removePointerEvents={gamesPlatformIframeVisible}
+              removePointerEvents={gamesPlatformFrameTools.iframeVisible}
             >
               <CommandsContextScopedProvider active={isCurrentTab}>
                 <ErrorBoundary
@@ -3843,7 +3902,7 @@ const MainFrame = (props: Props) => {
                       });
                     },
                     onCreateProjectFromExample: createProjectFromExample,
-                    onOpenProfile: authenticatedUser.onOpenProfileDialog,
+                    onOpenProfile: onOpenProfileDialog,
                     onOpenLanguageDialog: () => openLanguageDialog(true),
                     onOpenPreferences: () => openPreferencesDialog(true),
                     onOpenAbout: () => openAboutDialog(true),
@@ -3892,6 +3951,7 @@ const MainFrame = (props: Props) => {
                     onSceneObjectEdited: onSceneObjectEdited,
                     onExtensionInstalled: onExtensionInstalled,
                     gamesList,
+                    gamesPlatformFrameTools,
                   })}
                 </ErrorBoundary>
               </CommandsContextScopedProvider>
@@ -3963,6 +4023,18 @@ const MainFrame = (props: Props) => {
             onResourceChosen([]);
           }}
           options={chooseResourceOptions}
+        />
+      )}
+      {profileDialogOpen && (
+        // ProfileDialog is dependent on multiple contexts,
+        // which are dependent of AuthenticatedUserContext.
+        // So it cannot be moved inside the AuthenticatedUserProvider,
+        // otherwise, those contexts would not be correctly mounted,
+        // as they are defined after the AuthenticatedUserProvider in Providers.js.
+        <ProfileDialog
+          onClose={() => {
+            openProfileDialog(false);
+          }}
         />
       )}
       {renderNewProjectDialog()}
