@@ -479,6 +479,7 @@ type Props = {|
   onObjectPasted?: gdObject => void,
   getValidatedObjectOrGroupName: (newName: string, global: boolean) => string,
   onAddObjectInstance: (objectName: string) => void,
+  onExtensionInstalled: (extensionNames: Array<string>) => void,
 
   getThumbnail: (
     project: gdProject,
@@ -518,6 +519,7 @@ const ObjectsList = React.forwardRef<Props, ObjectsListInterface>(
       onObjectPasted,
       getValidatedObjectOrGroupName,
       onAddObjectInstance,
+      onExtensionInstalled,
 
       getThumbnail,
       unsavedChanges,
@@ -1092,6 +1094,11 @@ const ObjectsList = React.forwardRef<Props, ObjectsListInterface>(
       [projectScopedContainersAccessor]
     );
 
+    const isEntirelyEmpty =
+      objectsContainer.getObjectsCount() === 0 &&
+      (!globalObjectsContainer ||
+        globalObjectsContainer.getObjectsCount() === 0);
+
     const getTreeViewData = React.useCallback(
       (i18n: I18nType): Array<TreeViewItem> => {
         const treeViewItems = [
@@ -1155,8 +1162,10 @@ const ObjectsList = React.forwardRef<Props, ObjectsListInterface>(
               sceneObjectsRootFolderId,
               i18n._(labels.localScopeObjectsTitle),
               {
+                primary: true,
+                showPrimaryLabel: isEntirelyEmpty,
                 icon: <Add />,
-                label: t`Add an object`,
+                label: t`Add object`,
                 click: () => {
                   onAddNewObject(selectedObjectFolderOrObjectsWithContext[0]);
                 },
@@ -1216,6 +1225,7 @@ const ObjectsList = React.forwardRef<Props, ObjectsListInterface>(
         onAddNewObject,
         selectedObjectFolderOrObjectsWithContext,
         onExportAssets,
+        isEntirelyEmpty,
       ]
     );
 
@@ -1583,6 +1593,7 @@ const ObjectsList = React.forwardRef<Props, ObjectsListInterface>(
             objectsContainer={objectsContainer}
             resourceManagementProps={resourceManagementProps}
             targetObjectFolderOrObjectWithContext={newObjectDialogOpen.from}
+            onExtensionInstalled={onExtensionInstalled}
           />
         )}
         {objectAssetSwappingDialogOpen && (
@@ -1598,6 +1609,7 @@ const ObjectsList = React.forwardRef<Props, ObjectsListInterface>(
             objectsContainer={objectsContainer}
             object={objectAssetSwappingDialogOpen.objectWithContext.object}
             resourceManagementProps={resourceManagementProps}
+            onExtensionInstalled={onExtensionInstalled}
           />
         )}
       </Background>

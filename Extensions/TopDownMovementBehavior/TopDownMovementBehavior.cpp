@@ -35,7 +35,6 @@ void TopDownMovementBehavior::InitializeContent(
   behaviorContent.SetAttribute("customIsometryAngle", 30);
   behaviorContent.SetAttribute("movementAngleOffset", 0);
   behaviorContent.SetAttribute("useLegacyTurnBack", false);
-  behaviorContent.SetAttribute("movementMode", "Sharp turn with smooth turn back");
 }
 
 std::map<gd::String, gd::PropertyDescriptor>
@@ -91,10 +90,11 @@ TopDownMovementBehavior::GetProperties(
       .SetValue(
           gd::String::From(behaviorContent.GetDoubleAttribute("angleOffset")));
   properties["IgnoreDefaultControls"]
-      .SetLabel(_("Default controls"))
+      .SetLabel(_("Disable default keyboard controls"))
+      .SetQuickCustomizationVisibility(gd::QuickCustomization::Hidden)
       .SetValue(behaviorContent.GetBoolAttribute("ignoreDefaultControls")
-                    ? "false"
-                    : "true")
+                    ? "true"
+                    : "false")
       .SetType("Boolean");
   properties["UseLegacyTurnBack"]
       .SetLabel(_("Only use acceleration to turn back "
@@ -148,21 +148,6 @@ TopDownMovementBehavior::GetProperties(
           "Usually 0, unless you choose an *Isometry* viewpoint in which case "
           "-45 is recommended."));
 
-  gd::String movementMode = behaviorContent.GetStringAttribute("movementMode");
-  gd::String movementModeStr = _("Sharp turn with smooth turn back");
-  if (movementMode == "Sharp turn")
-    movementModeStr = _("Sharp turn");
-  else if (movementMode == "Smooth turn")
-    movementModeStr = _("Smooth turn");
-
-  properties["MovementMode"]
-      .SetLabel(_("Mode"))
-      .SetValue(movementModeStr)
-      .SetType("Choice")
-      .AddExtraInfo(_("Sharp turn with smooth turn back"))
-      .AddExtraInfo(_("Sharp turn"))
-      .AddExtraInfo(_("Smooth turn"));
-
   return properties;
 }
 
@@ -171,7 +156,7 @@ bool TopDownMovementBehavior::UpdateProperty(
     const gd::String& name,
     const gd::String& value) {
   if (name == "IgnoreDefaultControls") {
-    behaviorContent.SetAttribute("ignoreDefaultControls", (value == "0"));
+    behaviorContent.SetAttribute("ignoreDefaultControls", (value == "1"));
     return true;
   }
   if (name == "AllowDiagonals") {
@@ -213,14 +198,6 @@ bool TopDownMovementBehavior::UpdateProperty(
   }
   if (name == "MovementAngleOffset") {
     behaviorContent.SetAttribute("movementAngleOffset", value.To<float>());
-  }
-  if (name == "MovementMode") {
-    if (value == _("Sharp turn"))
-      behaviorContent.SetAttribute("movementMode", "Sharp turn");
-    else if (value == _("Smooth turn"))
-      behaviorContent.SetAttribute("movementMode", "Smooth turn");
-    else
-      behaviorContent.SetAttribute("movementMode", "Sharp turn with smooth turn back");
   }
 
   if (value.To<float>() < 0) return false;

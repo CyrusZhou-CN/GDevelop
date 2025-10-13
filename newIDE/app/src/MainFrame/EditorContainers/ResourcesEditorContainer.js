@@ -3,6 +3,8 @@ import React from 'react';
 import {
   type RenderEditorContainerProps,
   type RenderEditorContainerPropsWithRef,
+  type SceneEventsOutsideEditorChanges,
+  type InstancesOutsideEditorChanges,
 } from './BaseEditor';
 import ResourcesEditor from '../../ResourcesEditor';
 import { type ObjectWithContext } from '../../ObjectsList/EnumerateObjects';
@@ -42,6 +44,14 @@ export class ResourcesEditorContainer extends React.Component<RenderEditorContai
   }
 
   onSceneObjectsDeleted(scene: gdLayout) {
+    // No thing to be done.
+  }
+
+  onSceneEventsModifiedOutsideEditor(changes: SceneEventsOutsideEditorChanges) {
+    // No thing to be done.
+  }
+
+  onInstancesModifiedOutsideEditor(changes: InstancesOutsideEditorChanges) {
     // No thing to be done.
   }
 

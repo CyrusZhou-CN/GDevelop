@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Trans } from '@lingui/macro';
 
-import type { CourseChapter } from '../Utils/GDevelopServices/Asset';
+import type { CourseChapter, Course } from '../Utils/GDevelopServices/Asset';
 import Text from '../UI/Text';
 import { LineStackLayout } from '../UI/Layout';
 import CheckCircle from '../UI/CustomSvgIcons/CheckCircle';
@@ -24,13 +24,14 @@ const styles = {
 };
 
 type Props = {|
+  course: Course,
   chapterIndex: number,
   courseChapter: CourseChapter,
   getChapterCompletion: (chapterId: string) => CourseChapterCompletion | null,
 |};
 
 const CourseChapterTitle = React.forwardRef<Props, HTMLDivElement>(
-  ({ chapterIndex, courseChapter, getChapterCompletion }, ref) => {
+  ({ course, chapterIndex, courseChapter, getChapterCompletion }, ref) => {
     const gdevelopTheme = React.useContext(GDevelopThemeContext);
     const { isMobile, isLandscape } = useResponsiveWindowSize();
     const isMobilePortrait = isMobile && !isLandscape;
@@ -64,25 +65,27 @@ const CourseChapterTitle = React.forwardRef<Props, HTMLDivElement>(
             </div>
           )}
         </LineStackLayout>
-        {isFinished ? (
-          <div
-            style={{
-              ...styles.statusContainer,
-              color: gdevelopTheme.statusIndicator.success,
-            }}
-          >
-            {isMobilePortrait && <CheckCircle />}
-            <Text color="inherit" noMargin>
-              <Trans>Finished</Trans>
+        <LineStackLayout noMargin alignItems="center">
+          {isFinished ? (
+            <div
+              style={{
+                ...styles.statusContainer,
+                color: gdevelopTheme.statusIndicator.success,
+              }}
+            >
+              {isMobilePortrait && <CheckCircle />}
+              <Text color="inherit" noMargin>
+                <Trans>Finished</Trans>
+              </Text>
+            </div>
+          ) : completion ? (
+            <Text color="secondary" noMargin>
+              <Trans>
+                {completion.completedTasks} of {completion.tasks} completed
+              </Trans>
             </Text>
-          </div>
-        ) : completion ? (
-          <Text color="secondary" noMargin>
-            <Trans>
-              {completion.completedTasks} of {completion.tasks} completed
-            </Trans>
-          </Text>
-        ) : null}
+          ) : null}
+        </LineStackLayout>
       </div>
     );
   }

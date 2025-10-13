@@ -162,7 +162,12 @@ module.exports = {
         )
         .addParameter('object', _('3D object'), '', false)
         .addParameter('behavior', _('Behavior'), 'Base3DBehavior')
-        .useStandardParameters('number', gd.ParameterOptions.makeNewOptions())
+        .useStandardParameters(
+          'number',
+          gd.ParameterOptions.makeNewOptions().setDescription(
+            _('Angle (in degrees)')
+          )
+        )
         .setFunctionName('setRotationX')
         .setGetter('getRotationX');
 
@@ -178,7 +183,12 @@ module.exports = {
         )
         .addParameter('object', _('3D object'), '', false)
         .addParameter('behavior', _('Behavior'), 'Base3DBehavior')
-        .useStandardParameters('number', gd.ParameterOptions.makeNewOptions())
+        .useStandardParameters(
+          'number',
+          gd.ParameterOptions.makeNewOptions().setDescription(
+            _('Angle (in degrees)')
+          )
+        )
         .setFunctionName('setRotationY')
         .setGetter('getRotationY');
 
@@ -196,7 +206,7 @@ module.exports = {
         )
         .addParameter('object', _('3D object'), '', false)
         .addParameter('behavior', _('Behavior'), 'Base3DBehavior')
-        .addParameter('number', _('Rotation angle'), '', false)
+        .addParameter('number', _('Angle to add (in degrees)'), '', false)
         .markAsAdvanced()
         .setFunctionName('turnAroundX');
 
@@ -214,7 +224,7 @@ module.exports = {
         )
         .addParameter('object', _('3D object'), '', false)
         .addParameter('behavior', _('Behavior'), 'Base3DBehavior')
-        .addParameter('number', _('Rotation angle'), '', false)
+        .addParameter('number', _('Angle to add (in degrees)'), '', false)
         .markAsAdvanced()
         .setFunctionName('turnAroundY');
 
@@ -232,7 +242,7 @@ module.exports = {
         )
         .addParameter('object', _('3D object'), '', false)
         .addParameter('behavior', _('Behavior'), 'Base3DBehavior')
-        .addParameter('number', _('Rotation angle'), '', false)
+        .addParameter('number', _('Angle to add (in degrees)'), '', false)
         .markAsAdvanced()
         .setFunctionName('turnAroundZ');
     }
@@ -242,7 +252,7 @@ module.exports = {
         .addObject(
           'Model3DObject',
           _('3D Model'),
-          _('An animated 3D model.'),
+          _('An animated 3D model, useful for most elements of a 3D game.'),
           'JsPlatform/Extensions/3d_model.svg',
           new gd.Model3DObjectConfiguration()
         )
@@ -594,7 +604,12 @@ module.exports = {
           'res/conditions/3d_box.svg'
         )
         .addParameter('object', _('3D model'), 'Model3DObject', false)
-        .useStandardParameters('number', gd.ParameterOptions.makeNewOptions())
+        .useStandardParameters(
+          'number',
+          gd.ParameterOptions.makeNewOptions().setDescription(
+            _('Angle (in degrees)')
+          )
+        )
         .setHidden()
         .setFunctionName('setRotationX')
         .setGetter('getRotationX');
@@ -611,7 +626,12 @@ module.exports = {
           'res/conditions/3d_box.svg'
         )
         .addParameter('object', _('3D model'), 'Model3DObject', false)
-        .useStandardParameters('number', gd.ParameterOptions.makeNewOptions())
+        .useStandardParameters(
+          'number',
+          gd.ParameterOptions.makeNewOptions().setDescription(
+            _('Angle (in degrees)')
+          )
+        )
         .setHidden()
         .setFunctionName('setRotationY')
         .setGetter('getRotationY');
@@ -630,7 +650,7 @@ module.exports = {
           'res/conditions/3d_box.svg'
         )
         .addParameter('object', _('3D model'), 'Model3DObject', false)
-        .addParameter('number', _('Rotation angle'), '', false)
+        .addParameter('number', _('Angle to add (in degrees)'), '', false)
         .markAsAdvanced()
         .setHidden()
         .setFunctionName('turnAroundX');
@@ -649,7 +669,7 @@ module.exports = {
           'res/conditions/3d_box.svg'
         )
         .addParameter('object', _('3D model'), 'Model3DObject', false)
-        .addParameter('number', _('Rotation angle'), '', false)
+        .addParameter('number', _('Angle to add (in degrees)'), '', false)
         .markAsAdvanced()
         .setHidden()
         .setFunctionName('turnAroundY');
@@ -668,7 +688,7 @@ module.exports = {
           'res/conditions/3d_box.svg'
         )
         .addParameter('object', _('3D model'), 'Model3DObject', false)
-        .addParameter('number', _('Rotation angle'), '', false)
+        .addParameter('number', _('Angle to add (in degrees)'), '', false)
         .markAsAdvanced()
         .setHidden()
         .setFunctionName('turnAroundZ');
@@ -859,7 +879,9 @@ module.exports = {
         propertyName === 'rightFaceResourceRepeat' ||
         propertyName === 'topFaceResourceRepeat' ||
         propertyName === 'bottomFaceResourceRepeat' ||
-        propertyName === 'enableTextureTransparency'
+        propertyName === 'enableTextureTransparency' ||
+        propertyName === 'isCastingShadow' ||
+        propertyName === 'isReceivingShadow'
       ) {
         objectContent[propertyName] = newValue === '1';
         return true;
@@ -887,8 +909,8 @@ module.exports = {
         .getOrCreate('facesOrientation')
         .setValue(objectContent.facesOrientation || 'Y')
         .setType('choice')
-        .addExtraInfo('Y')
-        .addExtraInfo('Z')
+        .addChoice('Y', 'Y')
+        .addChoice('Z', 'Z')
         .setLabel(_('Faces orientation'))
         .setDescription(
           _(
@@ -948,8 +970,8 @@ module.exports = {
         .getOrCreate('backFaceUpThroughWhichAxisRotation')
         .setValue(objectContent.backFaceUpThroughWhichAxisRotation || 'X')
         .setType('choice')
-        .addExtraInfo('X')
-        .addExtraInfo('Y')
+        .addChoice('X', 'X')
+        .addChoice('Y', 'Y')
         .setLabel(_('Back face orientation'))
         .setDescription(
           _(
@@ -1083,11 +1105,29 @@ module.exports = {
 
       objectProperties
         .getOrCreate('materialType')
-        .setValue(objectContent.materialType || 'Basic')
+        .setValue(objectContent.materialType || 'StandardWithoutMetalness')
         .setType('choice')
-        .addExtraInfo('Basic')
-        .addExtraInfo('StandardWithoutMetalness')
-        .setLabel(_('Material type'));
+        .addChoice('Basic', _('Basic (no lighting, no shadows)'))
+        .addChoice(
+          'StandardWithoutMetalness',
+          _('Standard (without metalness)')
+        )
+        .setLabel(_('Material type'))
+        .setGroup(_('Lighting'));
+
+      objectProperties
+        .getOrCreate('isCastingShadow')
+        .setValue(objectContent.isCastingShadow ? 'true' : 'false')
+        .setType('boolean')
+        .setLabel(_('Shadow casting'))
+        .setGroup(_('Lighting'));
+
+      objectProperties
+        .getOrCreate('isReceivingShadow')
+        .setValue(objectContent.isReceivingShadow ? 'true' : 'false')
+        .setType('boolean')
+        .setLabel(_('Shadow receiving'))
+        .setGroup(_('Lighting'));
 
       return objectProperties;
     };
@@ -1105,7 +1145,7 @@ module.exports = {
       topFaceResourceName: '',
       bottomFaceResourceName: '',
       frontFaceVisible: true,
-      backFaceVisible: false,
+      backFaceVisible: true,
       leftFaceVisible: true,
       rightFaceVisible: true,
       topFaceVisible: true,
@@ -1116,8 +1156,10 @@ module.exports = {
       rightFaceResourceRepeat: false,
       topFaceResourceRepeat: false,
       bottomFaceResourceRepeat: false,
-      materialType: 'Basic',
+      materialType: 'StandardWithoutMetalness',
       tint: '255;255;255',
+      isCastingShadow: true,
+      isReceivingShadow: true,
     };
 
     Cube3DObject.updateInitialInstanceProperty = function (
@@ -1471,7 +1513,12 @@ module.exports = {
         'res/conditions/3d_box.svg'
       )
       .addParameter('object', _('3D cube'), 'Cube3DObject', false)
-      .useStandardParameters('number', gd.ParameterOptions.makeNewOptions())
+      .useStandardParameters(
+        'number',
+        gd.ParameterOptions.makeNewOptions().setDescription(
+          _('Angle (in degrees)')
+        )
+      )
       .setFunctionName('setRotationX')
       .setHidden()
       .setGetter('getRotationX');
@@ -1488,7 +1535,12 @@ module.exports = {
         'res/conditions/3d_box.svg'
       )
       .addParameter('object', _('3D cube'), 'Cube3DObject', false)
-      .useStandardParameters('number', gd.ParameterOptions.makeNewOptions())
+      .useStandardParameters(
+        'number',
+        gd.ParameterOptions.makeNewOptions().setDescription(
+          _('Angle (in degrees)')
+        )
+      )
       .setFunctionName('setRotationY')
       .setHidden()
       .setGetter('getRotationY');
@@ -1849,6 +1901,11 @@ module.exports = {
         .getOrCreate('density')
         .setValue('0.0012')
         .setLabel(_('Density'))
+        .setDescription(
+          _(
+            'Density of the fog. Usual values are between 0.0005 (far away) and 0.005 (very thick fog).'
+          )
+        )
         .setType('number');
     }
     {
@@ -1856,7 +1913,9 @@ module.exports = {
         .addEffect('AmbientLight')
         .setFullName(_('Ambient light'))
         .setDescription(
-          _('A light that illuminates all objects from every direction.')
+          _(
+            'A light that illuminates all objects from every direction. Often used along with a Directional light (though a Hemisphere light can be used instead of an Ambient light).'
+          )
         )
         .markAsNotWorkingForObjects()
         .markAsOnlyWorkingFor3D()
@@ -1877,7 +1936,11 @@ module.exports = {
       const effect = extension
         .addEffect('DirectionalLight')
         .setFullName(_('Directional light'))
-        .setDescription(_('A very far light source like the sun.'))
+        .setDescription(
+          _(
+            "A very far light source like the sun. This is the light to use for casting shadows for 3D objects (other lights won't emit shadows). Often used along with a Hemisphere light."
+          )
+        )
         .markAsNotWorkingForObjects()
         .markAsOnlyWorkingFor3D()
         .addIncludeFile('Extensions/3D/DirectionalLight.js');
@@ -1894,11 +1957,11 @@ module.exports = {
         .setType('number');
       properties
         .getOrCreate('top')
-        .setValue('Y-')
+        .setValue('Z+')
         .setLabel(_('3D world top'))
         .setType('choice')
-        .addExtraInfo('Y-')
         .addExtraInfo('Z+')
+        .addExtraInfo('Y-')
         .setGroup(_('Orientation'));
       properties
         .getOrCreate('elevation')
@@ -1913,6 +1976,47 @@ module.exports = {
         .setLabel(_('Rotation (in degrees)'))
         .setType('number')
         .setGroup(_('Orientation'));
+      properties
+        .getOrCreate('isCastingShadow')
+        .setValue('false')
+        .setLabel(_('Shadow casting'))
+        .setType('boolean')
+        .setGroup(_('Shadows'));
+      properties
+        .getOrCreate('shadowQuality')
+        .setValue('medium')
+        .addChoice('low', _('Low quality'))
+        .addChoice('medium', _('Medium quality'))
+        .addChoice('high', _('High quality'))
+        .setLabel(_('Shadow quality'))
+        .setType('choice')
+        .setGroup(_('Shadows'));
+      properties
+        .getOrCreate('minimumShadowBias')
+        .setValue('0')
+        .setLabel(_('Shadow bias'))
+        .setDescription(
+          _(
+            'Use this to avoid "shadow acne" due to depth buffer precision. Choose a value small enough like 0.001 to avoid creating distance between shadows and objects but not too small to avoid shadow glitches on low/medium quality. This value is used for high quality, and multiplied by 1.25 for medium quality and 2 for low quality.'
+          )
+        )
+        .setType('number')
+        .setGroup(_('Shadows'))
+        .setAdvanced(true);
+      properties
+        .getOrCreate('frustumSize')
+        .setValue('4000')
+        .setLabel(_('Shadow frustum size'))
+        .setType('number')
+        .setGroup(_('Shadows'))
+        .setAdvanced(true);
+      properties
+        .getOrCreate('distanceFromCamera')
+        .setValue('1500')
+        .setLabel(_("Distance from layer's camera"))
+        .setType('number')
+        .setGroup(_('Shadows'))
+        .setAdvanced(true);
     }
     {
       const effect = extension
@@ -1920,7 +2024,7 @@ module.exports = {
         .setFullName(_('Hemisphere light'))
         .setDescription(
           _(
-            'A light that illuminates objects from every direction with a gradient.'
+            'A light that illuminates objects from every direction with a gradient. Often used along with a Directional light.'
           )
         )
         .markAsNotWorkingForObjects()
@@ -1944,11 +2048,11 @@ module.exports = {
         .setType('number');
       properties
         .getOrCreate('top')
-        .setValue('Y-')
+        .setValue('Z+')
         .setLabel(_('3D world top'))
         .setType('choice')
-        .addExtraInfo('Y-')
         .addExtraInfo('Z+')
+        .addExtraInfo('Y-')
         .setGroup(_('Orientation'));
       properties
         .getOrCreate('elevation')
@@ -1963,6 +2067,48 @@ module.exports = {
         .setLabel(_('Rotation (in degrees)'))
         .setType('number')
         .setGroup(_('Orientation'));
+    }
+    {
+      const effect = extension
+        .addEffect('Skybox')
+        .setFullName(_('Skybox'))
+        .setDescription(
+          _('Display a background on a cube surrounding the scene.')
+        )
+        .markAsNotWorkingForObjects()
+        .markAsOnlyWorkingFor3D()
+        .addIncludeFile('Extensions/3D/Skybox.js');
+      const properties = effect.getProperties();
+      properties
+        .getOrCreate('rightFaceResourceName')
+        .setType('resource')
+        .addExtraInfo('image')
+        .setLabel(_('Right face (X+)'));
+      properties
+        .getOrCreate('leftFaceResourceName')
+        .setType('resource')
+        .addExtraInfo('image')
+        .setLabel(_('Left face (X-)'));
+      properties
+        .getOrCreate('bottomFaceResourceName')
+        .setType('resource')
+        .addExtraInfo('image')
+        .setLabel(_('Bottom face (Y+)'));
+      properties
+        .getOrCreate('topFaceResourceName')
+        .setType('resource')
+        .addExtraInfo('image')
+        .setLabel(_('Top face (Y-)'));
+      properties
+        .getOrCreate('frontFaceResourceName')
+        .setType('resource')
+        .addExtraInfo('image')
+        .setLabel(_('Front face (Z+)'));
+      properties
+        .getOrCreate('backFaceResourceName')
+        .setType('resource')
+        .addExtraInfo('image')
+        .setLabel(_('Back face (Z-)'));
     }
     {
       const effect = extension
@@ -3210,6 +3356,8 @@ module.exports = {
 
         this._threeObject = new THREE.Group();
         this._threeObject.rotation.order = 'ZYX';
+        this._threeObject.castShadow = true;
+        this._threeObject.receiveShadow = true;
         this._threeGroup.add(this._threeObject);
       }
 

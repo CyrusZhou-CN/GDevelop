@@ -61,6 +61,7 @@ export const DefaultForSpriteObject = () => (
           project={testProject.project}
           eventsFunctionsExtension={null}
           objectType={'Sprite'}
+          isChildObject={false}
           onClose={action('on close')}
           onChoose={action('on choose')}
           objectBehaviorsTypes={[
@@ -76,13 +77,14 @@ export const DefaultForSpriteObject = () => (
 DefaultForSpriteObject.parameters = apiDataFakeBehaviors;
 
 export const WithCommunityExtensions = () => {
-  const [showCommunityExtensions, setShowCommunityExtensions] = React.useState(
-    true
-  );
+  const [
+    showExperimentalExtensions,
+    setShowExperimentalExtensions,
+  ] = React.useState(true);
   const preferences: Preferences = {
     ...initialPreferences,
-    values: { ...initialPreferences.values, showCommunityExtensions },
-    setShowCommunityExtensions,
+    values: { ...initialPreferences.values, showExperimentalExtensions },
+    setShowExperimentalExtensions,
   };
 
   return (
@@ -96,6 +98,7 @@ export const WithCommunityExtensions = () => {
                 project={testProject.project}
                 eventsFunctionsExtension={null}
                 objectType={'Sprite'}
+                isChildObject={false}
                 onClose={action('on close')}
                 onChoose={action('on choose')}
                 objectBehaviorsTypes={[
@@ -123,6 +126,7 @@ export const WithServerSideErrors = () => (
             project={testProject.project}
             eventsFunctionsExtension={null}
             objectType={'Sprite'}
+            isChildObject={false}
             onClose={action('on close')}
             onChoose={action('on choose')}
             objectBehaviorsTypes={[

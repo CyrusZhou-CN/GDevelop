@@ -21,7 +21,8 @@ import { type ObjectEditorTab } from '../ObjectEditor/ObjectEditorDialog';
 import MosaicEditorsDisplayToolbar from './MosaicEditorsDisplay/Toolbar';
 import SwipeableDrawerEditorsDisplayToolbar from './SwipeableDrawerEditorsDisplay/Toolbar';
 import { serializeToJSObject } from '../Utils/Serializer';
-import Clipboard, { SafeExtractor } from '../Utils/Clipboard';
+import Clipboard from '../Utils/Clipboard';
+import { SafeExtractor } from '../Utils/SafeExtractor';
 import Window from '../Utils/Window';
 import { ResponsiveWindowMeasurer } from '../UI/Responsive/ResponsiveWindowMeasurer';
 import DismissableInfoBar from '../UI/Messages/DismissableInfoBar';
@@ -80,7 +81,7 @@ import { unserializeFromJSObject } from '../Utils/Serializer';
 import { ProjectScopedContainersAccessor } from '../InstructionOrExpression/EventsScope';
 import { type TileMapTileSelection } from '../InstancesEditor/TileSetVisualizer';
 import { extractAsCustomObject } from './CustomObjectExtractor/CustomObjectExtractor';
-import { getVariant } from '../ObjectEditor/Editors/CustomObjectPropertiesEditor';
+import { isVariantEditable } from '../ObjectEditor/Editors/CustomObjectPropertiesEditor';
 
 const gd: libGDevelop = global.gd;
 
@@ -141,7 +142,7 @@ type Props = {|
     eventsBasedObjectName: string,
     variantName: string
   ) => void,
-  onExtensionInstalled: (extensionName: string) => void,
+  onExtensionInstalled: (extensionNames: Array<string>) => void,
   onDeleteEventsBasedObjectVariant: (
     eventsFunctionsExtension: gdEventsFunctionsExtension,
     eventBasedObject: gdEventsBasedObject,
@@ -207,6 +208,9 @@ export default class SceneEditor extends React.Component<Props, State> {
     super(props);
 
     this.instancesSelection = new InstancesSelection();
+
+    const initialInstancesEditorSettings = props.getInitialInstancesEditorSettings();
+
     this.state = {
       setupGridOpen: false,
       scenePropertiesDialogOpen: false,
@@ -225,7 +229,7 @@ export default class SceneEditor extends React.Component<Props, State> {
       extractAsExternalLayoutDialogOpen: false,
       extractAsCustomObjectDialogOpen: false,
 
-      instancesEditorSettings: props.getInitialInstancesEditorSettings(),
+      instancesEditorSettings: initialInstancesEditorSettings,
       history: getHistoryInitialState(props.initialInstances, {
         historyMaxSize: 50,
       }),
@@ -241,7 +245,8 @@ export default class SceneEditor extends React.Component<Props, State> {
       tileMapTileSelection: null,
 
       selectedObjectFolderOrObjectsWithContext: [],
-      selectedLayer: BASE_LAYER_NAME,
+      selectedLayer:
+        initialInstancesEditorSettings.selectedLayer || BASE_LAYER_NAME,
       invisibleLayerOnWhichInstancesHaveJustBeenAdded: null,
 
       lastSelectionType: 'instance',
@@ -308,6 +313,18 @@ export default class SceneEditor extends React.Component<Props, State> {
         editorDisplay.startSceneRendering(true);
       }
     }
+  };
+
+  onInstancesModifiedOutsideEditor = () => {
+    // /!\ Drop the selection to avoid keeping any references to deleted instances.
+    // This could be avoided if the selection used something like UUID to address instances.
+    this.instancesSelection.clearSelection();
+
+    // /!\ Force the instances editor to destroy and mount again the
+    // renderers to avoid keeping any references to existing instances
+    if (this.editorDisplay)
+      this.editorDisplay.instancesHandlers.forceRemountInstancesRenderers();
+    this.updateToolbar();
   };
 
   updateToolbar = () => {
@@ -589,10 +606,8 @@ export default class SceneEditor extends React.Component<Props, State> {
   );
 
   undo = () => {
-    // TODO: Do not clear selection so that the user can actually see
-    // the changes it is undoing (variable change, instance moved, etc.)
-    // or find a way to display a sumup of the change such as "Variable XXX
-    // in instance of Enemy changed to YYY"
+    // /!\ Drop the selection to avoid keeping any references to deleted instances.
+    // This could be avoided if the selection used something like UUID to address instances.
     this.instancesSelection.clearSelection();
     this.setState(
       {
@@ -609,6 +624,8 @@ export default class SceneEditor extends React.Component<Props, State> {
   };
 
   redo = () => {
+    // /!\ Drop the selection to avoid keeping any references to deleted instances.
+    // This could be avoided if the selection used something like UUID to address instances.
     this.instancesSelection.clearSelection();
     this.setState(
       {
@@ -963,6 +980,16 @@ export default class SceneEditor extends React.Component<Props, State> {
           this.forceUpdatePropertiesEditor();
           this.updateToolbar();
         });
+      },
+    });
+  };
+
+  _onSelectLayer = (layer: string) => {
+    this.setState({
+      selectedLayer: layer,
+      instancesEditorSettings: {
+        ...this.state.instancesEditorSettings,
+        selectedLayer: layer,
       },
     });
   };
@@ -1554,6 +1581,15 @@ export default class SceneEditor extends React.Component<Props, State> {
           )
         : null;
 
+      const objectExtensionName = object
+        ? gd.PlatformExtension.getExtensionFromFullObjectType(object.getType())
+        : null;
+      const customObjectExtension =
+        objectExtensionName &&
+        project.hasEventsFunctionsExtensionNamed(objectExtensionName)
+          ? project.getEventsFunctionsExtension(objectExtensionName)
+          : null;
+
       return [
         ...this.getContextMenuInstancesWiseItems(i18n),
         { type: 'separator' },
@@ -1581,11 +1617,11 @@ export default class SceneEditor extends React.Component<Props, State> {
         object && project.hasEventsBasedObject(object.getType())
           ? {
               label: i18n._(t`Edit children`),
-              enabled:
-                getVariant(
-                  project.getEventsBasedObject(object.getType()),
-                  gd.asCustomObjectConfiguration(object.getConfiguration())
-                ).getAssetStoreAssetId() === '',
+              enabled: isVariantEditable(
+                gd.asCustomObjectConfiguration(object.getConfiguration()),
+                project.getEventsBasedObject(object.getType()),
+                customObjectExtension
+              ),
               click: () => {
                 const customObjectConfiguration = gd.asCustomObjectConfiguration(
                   object.getConfiguration()
@@ -2021,9 +2057,7 @@ export default class SceneEditor extends React.Component<Props, State> {
                 }
                 onLayerRenamed={this._onLayerRenamed}
                 onRemoveLayer={this._onRemoveLayer}
-                onSelectLayer={(layer: string) =>
-                  this.setState({ selectedLayer: layer })
-                }
+                onSelectLayer={this._onSelectLayer}
                 tileMapTileSelection={this.state.tileMapTileSelection}
                 onSelectTileMapTile={this.onSelectTileMapTile}
                 onExportAssets={this.openObjectExporterDialog}
@@ -2043,6 +2077,9 @@ export default class SceneEditor extends React.Component<Props, State> {
                 }
                 onOpenEventBasedObjectVariantEditor={
                   this.props.onOpenEventBasedObjectVariantEditor
+                }
+                onDeleteEventsBasedObjectVariant={
+                  this.props.onDeleteEventsBasedObjectVariant
                 }
                 onRenameObjectFolderOrObjectWithContextFinish={
                   this._onRenameObjectFolderOrObjectWithContextFinish
@@ -2169,9 +2206,21 @@ export default class SceneEditor extends React.Component<Props, State> {
                         onOpenEventBasedObjectEditor={
                           this.props.onOpenEventBasedObjectEditor
                         }
-                        onOpenEventBasedObjectVariantEditor={
-                          this.props.onOpenEventBasedObjectVariantEditor
-                        }
+                        onOpenEventBasedObjectVariantEditor={(
+                          extensionName: string,
+                          eventsBasedObjectName: string,
+                          variantName: string
+                        ) => {
+                          this.props.onOpenEventBasedObjectVariantEditor(
+                            extensionName,
+                            eventsBasedObjectName,
+                            variantName
+                          );
+                          if (editedObjectWithContext) {
+                            this._onObjectEdited(editedObjectWithContext);
+                          }
+                          this.editObject(null);
+                        }}
                         onDeleteEventsBasedObjectVariant={
                           this.props.onDeleteEventsBasedObjectVariant
                         }

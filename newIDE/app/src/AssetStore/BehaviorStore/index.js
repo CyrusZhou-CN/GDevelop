@@ -27,13 +27,20 @@ import ThreeDotsMenu from '../../UI/CustomSvgIcons/ThreeDotsMenu';
 import useAlertDialog from '../../UI/Alert/useAlertDialog';
 import ExtensionInstallDialog from '../ExtensionStore/ExtensionInstallDialog';
 import { getIDEVersion } from '../../Version';
+import InAppTutorialContext from '../../InAppTutorial/InAppTutorialContext';
 
 export const useExtensionUpdateAlertDialog = () => {
   const { showConfirmation } = useAlertDialog();
+  const { currentlyRunningInAppTutorial } = React.useContext(
+    InAppTutorialContext
+  );
   return async (
     project: gdProject,
     behaviorShortHeader: BehaviorShortHeader
   ): Promise<boolean> => {
+    if (currentlyRunningInAppTutorial) {
+      return false;
+    }
     return await showConfirmation({
       title: t`Extension update`,
       message:
@@ -41,7 +48,7 @@ export const useExtensionUpdateAlertDialog = () => {
           ? // Reviewed extensions are closely watched
             // and any breaking change will be added to the extension metadata.
             t`This behavior can be updated with new features and fixes.${'\n\n'}Do you want to update it now ?`
-          : // Community extensions are checked as much as possible
+          : // Experimental extensions are checked as much as possible
             // but we can't ensure every breaking changes will be added to the extension metadata.
             t`This behavior can be updated. You may have to do some adaptations to make sure your game still works.${'\n\n'}Do you want to update it now ?`,
       confirmButtonLabel: t`Update the extension`,
@@ -55,6 +62,7 @@ type Props = {|
   project: gdProject,
   objectType: string,
   objectBehaviorsTypes: Array<string>,
+  isChildObject: boolean,
   installedBehaviorMetadataList: Array<BehaviorShortHeader>,
   deprecatedBehaviorMetadataList: Array<BehaviorShortHeader>,
   onInstall: (behaviorShortHeader: BehaviorShortHeader) => Promise<boolean>,
@@ -69,6 +77,7 @@ export const BehaviorStore = ({
   project,
   objectType,
   objectBehaviorsTypes,
+  isChildObject,
   installedBehaviorMetadataList,
   deprecatedBehaviorMetadataList,
   onInstall,
@@ -261,16 +270,12 @@ export const BehaviorStore = ({
                 }
                 buildMenuTemplate={(i18n: I18nType) => [
                   {
-                    label: preferences.values.showCommunityExtensions
-                      ? i18n._(
-                          t`Hide community behaviors (not officially reviewed)`
-                        )
-                      : i18n._(
-                          t`Show community behaviors (not officially reviewed)`
-                        ),
+                    label: preferences.values.showExperimentalExtensions
+                      ? i18n._(t`Hide experimental behaviors`)
+                      : i18n._(t`Show experimental behaviors`),
                     click: () => {
-                      preferences.setShowCommunityExtensions(
-                        !preferences.values.showCommunityExtensions
+                      preferences.setShowExperimentalExtensions(
+                        !preferences.values.showExperimentalExtensions
                       );
                     },
                   },
@@ -309,6 +314,7 @@ export const BehaviorStore = ({
               key={behaviorShortHeader.type}
               objectType={objectType}
               objectBehaviorsTypes={objectBehaviorsTypes}
+              isChildObject={isChildObject}
               onHeightComputed={onHeightComputed}
               behaviorShortHeader={behaviorShortHeader}
               matches={getExtensionsMatches(behaviorShortHeader)}

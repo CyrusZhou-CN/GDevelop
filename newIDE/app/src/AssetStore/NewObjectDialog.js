@@ -49,11 +49,15 @@ import ErrorBoundary from '../UI/ErrorBoundary';
 import type { ObjectFolderOrObjectWithContext } from '../ObjectsList/EnumerateObjectFolderOrObject';
 import LoaderModal from '../UI/LoaderModal';
 import { AssetStoreNavigatorContext } from './AssetStoreNavigator';
+import InAppTutorialContext from '../InAppTutorial/InAppTutorialContext';
 
 const isDev = Window.isDev();
 
 export const useExtensionUpdateAlertDialog = () => {
   const { showConfirmation, showDeleteConfirmation } = useAlertDialog();
+  const { currentlyRunningInAppTutorial } = React.useContext(
+    InAppTutorialContext
+  );
   return async ({
     project,
     outOfDateExtensionShortHeaders,
@@ -61,6 +65,9 @@ export const useExtensionUpdateAlertDialog = () => {
     project: gdProject,
     outOfDateExtensionShortHeaders: Array<ExtensionShortHeader>,
   |}): Promise<string> => {
+    if (currentlyRunningInAppTutorial) {
+      return 'skip';
+    }
     const breakingChanges = new Map<
       ExtensionShortHeader,
       Array<ExtensionChange>
@@ -172,14 +179,14 @@ export const useFetchAssets = () => {
 
 export const useInstallAsset = ({
   project,
-  objectsContainer,
   targetObjectFolderOrObjectWithContext,
   resourceManagementProps,
+  onExtensionInstalled,
 }: {|
-  project: gdProject,
-  objectsContainer: gdObjectsContainer,
+  project: gdProject | null,
   targetObjectFolderOrObjectWithContext?: ?ObjectFolderOrObjectWithContext,
   resourceManagementProps: ResourceManagementProps,
+  onExtensionInstalled: (extensionNames: Array<string>) => void,
 |}) => {
   const shopNavigationState = React.useContext(AssetStoreNavigatorContext);
   const { openedAssetPack } = shopNavigationState.getCurrentPage();
@@ -196,9 +203,18 @@ export const useInstallAsset = ({
     resourceManagementProps.canInstallPrivateAsset
   );
 
-  return async (
-    assetShortHeader: AssetShortHeader
-  ): Promise<InstallAssetOutput | null> => {
+  return async ({
+    assetShortHeader,
+    objectsContainer,
+    requestedObjectName,
+  }: {|
+    assetShortHeader: AssetShortHeader,
+    objectsContainer: gdObjectsContainer,
+    requestedObjectName?: string,
+  |}): Promise<InstallAssetOutput | null> => {
+    if (!project) {
+      return null;
+    }
     try {
       if (await showProjectNeedToBeSaved(assetShortHeader)) {
         return null;
@@ -235,6 +251,7 @@ export const useInstallAsset = ({
         shouldUpdateExtension: extensionUpdateAction === 'update',
         eventsFunctionsExtensionsState,
         project,
+        onExtensionInstalled,
       });
       const isPrivate = isPrivateAsset(assetShortHeader);
       const installOutput = isPrivate
@@ -242,6 +259,7 @@ export const useInstallAsset = ({
             asset,
             project,
             objectsContainer,
+            requestedObjectName,
             targetObjectFolderOrObject:
               targetObjectFolderOrObjectWithContext &&
               !targetObjectFolderOrObjectWithContext.global
@@ -252,6 +270,7 @@ export const useInstallAsset = ({
             asset,
             project,
             objectsContainer,
+            requestedObjectName,
             targetObjectFolderOrObject:
               targetObjectFolderOrObjectWithContext &&
               !targetObjectFolderOrObjectWithContext.global
@@ -300,6 +319,7 @@ type Props = {|
   onCreateNewObject: (type: string) => void,
   onObjectsAddedFromAssets: (Array<gdObject>) => void,
   targetObjectFolderOrObjectWithContext?: ?ObjectFolderOrObjectWithContext,
+  onExtensionInstalled: (extensionNames: Array<string>) => void,
 |};
 
 function NewObjectDialog({
@@ -312,6 +332,7 @@ function NewObjectDialog({
   onCreateNewObject,
   onObjectsAddedFromAssets,
   targetObjectFolderOrObjectWithContext,
+  onExtensionInstalled,
 }: Props) {
   const { isMobile } = useResponsiveWindowSize();
   const {
@@ -367,9 +388,9 @@ function NewObjectDialog({
   const showExtensionUpdateConfirmation = useExtensionUpdateAlertDialog();
   const installAsset = useInstallAsset({
     project,
-    objectsContainer,
     resourceManagementProps,
     targetObjectFolderOrObjectWithContext,
+    onExtensionInstalled,
   });
 
   const onInstallAsset = React.useCallback(
@@ -377,13 +398,16 @@ function NewObjectDialog({
       if (!assetShortHeader) return false;
 
       setIsAssetBeingInstalled(true);
-      const installAssetOutput = await installAsset(assetShortHeader);
+      const installAssetOutput = await installAsset({
+        assetShortHeader,
+        objectsContainer,
+      });
       setIsAssetBeingInstalled(false);
       if (installAssetOutput)
         onObjectsAddedFromAssets(installAssetOutput.createdObjects);
       return !!installAssetOutput;
     },
-    [installAsset, onObjectsAddedFromAssets]
+    [installAsset, onObjectsAddedFromAssets, objectsContainer]
   );
 
   const onInstallEmptyCustomObject = React.useCallback(
@@ -425,6 +449,7 @@ function NewObjectDialog({
           shouldUpdateExtension: extensionUpdateAction === 'update',
           eventsFunctionsExtensionsState,
           project,
+          onExtensionInstalled,
         });
 
         onCreateNewObject(enumeratedObjectMetadata.name);
@@ -446,6 +471,7 @@ function NewObjectDialog({
       showExtensionUpdateConfirmation,
       eventsFunctionsExtensionsState,
       showAlert,
+      onExtensionInstalled,
     ]
   );
 
@@ -614,7 +640,7 @@ function NewObjectDialog({
             }
           >
             {currentTab === 'asset-store' && (
-              <AssetStore ref={assetStore} hideGameTemplates />
+              <AssetStore ref={assetStore} onlyShowAssets />
             )}
             {currentTab === 'new-object' &&
               (selectedCustomObjectEnumeratedMetadata &&
@@ -660,6 +686,7 @@ function NewObjectDialog({
                 targetObjectFolderOrObjectWithContext={
                   targetObjectFolderOrObjectWithContext
                 }
+                onExtensionInstalled={onExtensionInstalled}
               />
             )}
         </>

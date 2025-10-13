@@ -145,9 +145,11 @@ namespace gdjs {
       return true;
     }
 
-    override getNetworkSyncData(): BBTextObjectNetworkSyncData {
+    override getNetworkSyncData(
+      syncOptions: GetNetworkSyncDataOptions
+    ): BBTextObjectNetworkSyncData {
       return {
-        ...super.getNetworkSyncData(),
+        ...super.getNetworkSyncData(syncOptions),
         text: this._text,
         o: this._opacity,
         c: this._color,
@@ -162,9 +164,10 @@ namespace gdjs {
     }
 
     override updateFromNetworkSyncData(
-      networkSyncData: BBTextObjectNetworkSyncData
+      networkSyncData: BBTextObjectNetworkSyncData,
+      options: UpdateFromNetworkSyncDataOptions
     ): void {
-      super.updateFromNetworkSyncData(networkSyncData);
+      super.updateFromNetworkSyncData(networkSyncData, options);
       if (this._text !== undefined) {
         this.setBBText(networkSyncData.text);
       }
@@ -381,6 +384,10 @@ namespace gdjs {
 
     override getHeight(): float {
       return this._renderer.getHeight();
+    }
+
+    override setWidth(width: float): void {
+      this.setWrappingWidth(width);
     }
 
     override getDrawableY(): float {

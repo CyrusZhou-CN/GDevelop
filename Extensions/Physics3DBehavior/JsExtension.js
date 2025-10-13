@@ -21,7 +21,11 @@ module.exports = {
       .setExtensionInformation(
         'Physics3D',
         _('3D physics engine'),
-        "The 3D physics engine simulates realistic object physics, with gravity, forces, collisions, joints, etc. It's perfect for almost all 3D games.",
+        "The 3D physics engine simulates realistic object physics, with gravity, forces, collisions, joints, etc. It's perfect for almost all 3D games.\n" +
+          '\n' +
+          'Objects like floors or wall objects should usually be set to "Static" as type. Objects that should be moveable are usually "Dynamic" (default). "Kinematic" objects (typically, players or controlled characters) are only moved by their "linear velocity" and "angular velocity" - they can interact with other objects but only these other objects will move.\n' +
+          '\n' +
+          'Forces (and impulses) are expressed in all conditions/expressions/actions of the 3D physics engine in Newtons (N). Typical values for a force are 10-200 N. One meter is 100 pixels by default in the game (check the world scale). Mass is expressed in kilograms (kg).',
         'Florian Rival',
         'MIT'
       )
@@ -274,7 +278,7 @@ module.exports = {
           .setLabel('Fixed Rotation')
           .setDescription(
             _(
-              "If enabled, the object won't rotate and will stay at the same angle. Useful for characters for example."
+              "If enabled, the object won't rotate and will stay at the same angle."
             )
           )
           .setGroup(_('Movement'));
@@ -675,6 +679,7 @@ module.exports = {
           behavior,
           sharedData
         )
+        .markAsIrrelevantForChildObjects()
         .addIncludeFile(
           'Extensions/Physics3DBehavior/Physics3DRuntimeBehavior.js'
         )
@@ -845,7 +850,7 @@ module.exports = {
         )
         .addParameter('object', _('Object'), '', false)
         .addParameter('behavior', _('Behavior'), 'Physics3DBehavior')
-        .addParameter('yesorno', _('Treat as bullet?'), '', false)
+        .addParameter('yesorno', _('Treat as bullet'), '', false)
         .setDefaultValue('false')
         .getCodeExtraInformation()
         .setFunctionName('setBullet');
@@ -870,7 +875,7 @@ module.exports = {
           'SetFixedRotation',
           _('Fixed rotation'),
           _(
-            "Enable or disable an object fixed rotation. If enabled the object won't be able to rotate."
+            "Enable or disable an object fixed rotation. If enabled the object won't be able to rotate. This action has no effect on characters."
           ),
           _('Set _PARAM0_ fixed rotation: _PARAM2_'),
           _('Dynamics'),
@@ -879,7 +884,7 @@ module.exports = {
         )
         .addParameter('object', _('Object'), '', false)
         .addParameter('behavior', _('Behavior'), 'Physics3DBehavior')
-        .addParameter('yesorno', _('Fixed rotation?'), '', false)
+        .addParameter('yesorno', _('Fixed rotation'), '', false)
         .setDefaultValue('false')
         .getCodeExtraInformation()
         .setFunctionName('setFixedRotation');
@@ -926,6 +931,54 @@ module.exports = {
         .useStandardParameters('number', gd.ParameterOptions.makeNewOptions())
         .setFunctionName('setDensity')
         .setGetter('getDensity');
+
+      aut
+        .addExpressionAndConditionAndAction(
+          'number',
+          'ShapeOffsetX',
+          _('Shape offset X'),
+          _('the object shape offset on X.'),
+          _('the shape offset on X'),
+          _('Body settings'),
+          'JsPlatform/Extensions/physics3d.svg'
+        )
+        .addParameter('object', _('Object'), '', false)
+        .addParameter('behavior', _('Behavior'), 'Physics3DBehavior')
+        .useStandardParameters('number', gd.ParameterOptions.makeNewOptions())
+        .setFunctionName('setShapeOffsetX')
+        .setGetter('getShapeOffsetX');
+
+      aut
+        .addExpressionAndConditionAndAction(
+          'number',
+          'ShapeOffsetY',
+          _('Shape offset Y'),
+          _('the object shape offset on Y.'),
+          _('the shape offset on Y'),
+          _('Body settings'),
+          'JsPlatform/Extensions/physics3d.svg'
+        )
+        .addParameter('object', _('Object'), '', false)
+        .addParameter('behavior', _('Behavior'), 'Physics3DBehavior')
+        .useStandardParameters('number', gd.ParameterOptions.makeNewOptions())
+        .setFunctionName('setShapeOffsetY')
+        .setGetter('getShapeOffsetY');
+
+      aut
+        .addExpressionAndConditionAndAction(
+          'number',
+          'ShapeOffsetZ',
+          _('Shape offset Z'),
+          _('the object shape offset on Z.'),
+          _('the shape offset on Z'),
+          _('Body settings'),
+          'JsPlatform/Extensions/physics3d.svg'
+        )
+        .addParameter('object', _('Object'), '', false)
+        .addParameter('behavior', _('Behavior'), 'Physics3DBehavior')
+        .useStandardParameters('number', gd.ParameterOptions.makeNewOptions())
+        .setFunctionName('setShapeOffsetZ')
+        .setGetter('getShapeOffsetZ');
 
       aut
         .addExpressionAndConditionAndAction(
@@ -1054,7 +1107,7 @@ module.exports = {
         .addParameter('object', _('Object'), '', false)
         .addParameter('behavior', _('Behavior'), 'Physics3DBehavior')
         .addParameter('expression', _('Layer (1 - 8)'))
-        .addParameter('yesorno', _('Enable?'), '', false)
+        .addParameter('yesorno', _('Enable'), '', false)
         .setDefaultValue('true')
         .getCodeExtraInformation()
         .setFunctionName('enableLayer');
@@ -1090,7 +1143,7 @@ module.exports = {
         .addParameter('object', _('Object'), '', false)
         .addParameter('behavior', _('Behavior'), 'Physics3DBehavior')
         .addParameter('expression', _('Mask (1 - 8)'))
-        .addParameter('yesorno', _('Enable?'), '', false)
+        .addParameter('yesorno', _('Enable'), '', false)
         .setDefaultValue('true')
         .getCodeExtraInformation()
         .setFunctionName('enableMask');
@@ -1270,7 +1323,7 @@ module.exports = {
         .addParameter('expression', _('Application point on Z axis'))
         .setParameterLongDescription(
           _(
-            'Use `MassCenterX` and `MassCenterY` expressions to avoid any rotation.'
+            'Use `MassCenterX`, `MassCenterY` and `MassCenterZ` expressions to avoid any rotation.'
           )
         )
         .getCodeExtraInformation()
@@ -1544,6 +1597,19 @@ module.exports = {
         .addParameter('behavior', _('Behavior'), 'Physics3DBehavior')
         .getCodeExtraInformation()
         .setFunctionName('getMassCenterY');
+
+      aut
+        .addExpression(
+          'MassCenterZ',
+          _('Mass center Z'),
+          _('Mass center Z'),
+          '',
+          'JsPlatform/Extensions/physics3d.svg'
+        )
+        .addParameter('object', _('Object'), '', false)
+        .addParameter('behavior', _('Behavior'), 'Physics3DBehavior')
+        .getCodeExtraInformation()
+        .setFunctionName('getMassCenterZ');
     }
     // Collision
     extension
@@ -1982,7 +2048,12 @@ module.exports = {
           'PhysicsCharacter3D',
           _('3D physics character'),
           'PhysicsCharacter3D',
-          _('Jump and run on platforms.'),
+          _(
+            'Allow an object to jump and run on platforms that have the 3D physics behavior' +
+              '(and which are generally set to "Static" as type, unless the platform is animated/moved in events).\n' +
+              '\n' +
+              'This behavior is usually used with one or more "mapper" behavior to let the player move it.'
+          ),
           '',
           'JsPlatform/Extensions/physics_character3d.svg',
           'PhysicsCharacter3D',
@@ -2551,7 +2622,7 @@ module.exports = {
           'JumpSustainTime',
           _('Jump sustain time'),
           _(
-            'the jump sustain time of an object. This is the time during which keeping the jump button held allow the initial jump speed to be maintained.'
+            'the jump sustain time of an object. This is the time during which keeping the jump button held allow the initial jump speed to be maintained'
           ),
           _('the jump sustain time'),
           _('Character configuration'),
@@ -3239,7 +3310,11 @@ module.exports = {
           'PhysicsCar3D',
           _('3D physics car'),
           'PhysicsCar3D',
-          _('Simulate a realistic car using the 3D physics engine.'),
+          _(
+            "Simulate a realistic car using the 3D physics engine. This is mostly useful for the car controlled by the player (it's usually too complex for other cars in a game).\n" +
+              '\n' +
+              'This behavior is usually used with one or more "mapper" behavior to let the player move it.'
+          ),
           '',
           'JsPlatform/Extensions/physics_car3d.svg',
           'PhysicsCar3D',

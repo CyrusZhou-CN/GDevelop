@@ -34,7 +34,8 @@ import ThreeDotsMenu from '../UI/CustomSvgIcons/ThreeDotsMenu';
 import Trash from '../UI/CustomSvgIcons/Trash';
 import Add from '../UI/CustomSvgIcons/Add';
 import { mapVector } from '../Utils/MapFor';
-import Clipboard, { SafeExtractor } from '../Utils/Clipboard';
+import Clipboard from '../Utils/Clipboard';
+import { SafeExtractor } from '../Utils/SafeExtractor';
 import {
   serializeToJSObject,
   unserializeFromJSObject,
@@ -70,6 +71,7 @@ type BehaviorConfigurationEditorProps = {|
   project: gdProject,
   object: gdObject,
   behavior: gdBehavior,
+  isChildObject: boolean,
   resourceManagementProps: ResourceManagementProps,
   onBehaviorsUpdated: () => void,
   onChangeBehaviorName: (behavior: gdBehavior, newName: string) => void,
@@ -93,6 +95,7 @@ const BehaviorConfigurationEditor = React.forwardRef<
       project,
       object,
       behavior,
+      isChildObject,
       resourceManagementProps,
       onBehaviorsUpdated,
       onChangeBehaviorName,
@@ -310,6 +313,7 @@ type UseManageBehaviorsState = {|
 export const useManageObjectBehaviors = ({
   project,
   object,
+  isChildObject,
   eventsFunctionsExtension,
   onUpdate,
   onSizeUpdated,
@@ -319,12 +323,13 @@ export const useManageObjectBehaviors = ({
 }: {
   project: gdProject,
   object: gdObject,
+  isChildObject: boolean,
   eventsFunctionsExtension: gdEventsFunctionsExtension | null,
   onUpdate: () => void,
   onSizeUpdated?: ?() => void,
   onBehaviorsUpdated?: ?() => void,
   onUpdateBehaviorsSharedData: () => void,
-  onExtensionInstalled: (extensionName: string) => void,
+  onExtensionInstalled: (extensionNames: Array<string>) => void,
 }): UseManageBehaviorsState => {
   const [
     justAddedBehaviorName,
@@ -585,6 +590,7 @@ export const useManageObjectBehaviors = ({
       open
       objectType={object.getType()}
       objectBehaviorsTypes={listObjectBehaviorsTypes(object)}
+      isChildObject={isChildObject}
       onClose={() => setNewBehaviorDialogOpen(false)}
       onChoose={addBehavior}
       project={project}
@@ -614,6 +620,7 @@ type Props = {|
   project: gdProject,
   eventsFunctionsExtension: gdEventsFunctionsExtension | null,
   object: gdObject,
+  isChildObject: boolean,
   onUpdateBehaviorsSharedData: () => void,
   onSizeUpdated?: ?() => void,
   resourceManagementProps: ResourceManagementProps,
@@ -622,7 +629,7 @@ type Props = {|
     extensionName: string,
     behaviorName: string
   ) => Promise<void>,
-  onExtensionInstalled: (extensionName: string) => void,
+  onExtensionInstalled: (extensionNames: Array<string>) => void,
   isListLocked: boolean,
 |};
 
@@ -635,6 +642,7 @@ const BehaviorsEditor = (props: Props) => {
 
   const {
     object,
+    isChildObject,
     project,
     eventsFunctionsExtension,
     onSizeUpdated,
@@ -664,6 +672,7 @@ const BehaviorsEditor = (props: Props) => {
   } = useManageObjectBehaviors({
     project,
     object,
+    isChildObject,
     eventsFunctionsExtension,
     onUpdate: forceUpdate,
     onSizeUpdated,
@@ -784,6 +793,7 @@ const BehaviorsEditor = (props: Props) => {
                   key={behaviorName}
                   project={project}
                   object={object}
+                  isChildObject={isChildObject}
                   behavior={behavior}
                   copyBehavior={copyBehavior}
                   onRemoveBehavior={removeBehavior}

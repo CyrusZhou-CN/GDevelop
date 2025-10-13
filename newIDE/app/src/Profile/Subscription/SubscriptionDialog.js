@@ -29,9 +29,7 @@ import { type SubscriptionType } from './SubscriptionSuggestionContext';
 import Window from '../../Utils/Window';
 import Text from '../../UI/Text';
 import { ColumnStackLayout, LineStackLayout } from '../../UI/Layout';
-import RedemptionCodeIcon from '../../UI/CustomSvgIcons/RedemptionCode';
 import useAlertDialog from '../../UI/Alert/useAlertDialog';
-import RedeemCodeDialog from '../RedeemCodeDialog';
 import PlanCard, { getPlanIcon } from './PlanCard';
 import LeftLoader from '../../UI/LeftLoader';
 import RaisedButton from '../../UI/RaisedButton';
@@ -225,7 +223,6 @@ export default function SubscriptionDialog({
     educationPlanSeatsCount,
     setEducationPlanSeatsCount,
   ] = React.useState<number>(20);
-  const [redeemCodeDialogOpen, setRedeemCodeDialogOpen] = React.useState(false);
   const authenticatedUser = React.useContext(AuthenticatedUserContext);
   const subscriptionPlansWithPricingSystems = getAvailableSubscriptionPlansWithPrices();
   const userLegacySubscriptionPlanWithPricingSystem = getUserLegacySubscriptionPlanWithPricingSystem();
@@ -441,16 +438,6 @@ export default function SubscriptionDialog({
                 onClick={onClose}
               />,
             ]}
-            secondaryActions={[
-              <FlatButton
-                leftIcon={<RedemptionCodeIcon />}
-                label={<Trans>Redeem a code</Trans>}
-                key="redeem-code"
-                disabled={!authenticatedUser.authenticated || isLoading}
-                primary={false}
-                onClick={() => setRedeemCodeDialogOpen(true)}
-              />,
-            ]}
             open
           >
             {isPlanValid && userSubscriptionPlanWithPricingSystems && (
@@ -470,7 +457,7 @@ export default function SubscriptionDialog({
                   >
                     <Line alignItems="center" noMargin>
                       {getPlanIcon({
-                        subscriptionPlan: userSubscriptionPlanWithPricingSystems,
+                        planId: userSubscriptionPlanWithPricingSystems.id,
                         logoSize: 20,
                       })}
                       <Text size="block-title">
@@ -857,7 +844,9 @@ export default function SubscriptionDialog({
                     key="create-account"
                     label={<Trans>Create my account</Trans>}
                     primary
-                    onClick={authenticatedUser.onOpenCreateAccountDialog}
+                    onClick={() =>
+                      authenticatedUser.onOpenCreateAccountDialog()
+                    }
                   />,
                 ]}
               >
@@ -870,24 +859,6 @@ export default function SubscriptionDialog({
                 </Text>
               </Dialog>
             )}
-          {redeemCodeDialogOpen && (
-            <RedeemCodeDialog
-              authenticatedUser={authenticatedUser}
-              onClose={async hasJustRedeemedCode => {
-                setRedeemCodeDialogOpen(false);
-
-                if (hasJustRedeemedCode) {
-                  try {
-                    setIsChangingSubscription(true);
-                    await authenticatedUser.onRefreshSubscription();
-                  } finally {
-                    setIsChangingSubscription(false);
-                    onOpenPendingDialog(true);
-                  }
-                }
-              }}
-            />
-          )}
           {cancelReasonDialogOpen && (
             <CancelReasonDialog
               onClose={() => {

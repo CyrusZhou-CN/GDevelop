@@ -35,7 +35,6 @@ type ErrorBoundaryScope =
   | 'app'
   | 'editor'
   | 'start-page'
-  | 'start-page-get-started'
   | 'start-page-shop'
   | 'start-page-learn'
   | 'start-page-play'
@@ -71,7 +70,8 @@ type ErrorBoundaryScope =
   | 'box-search-result'
   | 'list-search-result'
   | 'custom-object-editor-canvas'
-  | 'project-file-list';
+  | 'project-file-list'
+  | 'standalone';
 
 export const getEditorErrorBoundaryProps = (
   editorKey: string
@@ -213,15 +213,17 @@ export const ErrorFallbackComponent = ({
                 or restart GDevelop.
               </Trans>
             </AlertMessage>
-            <BackgroundText>Error ID: {uniqueErrorId}</BackgroundText>
+            <BackgroundText allowSelection>
+              Unique Error ID for debugging: {uniqueErrorId}
+            </BackgroundText>
             {error && error.stack && (
-              <BackgroundText style={styles.errorMessage}>
-                {error.stack.slice(0, 200)}...
+              <BackgroundText allowSelection style={styles.errorMessage}>
+                {error.stack.slice(0, 400)}...
               </BackgroundText>
             )}
             {componentStack && (
-              <BackgroundText style={styles.errorMessage}>
-                {componentStack.slice(0, 200)}...
+              <BackgroundText allowSelection style={styles.errorMessage}>
+                {componentStack.slice(0, 300)}...
               </BackgroundText>
             )}
           </ColumnStackLayout>

@@ -7,6 +7,8 @@ import PlaceholderMessage from '../../UI/PlaceholderMessage';
 import {
   type RenderEditorContainerProps,
   type RenderEditorContainerPropsWithRef,
+  type SceneEventsOutsideEditorChanges,
+  type InstancesOutsideEditorChanges,
 } from './BaseEditor';
 import ExternalPropertiesDialog, {
   type ExternalProperties,
@@ -91,6 +93,14 @@ export class ExternalEventsEditorContainer extends React.Component<
   }
 
   onSceneObjectsDeleted(scene: gdLayout) {
+    // No thing to be done.
+  }
+
+  onSceneEventsModifiedOutsideEditor(changes: SceneEventsOutsideEditorChanges) {
+    // No thing to be done.
+  }
+
+  onInstancesModifiedOutsideEditor(changes: InstancesOutsideEditorChanges) {
     // No thing to be done.
   }
 

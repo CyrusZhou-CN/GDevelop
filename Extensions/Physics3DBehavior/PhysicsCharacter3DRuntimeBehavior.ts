@@ -2,11 +2,24 @@
 
 namespace gdjs {
   interface PhysicsCharacter3DNetworkSyncDataType {
+    sma: float;
+    shm: float;
+    grav: float;
+    mfs: float;
+    facc: float;
+    fdec: float;
+    fsm: float;
+    sacc: float;
+    sdec: float;
+    ssm: float;
+    jumpspeed: float;
+    jumpsustime: float;
+    sbpa: boolean;
     fwa: float;
     fws: float;
     sws: float;
-    fs: float;
-    js: float;
+    cfs: float;
+    cjs: float;
     cj: boolean;
     lek: boolean;
     rik: boolean;
@@ -41,6 +54,7 @@ namespace gdjs {
     owner3D: gdjs.RuntimeObject3D;
     private _physics3DBehaviorName: string;
     private _physics3D: Physics3D | null = null;
+    private _isHookedToPhysicsStep = false;
     character: Jolt.CharacterVirtual | null = null;
     /**
      * sharedData is a reference to the shared data of the scene, that registers
@@ -101,7 +115,7 @@ namespace gdjs {
     // This is useful when the object is synchronized by an external source
     // like in a multiplayer game, and we want to be able to predict the
     // movement of the object, even if the inputs are not updated every frame.
-    private _dontClearInputsBetweenFrames: boolean = false;
+    private _clearInputsBetweenFrames: boolean = true;
 
     /**
      * A very small value compare to 1 pixel, yet very huge compare to rounding errors.
@@ -169,10 +183,15 @@ namespace gdjs {
       if (this._physics3D) {
         return this._physics3D;
       }
+      if (!this.activated()) {
+        return null;
+      }
       const behavior = this.owner.getBehavior(
         this._physics3DBehaviorName
       ) as gdjs.Physics3DRuntimeBehavior;
-
+      if (!behavior.activated()) {
+        return null;
+      }
       const sharedData = behavior._sharedData;
       const jolt = sharedData.jolt;
       const extendedUpdateSettings = new Jolt.ExtendedUpdateSettings();
@@ -196,12 +215,40 @@ namespace gdjs {
         shapeFilter,
       };
       this.setStairHeightMax(this._stairHeightMax);
-      sharedData.registerHook(this);
+      if (!this._isHookedToPhysicsStep) {
+        sharedData.registerHook(this);
+        this._isHookedToPhysicsStep = true;
+      }
+
+      // Destroy the body before switching the bodyUpdater,
+      // to ensure the body of the previous bodyUpdater is not left alive.
+      // (would be a memory leak and would create a phantom body in the physics world)
+      // But transfer the linear and angular velocity to the new body,
+      // so the body doesn't stop when it is recreated.
+      let previousBodyData = {
+        linearVelocityX: 0,
+        linearVelocityY: 0,
+        linearVelocityZ: 0,
+        angularVelocityX: 0,
+        angularVelocityY: 0,
+        angularVelocityZ: 0,
+      };
+      if (behavior._body) {
+        const linearVelocity = behavior._body.GetLinearVelocity();
+        previousBodyData.linearVelocityX = linearVelocity.GetX();
+        previousBodyData.linearVelocityY = linearVelocity.GetY();
+        previousBodyData.linearVelocityZ = linearVelocity.GetZ();
+        const angularVelocity = behavior._body.GetAngularVelocity();
+        previousBodyData.angularVelocityX = angularVelocity.GetX();
+        previousBodyData.angularVelocityY = angularVelocity.GetY();
+        previousBodyData.angularVelocityZ = angularVelocity.GetZ();
+        behavior.bodyUpdater.destroyBody();
+      }
 
       behavior.bodyUpdater =
         new gdjs.PhysicsCharacter3DRuntimeBehavior.CharacterBodyUpdater(this);
       behavior.collisionChecker = this.collisionChecker;
-      behavior.recreateBody();
+      behavior.recreateBody(previousBodyData);
 
       // Always begin in the direction of the object.
       this._forwardAngle = this.owner.getAngle();
@@ -268,19 +315,34 @@ namespace gdjs {
       return true;
     }
 
-    override getNetworkSyncData(): PhysicsCharacter3DNetworkSyncData {
+    override getNetworkSyncData(
+      options: GetNetworkSyncDataOptions
+    ): PhysicsCharacter3DNetworkSyncData {
       // This method is called, so we are synchronizing this object.
       // Let's clear the inputs between frames as we control it.
-      this._dontClearInputsBetweenFrames = false;
+      this._clearInputsBetweenFrames = true;
 
       return {
-        ...super.getNetworkSyncData(),
+        ...super.getNetworkSyncData(options),
         props: {
+          sma: this._slopeMaxAngle,
+          shm: this._stairHeightMax,
+          grav: this._gravity,
+          mfs: this._maxFallingSpeed,
+          facc: this._forwardAcceleration,
+          fdec: this._forwardDeceleration,
+          fsm: this._forwardSpeedMax,
+          sacc: this._sidewaysAcceleration,
+          sdec: this._sidewaysDeceleration,
+          ssm: this._sidewaysSpeedMax,
+          jumpspeed: this._jumpSpeed,
+          jumpsustime: this._jumpSustainTime,
           fwa: this._forwardAngle,
+          sbpa: this._shouldBindObjectAndForwardAngle,
           fws: this._currentForwardSpeed,
           sws: this._currentSidewaysSpeed,
-          fs: this._currentFallSpeed,
-          js: this._currentJumpSpeed,
+          cfs: this._currentFallSpeed,
+          cjs: this._currentJumpSpeed,
           cj: this._canJump,
           lek: this._wasLeftKeyPressed,
           rik: this._wasRightKeyPressed,
@@ -297,16 +359,30 @@ namespace gdjs {
     }
 
     override updateFromNetworkSyncData(
-      networkSyncData: PhysicsCharacter3DNetworkSyncData
+      networkSyncData: PhysicsCharacter3DNetworkSyncData,
+      options: UpdateFromNetworkSyncDataOptions
     ) {
-      super.updateFromNetworkSyncData(networkSyncData);
+      super.updateFromNetworkSyncData(networkSyncData, options);
 
       const behaviorSpecificProps = networkSyncData.props;
+      this._slopeMaxAngle = behaviorSpecificProps.sma;
+      this._stairHeightMax = behaviorSpecificProps.shm;
+      this._gravity = behaviorSpecificProps.grav;
+      this._maxFallingSpeed = behaviorSpecificProps.mfs;
+      this._forwardAcceleration = behaviorSpecificProps.facc;
+      this._forwardDeceleration = behaviorSpecificProps.fdec;
+      this._forwardSpeedMax = behaviorSpecificProps.fsm;
+      this._sidewaysAcceleration = behaviorSpecificProps.sacc;
+      this._sidewaysDeceleration = behaviorSpecificProps.sdec;
+      this._sidewaysSpeedMax = behaviorSpecificProps.ssm;
+      this._jumpSpeed = behaviorSpecificProps.jumpspeed;
+      this._jumpSustainTime = behaviorSpecificProps.jumpsustime;
       this._forwardAngle = behaviorSpecificProps.fwa;
+      this._shouldBindObjectAndForwardAngle = behaviorSpecificProps.sbpa;
       this._currentForwardSpeed = behaviorSpecificProps.fws;
       this._currentSidewaysSpeed = behaviorSpecificProps.sws;
-      this._currentFallSpeed = behaviorSpecificProps.fs;
-      this._currentJumpSpeed = behaviorSpecificProps.js;
+      this._currentFallSpeed = behaviorSpecificProps.cfs;
+      this._currentJumpSpeed = behaviorSpecificProps.cjs;
       this._canJump = behaviorSpecificProps.cj;
       this._hasPressedForwardKey = behaviorSpecificProps.upk;
       this._hasPressedBackwardKey = behaviorSpecificProps.dok;
@@ -319,8 +395,8 @@ namespace gdjs {
       this._timeSinceCurrentJumpStart = behaviorSpecificProps.tscjs;
       this._jumpKeyHeldSinceJumpStart = behaviorSpecificProps.jkhsjs;
 
-      // When the object is synchronized from the network, the inputs must not be cleared.
-      this._dontClearInputsBetweenFrames = true;
+      // Clear user inputs between frames only if requested.
+      this._clearInputsBetweenFrames = !!options.clearInputs;
     }
 
     _getPhysicsPosition(result: Jolt.RVec3): Jolt.RVec3 {
@@ -390,36 +466,48 @@ namespace gdjs {
     }
 
     override onDeActivate() {
-      this.collisionChecker.clearContacts();
+      if (!this._physics3D) {
+        return;
+      }
+      this._destroyBody();
     }
 
-    override onActivate() {}
+    override onActivate() {
+      const behavior = this.owner.getBehavior(
+        this._physics3DBehaviorName
+      ) as gdjs.Physics3DRuntimeBehavior;
+      if (!behavior) {
+        return;
+      }
+      behavior._destroyBody();
+    }
 
     override onDestroy() {
       this._destroyedDuringFrameLogic = true;
       this.onDeActivate();
-      this._destroyCharacter();
     }
 
     /**
      * Remove the character and its body from the physics engine.
      * This method is called when:
      * - The Physics3D behavior is deactivated
+     * - This behavior is deactivated
      * - The object is destroyed
-     *
-     * Only deactivating the character behavior won't destroy the character.
-     * Indeed, deactivated characters don't move as characters but still have collisions.
      */
-    _destroyCharacter() {
+    _destroyBody() {
       if (this.character) {
         if (this._canBePushed) {
           this.charactersManager.removeCharacter(this.character);
           Jolt.destroy(this.character.GetListener());
         }
+        this.collisionChecker.clearContacts();
         // The body is destroyed with the character.
         Jolt.destroy(this.character);
         this.character = null;
         if (this._physics3D) {
+          const { behavior } = this._physics3D;
+          behavior.resetToDefaultBodyUpdater();
+          behavior.resetToDefaultCollisionChecker();
           this._physics3D.behavior._body = null;
           const {
             extendedUpdateSettings,
@@ -629,7 +717,7 @@ namespace gdjs {
       this._wasJumpKeyPressed = this._hasPressedJumpKey;
       this._wasStickUsed = this._hasUsedStick;
 
-      if (!this._dontClearInputsBetweenFrames) {
+      if (this._clearInputsBetweenFrames) {
         this._hasPressedForwardKey = false;
         this._hasPressedBackwardKey = false;
         this._hasPressedRightKey = false;
@@ -1780,7 +1868,7 @@ namespace gdjs {
       }
 
       destroyBody() {
-        this.characterBehavior._destroyCharacter();
+        this.characterBehavior._destroyBody();
       }
     }
 

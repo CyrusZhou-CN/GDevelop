@@ -24,7 +24,7 @@ namespace gdjs {
      *
      * @see gdjs.CustomRuntimeObject._innerArea
      **/
-    private _initialInnerArea: {
+    _initialInnerArea: {
       min: [float, float, float];
       max: [float, float, float];
     } | null = null;
@@ -47,6 +47,9 @@ namespace gdjs {
     }
 
     addLayer(layerData: LayerData) {
+      if (this._layers.containsKey(layerData.name)) {
+        return;
+      }
       const layer = new gdjs.RuntimeCustomObjectLayer(layerData, this);
       this._layers.put(layerData.name, layer);
       this._orderedLayers.push(layer);
@@ -68,8 +71,12 @@ namespace gdjs {
       eventsBasedObjectVariantData: EventsBasedObjectVariantData
     ) {
       if (this._isLoaded) {
-        this.onDestroyFromScene(this._parent);
+        this.onDeletedFromScene(this._parent);
       }
+
+      const isForcedToOverrideEventsBasedObjectChildrenConfiguration =
+        !eventsBasedObjectVariantData.name &&
+        eventsBasedObjectVariantData.instances.length == 0;
 
       this._setOriginalInnerArea(eventsBasedObjectVariantData);
 
@@ -83,7 +90,8 @@ namespace gdjs {
         // The children configuration override only applies to the default variant.
         if (
           customObjectData.childrenContent &&
-          !eventsBasedObjectVariantData.name
+          (!eventsBasedObjectVariantData.name ||
+            isForcedToOverrideEventsBasedObjectChildrenConfiguration)
         ) {
           this.registerObject({
             ...childObjectData,
@@ -178,26 +186,25 @@ namespace gdjs {
      *
      * @param instanceContainer The container owning the object.
      */
-    onDestroyFromScene(instanceContainer: gdjs.RuntimeInstanceContainer): void {
+    onDeletedFromScene(instanceContainer: gdjs.RuntimeInstanceContainer): void {
       if (!this._isLoaded) {
         return;
       }
-
       // Notify the objects they are being destroyed
       const allInstancesList = this.getAdhocListOfAllInstances();
       for (let i = 0, len = allInstancesList.length; i < len; ++i) {
         const object = allInstancesList[i];
         object.onDeletedFromScene();
-        // The object can free all its resource directly...
-        object.onDestroyed();
       }
-      // ...as its container cache `_instancesRemoved` is also destroy.
-      this._destroy();
-
       this._isLoaded = false;
     }
 
-    _destroy() {
+    override _destroy() {
+      const allInstancesList = this.getAdhocListOfAllInstances();
+      for (let i = 0, len = allInstancesList.length; i < len; ++i) {
+        const object = allInstancesList[i];
+        object.onDestroyed();
+      }
       // It should not be necessary to reset these variables, but this help
       // ensuring that all memory related to the container is released immediately.
       super._destroy();
@@ -375,11 +382,9 @@ namespace gdjs {
     ): FloatPoint {
       const position = result || [0, 0];
       this._customObject.applyObjectTransformation(sceneX, sceneY, position);
-      return this._parent.convertInverseCoords(
-        position[0],
-        position[1],
-        position
-      );
+      return this._parent
+        .getLayer(this._customObject.getLayer())
+        .convertInverseCoords(position[0], position[1], 0, position);
     }
 
     /**

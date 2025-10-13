@@ -285,6 +285,7 @@ interface Variable {
     boolean RenameChild([Const] DOMString oldName, [Const] DOMString newName);
     [Value] VectorString GetAllChildrenNames();
     void RemoveRecursively([Const, Ref] Variable variableToRemove);
+    void ClearChildren();
 
     [Ref] Variable GetAtIndex([Const] unsigned long index);
     [Ref] Variable PushNew();
@@ -666,6 +667,11 @@ interface Project {
     [Ref] ObjectsContainer GetObjects();
     [Ref] ResourcesManager GetResourcesManager();
 
+    void SetSceneResourcesPreloading([Const] DOMString resourcesPreloading);
+    [Const, Ref] DOMString GetSceneResourcesPreloading();
+    void SetSceneResourcesUnloading([Const] DOMString resourcesUnloading);
+    [Const, Ref] DOMString GetSceneResourcesUnloading();
+
     void SerializeTo([Ref] SerializerElement element);
     void UnserializeFrom([Const, Ref] SerializerElement element);
 
@@ -1002,6 +1008,11 @@ interface Layout {
 
     void SetStopSoundsOnStartup(boolean enable);
     boolean StopSoundsOnStartup();
+
+    void SetResourcesPreloading([Const] DOMString resourcesPreloading);
+    [Const, Ref] DOMString GetResourcesPreloading();
+    void SetResourcesUnloading([Const] DOMString resourcesUnloading);
+    [Const, Ref] DOMString GetResourcesUnloading();
 };
 
 interface ExternalEvents {
@@ -1049,10 +1060,13 @@ interface Effect {
 
   void SetDoubleParameter([Const] DOMString name, double value);
   double GetDoubleParameter([Const] DOMString name);
+  boolean HasDoubleParameter([Const] DOMString name);
   void SetStringParameter([Const] DOMString name, [Const] DOMString value);
   [Const, Ref] DOMString GetStringParameter([Const] DOMString name);
+  boolean HasStringParameter([Const] DOMString name);
   void SetBooleanParameter([Const] DOMString name, boolean value);
   boolean GetBooleanParameter([Const] DOMString name);
+  boolean HasBooleanParameter([Const] DOMString name);
   [Const, Ref] MapStringDouble GetAllDoubleParameters();
   [Const, Ref] MapStringString GetAllStringParameters();
   [Const, Ref] MapStringBoolean GetAllBooleanParameters();
@@ -1130,10 +1144,22 @@ interface LayersContainer {
     boolean HasLayerNamed([Const] DOMString name);
     void RemoveLayer([Const] DOMString name);
     unsigned long GetLayersCount();
+    unsigned long GetLayerPosition([Const] DOMString name);
     void SwapLayers(unsigned long firstLayerIndex, unsigned long secondLayerIndex);
     void MoveLayer(unsigned long oldIndex, unsigned long newIndex);
     void SerializeLayersTo([Ref] SerializerElement element);
     void UnserializeLayersFrom([Const, Ref] SerializerElement element);
+};
+
+interface PropertyDescriptorChoice {
+    void PropertyDescriptorChoice([Const] DOMString value, [Const] DOMString label);
+    [Const, Ref] DOMString GetValue();
+    [Const, Ref] DOMString GetLabel();
+};
+
+interface VectorPropertyDescriptorChoice {
+    unsigned long size();
+    [Const, Ref] PropertyDescriptorChoice at(unsigned long index);
 };
 
 interface PropertyDescriptor {
@@ -1149,6 +1175,9 @@ interface PropertyDescriptor {
     [Const, Ref] DOMString GetDescription();
     [Ref] PropertyDescriptor SetGroup([Const] DOMString label);
     [Const, Ref] DOMString GetGroup();
+    [Ref] PropertyDescriptor ClearChoices();
+    [Ref] PropertyDescriptor AddChoice([Const] DOMString value, [Const] DOMString label);
+    [Const, Ref] VectorPropertyDescriptorChoice GetChoices();
     [Ref] PropertyDescriptor AddExtraInfo([Const] DOMString type);
     [Ref] PropertyDescriptor SetExtraInfo([Const, Ref] VectorString info);
     [Ref] VectorString GetExtraInfo();
@@ -1405,6 +1434,7 @@ interface InitialInstance {
     double GetCustomDepth();
 
     [Ref] InitialInstance ResetPersistentUuid();
+    [Const, Ref] DOMString GetPersistentUuid();
 
     void UpdateCustomProperty(
         [Const] DOMString name,
@@ -2117,6 +2147,9 @@ interface BehaviorMetadata {
     boolean IsHidden();
     [Ref] BehaviorMetadata SetHidden();
 
+    boolean IsRelevantForChildObjects();
+    [Ref] BehaviorMetadata MarkAsIrrelevantForChildObjects();
+
     QuickCustomization_Visibility GetQuickCustomizationVisibility();
     [Ref] BehaviorMetadata SetQuickCustomizationVisibility(QuickCustomization_Visibility visibility);
 
@@ -2344,6 +2377,9 @@ interface BaseEvent {
 
     void SerializeTo([Ref] SerializerElement element);
     void UnserializeFrom([Ref] Project project, [Const, Ref] SerializerElement element);
+
+    [Const, Ref] DOMString GetAiGeneratedEventId();
+    void SetAiGeneratedEventId([Const] DOMString aiGeneratedEventId);
 };
 
 interface StandardEvent {
@@ -2902,6 +2938,7 @@ interface MetadataProvider {
     boolean STATIC_IsBadInstructionMetadata([Const, Ref] InstructionMetadata metadata);
     boolean STATIC_IsBadBehaviorMetadata([Const, Ref] BehaviorMetadata metadata);
     boolean STATIC_IsBadObjectMetadata([Const, Ref] ObjectMetadata metadata);
+    boolean STATIC_IsBadEffectMetadata([Const, Ref] EffectMetadata metadata);
 };
 
 enum ProjectDiagnostic_ErrorType {
@@ -3213,6 +3250,8 @@ interface EventsBasedObjectVariant {
     [Const, Ref] DOMString GetAssetStoreAssetId();
     void SetAssetStoreOriginalName([Const] DOMString assetStoreOriginalName);
     [Const, Ref] DOMString GetAssetStoreOriginalName();
+
+    [Ref] EditorSettings GetAssociatedEditorSettings();
 
     void SerializeTo([Ref] SerializerElement element);
     void UnserializeFrom([Ref] Project project, [Const, Ref] SerializerElement element);
@@ -3698,6 +3737,8 @@ interface TextObject {
     [Const, Ref] DOMString GetText();
     void SetCharacterSize(double size);
     double GetCharacterSize();
+    void SetLineHeight(double value);
+    double GetLineHeight();
     void SetFontName([Const] DOMString string);
     [Const, Ref] DOMString GetFontName();
     boolean IsBold();

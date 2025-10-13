@@ -323,6 +323,7 @@ export class Variable extends EmscriptenObject {
   renameChild(oldName: string, newName: string): boolean;
   getAllChildrenNames(): VectorString;
   removeRecursively(variableToRemove: Variable): void;
+  clearChildren(): void;
   getAtIndex(index: number): Variable;
   pushNew(): Variable;
   removeAtIndex(index: number): void;
@@ -619,6 +620,10 @@ export class Project extends EmscriptenObject {
   getVariables(): VariablesContainer;
   getObjects(): ObjectsContainer;
   getResourcesManager(): ResourcesManager;
+  setSceneResourcesPreloading(resourcesPreloading: string): void;
+  getSceneResourcesPreloading(): string;
+  setSceneResourcesUnloading(resourcesUnloading: string): void;
+  getSceneResourcesUnloading(): string;
   serializeTo(element: SerializerElement): void;
   unserializeFrom(element: SerializerElement): void;
   getWholeProjectDiagnosticReport(): WholeProjectDiagnosticReport;
@@ -823,6 +828,10 @@ export class Layout extends EmscriptenObject {
   unserializeFrom(project: Project, element: SerializerElement): void;
   setStopSoundsOnStartup(enable: boolean): void;
   stopSoundsOnStartup(): boolean;
+  setResourcesPreloading(resourcesPreloading: string): void;
+  getResourcesPreloading(): string;
+  setResourcesUnloading(resourcesUnloading: string): void;
+  getResourcesUnloading(): string;
 }
 
 export class ExternalEvents extends EmscriptenObject {
@@ -858,10 +867,13 @@ export class Effect extends EmscriptenObject {
   isFolded(): boolean;
   setDoubleParameter(name: string, value: number): void;
   getDoubleParameter(name: string): number;
+  hasDoubleParameter(name: string): boolean;
   setStringParameter(name: string, value: string): void;
   getStringParameter(name: string): string;
+  hasStringParameter(name: string): boolean;
   setBooleanParameter(name: string, value: boolean): void;
   getBooleanParameter(name: string): boolean;
+  hasBooleanParameter(name: string): boolean;
   getAllDoubleParameters(): MapStringDouble;
   getAllStringParameters(): MapStringString;
   getAllBooleanParameters(): MapStringBoolean;
@@ -930,10 +942,22 @@ export class LayersContainer extends EmscriptenObject {
   hasLayerNamed(name: string): boolean;
   removeLayer(name: string): void;
   getLayersCount(): number;
+  getLayerPosition(name: string): number;
   swapLayers(firstLayerIndex: number, secondLayerIndex: number): void;
   moveLayer(oldIndex: number, newIndex: number): void;
   serializeLayersTo(element: SerializerElement): void;
   unserializeLayersFrom(element: SerializerElement): void;
+}
+
+export class PropertyDescriptorChoice extends EmscriptenObject {
+  constructor(value: string, label: string);
+  getValue(): string;
+  getLabel(): string;
+}
+
+export class VectorPropertyDescriptorChoice extends EmscriptenObject {
+  size(): number;
+  at(index: number): PropertyDescriptorChoice;
 }
 
 export class PropertyDescriptor extends EmscriptenObject {
@@ -948,6 +972,9 @@ export class PropertyDescriptor extends EmscriptenObject {
   getDescription(): string;
   setGroup(label: string): PropertyDescriptor;
   getGroup(): string;
+  clearChoices(): PropertyDescriptor;
+  addChoice(value: string, label: string): PropertyDescriptor;
+  getChoices(): VectorPropertyDescriptorChoice;
   addExtraInfo(type: string): PropertyDescriptor;
   setExtraInfo(info: VectorString): PropertyDescriptor;
   getExtraInfo(): VectorString;
@@ -1167,6 +1194,7 @@ export class InitialInstance extends EmscriptenObject {
   setCustomDepth(depth: number): void;
   getCustomDepth(): number;
   resetPersistentUuid(): InitialInstance;
+  getPersistentUuid(): string;
   updateCustomProperty(name: string, value: string, globalObjectsContainer: ObjectsContainer, objectsContainer: ObjectsContainer): void;
   getCustomProperties(globalObjectsContainer: ObjectsContainer, objectsContainer: ObjectsContainer): MapStringPropertyDescriptor;
   getRawDoubleProperty(name: string): number;
@@ -1645,6 +1673,8 @@ export class BehaviorMetadata extends EmscriptenObject {
   setPrivate(): BehaviorMetadata;
   isHidden(): boolean;
   setHidden(): BehaviorMetadata;
+  isRelevantForChildObjects(): boolean;
+  markAsIrrelevantForChildObjects(): BehaviorMetadata;
   getQuickCustomizationVisibility(): QuickCustomization_Visibility;
   setQuickCustomizationVisibility(visibility: QuickCustomization_Visibility): BehaviorMetadata;
   setOpenFullEditorLabel(label: string): BehaviorMetadata;
@@ -1782,6 +1812,8 @@ export class BaseEvent extends EmscriptenObject {
   setFolded(folded: boolean): void;
   serializeTo(element: SerializerElement): void;
   unserializeFrom(project: Project, element: SerializerElement): void;
+  getAiGeneratedEventId(): string;
+  setAiGeneratedEventId(aiGeneratedEventId: string): void;
 }
 
 export class StandardEvent extends BaseEvent {
@@ -2082,6 +2114,7 @@ export class MetadataProvider extends EmscriptenObject {
   static isBadInstructionMetadata(metadata: InstructionMetadata): boolean;
   static isBadBehaviorMetadata(metadata: BehaviorMetadata): boolean;
   static isBadObjectMetadata(metadata: ObjectMetadata): boolean;
+  static isBadEffectMetadata(metadata: EffectMetadata): boolean;
 }
 
 export class ProjectDiagnostic extends EmscriptenObject {
@@ -2330,6 +2363,7 @@ export class EventsBasedObjectVariant extends EmscriptenObject {
   getAssetStoreAssetId(): string;
   setAssetStoreOriginalName(assetStoreOriginalName: string): void;
   getAssetStoreOriginalName(): string;
+  getAssociatedEditorSettings(): EditorSettings;
   serializeTo(element: SerializerElement): void;
   unserializeFrom(project: Project, element: SerializerElement): void;
 }
@@ -2731,6 +2765,8 @@ export class TextObject extends ObjectConfiguration {
   getText(): string;
   setCharacterSize(size: number): void;
   getCharacterSize(): number;
+  setLineHeight(value: number): void;
+  getLineHeight(): number;
   setFontName(string: string): void;
   getFontName(): string;
   isBold(): boolean;

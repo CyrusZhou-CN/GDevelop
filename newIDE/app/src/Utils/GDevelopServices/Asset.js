@@ -123,6 +123,7 @@ export type PrivateAssetPack = {|
   tag: string,
   longDescription: string,
   content: PrivateAssetPackContent,
+  includedPackIds?: Array<string>,
 |};
 
 export type PrivateGameTemplate = {|
@@ -134,6 +135,40 @@ export type PrivateGameTemplate = {|
   tag: string,
   longDescription: string,
   gamePreviewLink: string,
+  includedTemplateIds?: Array<string>,
+|};
+
+export type IncludedProduct = {|
+  productId: string,
+  usageType: string,
+  productType: 'ASSET_PACK' | 'GAME_TEMPLATE' | 'COURSE' | 'CREDITS_PACKAGE',
+|};
+
+export type IncludedRedemptionCode = {|
+  givenSubscriptionPlanId: string,
+  durationInDays: number,
+  estimatedPrices?: Array<{
+    value: number,
+    currency: 'USD' | 'EUR',
+  }>,
+|};
+
+export type Bundle = {|
+  id: string,
+  name: string,
+  nameByLocale: MessageByLocale,
+  createdAt: string,
+  updatedAt: string,
+  // If the bundle is archived, it will not be available for purchase anymore.
+  // But it will still be available for users who already purchased it.
+  archivedAt?: string,
+  categories: string[],
+  longDescription: string,
+  longDescriptionByLocale: MessageByLocale,
+  previewImageUrls: Array<string>,
+  tag: string,
+  includedProducts: Array<IncludedProduct>,
+  includedRedemptionCodes: Array<IncludedRedemptionCode>,
 |};
 
 export type PrivatePdfTutorial = {|
@@ -292,13 +327,17 @@ export type Course = {|
   id: string,
   durationInWeeks: number,
   chaptersTargetCount: number,
-  specializationId: 'game-development' | 'interaction-design',
+  specializationId: 'game-development' | 'interaction-design' | 'marketing',
   newUntil?: number,
 
   imageUrlByLocale: MessageByLocale,
   titleByLocale: MessageByLocale,
   shortDescriptionByLocale: MessageByLocale,
   levelByLocale: MessageByLocale,
+  introByLocale?: MessageByLocale,
+
+  isLocked?: boolean,
+  includedInSubscriptions: string[],
 |};
 
 export type UserCourseProgress = {|
@@ -513,6 +552,11 @@ export const getPrivateGameTemplate = async (
   return response.data;
 };
 
+export const getBundle = async (bundleId: string): Promise<Bundle> => {
+  const response = await client.get(`/bundle/${bundleId}`);
+  return response.data;
+};
+
 export const getPrivatePdfTutorial = async (
   getAuthorizationHeader: () => Promise<string>,
   {
@@ -612,6 +656,22 @@ export const listReceivedGameTemplates = async (
   return response.data;
 };
 
+export const listReceivedBundles = async (
+  getAuthorizationHeader: () => Promise<string>,
+  {
+    userId,
+  }: {|
+    userId: string,
+  |}
+): Promise<Array<Bundle>> => {
+  const authorizationHeader = await getAuthorizationHeader();
+  const response = await client.get('/bundle', {
+    headers: { Authorization: authorizationHeader },
+    params: { userId },
+  });
+  return response.data;
+};
+
 export const isPublicAssetResourceUrl = (url: string) =>
   url.startsWith(GDevelopPublicAssetResourcesStorageBaseUrl) ||
   url.startsWith(GDevelopPublicAssetResourcesStorageStagingBaseUrl);
@@ -639,7 +699,27 @@ export const extractDecodedFilenameWithExtensionFromPublicAssetResourceUrl = (
   return decodedFilenameWithExtension;
 };
 
-export const listCourses = async (): Promise<Array<Course>> => {
+export const listCourses = async (
+  getAuthorizationHeader: () => Promise<string>,
+  {
+    userId,
+  }: {|
+    userId: ?string,
+  |}
+): Promise<Array<Course>> => {
+  if (userId) {
+    const authorizationHeader = await getAuthorizationHeader();
+
+    const response = await client.get(`/course`, {
+      params: {
+        userId,
+      },
+      headers: {
+        Authorization: authorizationHeader,
+      },
+    });
+    return response.data;
+  }
   const response = await client.get(`/course`);
   return response.data;
 };
@@ -649,11 +729,11 @@ export const listCourseChapters = async (
   {
     userId,
     courseId,
-    lang,
+    language,
   }: {|
     userId: ?string,
     courseId: string,
-    lang: string,
+    language: string,
   |}
 ): Promise<Array<CourseChapter>> => {
   if (userId) {
@@ -662,7 +742,7 @@ export const listCourseChapters = async (
     const response = await client.get(`/course/${courseId}/chapter`, {
       params: {
         userId,
-        lang,
+        language,
       },
       headers: {
         Authorization: authorizationHeader,
@@ -671,7 +751,29 @@ export const listCourseChapters = async (
     return response.data;
   }
   const response = await client.get(`/course/${courseId}/chapter`, {
-    params: { lang },
+    params: { language },
   });
   return response.data;
+};
+
+export const getCourseChapterRatingUrl = ({
+  courseId,
+  chapterId,
+  userId,
+  language,
+}: {|
+  courseId: string,
+  chapterId: string,
+  userId: string,
+  language: string,
+|}): string => {
+  const url = new URL(
+    `${
+      GDevelopAssetApi.baseUrl
+    }/course/${courseId}/chapter/${chapterId}/action/redirect-to-rating`
+  );
+
+  url.searchParams.set('userId', userId);
+  url.searchParams.set('language', language);
+  return url.toString();
 };

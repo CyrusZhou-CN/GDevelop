@@ -481,6 +481,7 @@ typedef ExtensionAndMetadata<ExpressionMetadata> ExtensionAndExpressionMetadata;
 typedef ExtensionAndMetadata<ExpressionMetadata> ExtensionAndExpressionMetadata;
 typedef ExtensionAndMetadata<ExpressionMetadata> ExtensionAndExpressionMetadata;
 typedef ExtensionAndMetadata<ExpressionMetadata> ExtensionAndExpressionMetadata;
+typedef std::vector<gd::PropertyDescriptorChoice> VectorPropertyDescriptorChoice;
 
 // Customize some functions implementation thanks to WRAPPED_* macros
 // The original names will be reconstructed in the js file (see postjs.js)
@@ -605,6 +606,7 @@ typedef ExtensionAndMetadata<ExpressionMetadata> ExtensionAndExpressionMetadata;
 #define STATIC_IsBadInstructionMetadata IsBadInstructionMetadata
 #define STATIC_IsBadBehaviorMetadata IsBadBehaviorMetadata
 #define STATIC_IsBadObjectMetadata IsBadObjectMetadata
+#define STATIC_IsBadEffectMetadata IsBadEffectMetadata
 
 #define STATIC_RenameObjectInEvents RenameObjectInEvents
 #define STATIC_RemoveObjectInEvents RemoveObjectInEvents
