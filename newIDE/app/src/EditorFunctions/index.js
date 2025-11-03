@@ -160,6 +160,7 @@ export type InstancesOutsideEditorChanges = {|
 
 export type ObjectsOutsideEditorChanges = {|
   scene: gdLayout,
+  isNewObjectTypeUsed: boolean,
 |};
 
 export type ObjectGroupsOutsideEditorChanges = {|
@@ -553,6 +554,11 @@ const createOrReplaceObject: EditorFunction = {
     };
 
     const createNewObject = async () => {
+      const isTheFirstOfItsTypeInProject = !gd.UsedObjectTypeFinder.scanProject(
+        project,
+        object_type
+      );
+
       // First try to search and install an object from the asset store.
       try {
         const { status, message, createdObjects } = await searchAndInstallAsset(
@@ -575,6 +581,7 @@ const createOrReplaceObject: EditorFunction = {
           // This will force the objects panel to refresh.
           onObjectsModifiedOutsideEditor({
             scene: layout,
+            isNewObjectTypeUsed: isTheFirstOfItsTypeInProject,
           });
 
           if (createdObjects.length === 1) {
@@ -644,7 +651,9 @@ const createOrReplaceObject: EditorFunction = {
       // This will force the objects panel to refresh.
       onObjectsModifiedOutsideEditor({
         scene: layout,
+        isNewObjectTypeUsed: isTheFirstOfItsTypeInProject,
       });
+
       return makeGenericSuccess(
         [
           `Created a new object (from scratch) called "${object_name}" of type "${object_type}" in scene "${scene_name}".`,
@@ -702,6 +711,7 @@ const createOrReplaceObject: EditorFunction = {
           // This will force the objects panel to refresh.
           onObjectsModifiedOutsideEditor({
             scene: layout,
+            isNewObjectTypeUsed: false, // The object type was not changed.
           });
           return makeGenericSuccess(
             `Replaced object "${object.getName()}" by an object from the asset store fitting the search.`
@@ -743,6 +753,7 @@ const createOrReplaceObject: EditorFunction = {
       // This will force the objects panel to refresh.
       onObjectsModifiedOutsideEditor({
         scene: layout,
+        isNewObjectTypeUsed: false, // The object type can't be new because it is duplicated.
       });
       return makeGenericSuccess(
         `Duplicated object "${duplicatedObjectName}" as "${newObject.getName()}". The new object "${newObject.getName()}" has the same type, behaviors, properties and effects as the one it was duplicated from.`
@@ -778,6 +789,7 @@ const createOrReplaceObject: EditorFunction = {
         // This will force the objects panel to refresh.
         onObjectsModifiedOutsideEditor({
           scene: layout,
+          isNewObjectTypeUsed: false, // No object was actually added.
         });
         return makeGenericSuccess(
           `Object with name "${object_name}" already exists, no need to re-create it.`
@@ -4247,6 +4259,26 @@ const addOrEditVariable: EditorFunction = {
   },
 };
 
+const readFullDocs: EditorFunction = {
+  renderForEditor: ({ args }) => {
+    const extension_names = SafeExtractor.extractStringProperty(
+      args,
+      'extension_names'
+    );
+
+    return {
+      text: (
+        <Trans>Inspecting {extension_names} features and capabilities.</Trans>
+      ),
+    };
+  },
+  launchFunction: async ({ args }) => {
+    return makeGenericFailure(
+      `Unable to read full documentation - continue with your existing GDevelop knowledge.`
+    );
+  },
+};
+
 const initializeProject: EditorFunctionWithoutProject = {
   renderForEditor: ({ args }) => {
     const project_name = extractRequiredString(args, 'project_name');
@@ -4352,6 +4384,7 @@ export const editorFunctions: { [string]: EditorFunction } = {
   inspect_scene_properties_layers_effects: inspectScenePropertiesLayersEffects,
   change_scene_properties_layers_effects_groups: changeScenePropertiesLayersEffectsGroups,
   add_or_edit_variable: addOrEditVariable,
+  read_full_docs: readFullDocs,
 };
 
 export const editorFunctionsWithoutProject: {
