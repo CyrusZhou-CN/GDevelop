@@ -11,9 +11,11 @@ export default {
 };
 
 export const Info = () => (
-  <TextBasedCourseChapterCallout icon={'📝'} title={'Information'} type="info">
-    {
-      'Ceci est un encadré **informatif**. Il utilise les couleurs `blue` par défaut. Il est parfait pour fournir des détails supplémentaires ou des précisions techniques. Les blocs de `code` sont également bien formatés.'
+  <TextBasedCourseChapterCallout
+    calloutType={'info'}
+    title={'Information'}
+    text={
+      '2 Ceci est un encadré **informatif**. Il utilise les couleurs `blue` par défaut. Il est parfait pour fournir des détails supplémentaires ou des précisions techniques. Les blocs de `code` sont également bien formatés.'
     }
-  </TextBasedCourseChapterCallout>
+  />
 );
