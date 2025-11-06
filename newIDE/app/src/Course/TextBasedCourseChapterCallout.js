@@ -13,7 +13,7 @@ type Props = {|
   children?: React.Node,
 |};
 
-const TextBasedCourseChapterCallout = ({
+const TextBasedCourseChapterCalloutBlock = ({
   title,
   text,
   calloutType = 'info',
@@ -66,4 +66,4 @@ const TextBasedCourseChapterCallout = ({
   );
 };
 
-export default TextBasedCourseChapterCallout;
+export default TextBasedCourseChapterCalloutBlock;

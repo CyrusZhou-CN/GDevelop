@@ -17,7 +17,7 @@ import TextBasedCourseChapterTaskItem from './TextBasedCourseChapterTaskItem';
 import { ColumnStackLayout } from '../UI/Layout';
 import { Column, Line } from '../UI/Grid';
 import TextBasedCourseChapterCodeBlock from './TextBasedCourseChapterCodeBlock';
-import TextBasedCourseChapterCalloutBlock from './TextBasedCourseChapterCallout';
+import TextBasedCourseChapterCalloutBlock from './TextBasedCourseChapterCalloutBlock';
 import TextBasedCourseChapterTable from './TextBasedCourseChapterTable';
 
 const styles = {
