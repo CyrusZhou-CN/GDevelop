@@ -3235,11 +3235,11 @@ export const textBasedCourseChapterWithCallout: TextBasedCourseChapter = {
     },
     {
       type: 'callout',
-      title: 'Notice',
-      icon: '📝',
-      type: 'info',
+      calloutType: 'info',
+      title: 'title callout',
+      children: {},
       text:
-        'This example shows how to run a small helper to trigger a jump when the player hits the floor.',
+        '3 Ceci est un encaddré **informatif**. Il utilise les couleurs `blue` par défaut. Il est parfait pour fournir des détails supplémentaires ou des précisions techniques. Les blocs de `code` sont également bien formatés.',
     },
   ],
   id: 'callout javascript',

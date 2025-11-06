@@ -73,7 +73,7 @@ export const Chapter4 = () => {
       onCompleteTask={action('onCompleteTask')}
       isTaskCompleted={action('isTaskCompleted')}
       getChapterCompletion={action('getChapterCompletion')}
-      chapterIndex={1}
+      chapterIndex={3}
       onClickUnlock={() => action('onClickUnlock')()}
     />
   );
