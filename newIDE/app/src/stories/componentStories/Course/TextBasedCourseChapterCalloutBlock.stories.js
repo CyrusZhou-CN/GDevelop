@@ -1,6 +1,6 @@
 // @flow
 import * as React from 'react';
-import TextBasedCourseChapterCallout from '../../../Course/TextBasedCourseChapterCallout';
+import TextBasedCourseChapterCallout from '../../../Course/TextBasedCourseChapterCalloutBlock';
 import paperDecorator from '../../PaperDecorator';
 
 export default {

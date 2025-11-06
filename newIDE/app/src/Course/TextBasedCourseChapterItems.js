@@ -8,7 +8,7 @@ import type {
   TextBasedCourseChapterVideoItem as TextBasedCourseChapterVideoItemType,
   TextBasedCourseChapterCodeItem as TextBasedCourseChapterCodeItemType,
   TextBasedCourseChapterTableItem as TextBasedCourseChapterTableItemType,
-  TextBasedCourseChapterCallout as TextBasedCourseChapterCalloutItemType,
+  TextBasedCourseChapterCalloutItem as TextBasedCourseChapterCalloutItemType,
 } from '../Utils/GDevelopServices/Asset';
 import GDevelopThemeContext from '../UI/Theme/GDevelopThemeContext';
 import { MarkdownText } from '../UI/MarkdownText';

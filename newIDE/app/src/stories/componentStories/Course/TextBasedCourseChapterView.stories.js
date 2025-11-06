@@ -63,7 +63,6 @@ export const Chapter3 = () => {
   );
 };
 
-
 export const Chapter4 = () => {
   return (
     <TextBasedCourseChapterView
