@@ -13,6 +13,8 @@ import ChoicesEditor, { type Choice } from '../../ChoicesEditor';
 import useForceUpdate from '../../Utils/UseForceUpdate';
 import ResourceTypeSelectField from './ResourceTypeSelectField';
 
+const gd: libGDevelop = global.gd;
+
 type Props = {|
   project: gdProject,
   eventsFunctionsExtension: gdEventsFunctionsExtension | null,
