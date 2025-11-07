@@ -15,13 +15,12 @@ class InstructionMetadata;
 } // namespace gd
 
 namespace gd {
-/**
- * 
- */
+
 class GD_CORE_API BehaviorParameterFiller {
 public:
   /**
-   * \brief 
+   * \brief Fill all empty or invalid behavior parameters according to the
+   * objects.
    */
   static void FillBehaviorParameters(
       const gd::Platform &platform,
