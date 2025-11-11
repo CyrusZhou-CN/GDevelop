@@ -558,6 +558,21 @@ const PreferencesDialog = ({
                 <CompactToggleField
                   labelColor="primary"
                   hideTooltip
+                  onCheck={check => {
+                    if (check) {
+                      setGameEditorToggleWarningDialogOpen(true);
+                    } else {
+                      setShowGameEditorToggle(false);
+                    }
+                  }}
+                  checked={values.showGameEditorToggle}
+                  label={i18n._(
+                    t`Show experimental, unfinished "Game Editor" toggle`
+                  )}
+                />
+                <CompactToggleField
+                  labelColor="primary"
+                  hideTooltip
                   onCheck={check =>
                     setDisplaySaveReminder({ activated: check })
                   }
@@ -630,21 +645,6 @@ const PreferencesDialog = ({
                     checked={values.useGDJSDevelopmentWatcher}
                     label={i18n._(
                       t`Watch changes in game engine (GDJS) sources and auto import them (dev only)`
-                    )}
-                  />
-                  <CompactToggleField
-                    labelColor="primary"
-                    hideTooltip
-                    onCheck={check => {
-                      if (check) {
-                        setGameEditorToggleWarningDialogOpen(true);
-                      } else {
-                        setShowGameEditorToggle(false);
-                      }
-                    }}
-                    checked={values.showGameEditorToggle}
-                    label={i18n._(
-                      t`Show experimental, unfinished "Game Editor" toggle`
                     )}
                   />
                   <FlatButton
