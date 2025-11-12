@@ -24,6 +24,12 @@ import { DislikeFeedbackDialog } from './DislikeFeedbackDialog';
 import LeftLoader from '../../UI/LeftLoader';
 import Text from '../../UI/Text';
 import AlertMessage from '../../UI/AlertMessage';
+import {
+  AiRequestContext,
+  type ProjectSavesForAiRequest,
+} from '../AiRequestContext';
+import useAlertDialog from '../../UI/Alert/useAlertDialog';
+import { type FileMetadataAndStorageProviderName } from '../../ProjectsStorage';
 
 type Props = {|
   aiRequest: AiRequest,
@@ -54,6 +60,14 @@ export const ChatMessages = React.memo<Props>(function ChatMessages({
   project,
 }: Props) {
   const theme = React.useContext(GDevelopThemeContext);
+  const {
+    aiRequestProjectSaves: { projectSaves },
+  } = React.useContext(AiRequestContext);
+  const projectSavesForAiRequest: ProjectSavesForAiRequest = React.useMemo(
+    () => projectSaves[aiRequest.id] || {},
+    [aiRequest.id, projectSaves]
+  );
+  const { showAlert, showConfirmation } = useAlertDialog();
 
   const [messageFeedbacks, setMessageFeedbacks] = React.useState({});
   const [
@@ -61,11 +75,78 @@ export const ChatMessages = React.memo<Props>(function ChatMessages({
     setDislikeFeedbackDialogOpenedFor,
   ] = React.useState(null);
 
-  const functionCallToFunctionCallOutput = aiRequest
-    ? getFunctionCallToFunctionCallOutputMap({
-        aiRequest,
-      })
-    : new Map();
+  const functionCallToFunctionCallOutput = getFunctionCallToFunctionCallOutputMap(
+    {
+      aiRequest,
+    }
+  );
+
+  const onRestore = React.useCallback(
+    async (messageIndex: number) => {
+      if (!project) {
+        await showAlert({
+          title: t`Cannot restore project`,
+          message: t`Open the project associated with this AI request to restore to this state.`,
+        });
+        return;
+      }
+      if (project.getProjectUuid() !== aiRequest.gameId) {
+        await showAlert({
+          title: t`Project mismatch`,
+          message: t`The project associated with this AI request does not match the current project. Open the correct project to restore to this state.`,
+        });
+        return;
+      }
+      const projectSave = projectSavesForAiRequest[messageIndex];
+      if (!projectSave) {
+        await showAlert({
+          title: t`No project save available`,
+          message: t`No project save is available for this request message.`,
+        });
+        return;
+      }
+
+      const result = await showConfirmation({
+        title: t`Restore project to this state?`,
+        message: t`Are you sure you want to restore the project to the state saved at this point in the AI conversation? This will overwrite the current project state.`,
+        confirmButtonLabel: t`Restore`,
+        dismissButtonLabel: t`Cancel`,
+        level: 'warning',
+      });
+      if (!result) return;
+
+      const fileMetadataAndStorageProviderName: FileMetadataAndStorageProviderName = {
+        fileIdentifier: 'random?', // id that links to project save?
+        gameId: project.getProjectUuid(),
+        // Assume it's the same as the current project.
+        storageProviderName: getStorageProvider().internalName,
+      };
+      await openFromFileMetadataWithStorageProvider(
+        fileMetadataAndStorageProviderName,
+        {
+          ignoreUnsavedChanges: true,
+          openingMessage: t`Restoring project to previous version...`,
+        }
+      );
+    },
+    [aiRequest, project, showAlert, showConfirmation, projectSavesForAiRequest]
+  );
+
+  const getRestoreDisabledReason = React.useCallback(
+    (messageIndex: number) => {
+      if (!project) {
+        return t`Open the project associated with this AI request to restore to this state.`;
+      }
+      if (project.getProjectUuid() !== aiRequest.gameId) {
+        return t`The project associated with this AI request does not match the current project. Open the correct project to restore to this state.`;
+      }
+      if (!projectSavesForAiRequest[messageIndex]) {
+        return t`No project save is available for this message.`;
+      }
+      return undefined;
+    },
+    [aiRequest.gameId, project, projectSavesForAiRequest]
+  );
 
   return (
     <>
@@ -73,7 +154,15 @@ export const ChatMessages = React.memo<Props>(function ChatMessages({
         if (message.type === 'message' && message.role === 'user') {
           return [
             <Line key={messageIndex} justifyContent="flex-end">
-              <ChatBubble role="user">
+              <ChatBubble
+                role="user"
+                restoreProps={{
+                  onRestore: () => {
+                    onRestore(messageIndex);
+                  },
+                  disabledReason: getRestoreDisabledReason(messageIndex),
+                }}
+              >
                 <ChatMarkdownText
                   source={message.content
                     .map(messageContent => messageContent.text)

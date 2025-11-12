@@ -293,6 +293,7 @@ export const AskAiEditor = React.memo<Props>(
 
       const {
         aiRequestStorage,
+        aiRequestProjectSaves,
         editorFunctionCallResultsStorage,
         getAiSettings,
       } = React.useContext(AiRequestContext);
@@ -449,6 +450,13 @@ export const AskAiEditor = React.memo<Props>(
               setSendingAiRequest(null, false);
               updateAiRequest(aiRequest.id, aiRequest);
 
+              if (project && mode === 'agent') {
+                aiRequestProjectSaves.addProjectSaveToLastMessage(
+                  aiRequest,
+                  project
+                );
+              }
+
               // Select the new AI request just created - unless the user switched to another one
               // in the meantime.
               if (!upToDateSelectedAiRequestId.current) {
@@ -513,6 +521,7 @@ export const AskAiEditor = React.memo<Props>(
           newAiRequestOptions,
           subscription,
           openSubscriptionDialog,
+          aiRequestProjectSaves,
         ]
       );
 

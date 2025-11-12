@@ -61,6 +61,7 @@ type Props = {|
   size?: 'small',
 
   tooltip?: MessageDescriptor,
+  showTooltipEvenIfDisabled?: boolean,
   acceleratorString?: string,
   'aria-label'?: string,
 
@@ -126,7 +127,7 @@ const IconButton = React.forwardRef<Props, {||}>((props: Props, ref) => {
     />
   );
 
-  return tooltip && !props.disabled ? (
+  return tooltip && (!props.disabled || props.showTooltipEvenIfDisabled) ? (
     <I18n>
       {({ i18n }) => (
         <Tooltip
@@ -139,7 +140,8 @@ const IconButton = React.forwardRef<Props, {||}>((props: Props, ref) => {
           placement="bottom"
           enterDelay={tooltipEnterDelay}
         >
-          {iconButton}
+          {/* Wrap in a div to ensure the tooltip works even if the button is disabled */}
+          <div>{iconButton}</div>
         </Tooltip>
       )}
     </I18n>

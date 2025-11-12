@@ -26,6 +26,14 @@
   display: flex;
   animation: chat-bubble-appear 0.3s;
   min-width: 0; /** Prevents horizontal overflow */
+  position: relative;
+}
+
+.chatBubbleRestoreArrow {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  z-index: 1;
 }
 
 .chatBubbleContent {
