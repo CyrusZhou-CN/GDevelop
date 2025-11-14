@@ -23,6 +23,7 @@
 #include <GDCore/Extensions/Metadata/ParameterOptions.h>
 #include <GDCore/Extensions/Platform.h>
 #include <GDCore/IDE/AbstractFileSystem.h>
+#include <GDCore/IDE/BehaviorParameterFiller.h>
 #include <GDCore/IDE/Dialogs/LayoutEditorCanvas/EditorSettings.h>
 #include <GDCore/IDE/Events/ArbitraryEventsWorker.h>
 #include <GDCore/IDE/Events/BehaviorDefaultFlagClearer.h>
@@ -89,6 +90,8 @@
 #include <GDCore/Project/PropertiesContainer.h>
 #include <GDCore/Project/PropertiesContainersList.h>
 #include <GDCore/Project/PropertyDescriptor.h>
+#include <GDCore/Project/ResourcesContainer.h>
+#include <GDCore/Project/ResourcesContainersList.h>
 #include <GDCore/Project/Variable.h>
 #include <GDCore/Project/VariablesContainer.h>
 #include <GDCore/Project/VariablesContainersList.h>
@@ -132,7 +135,7 @@
  */
 class ArbitraryResourceWorkerJS : public ArbitraryResourceWorker {
  public:
-   ArbitraryResourceWorkerJS(gd::ResourcesManager &resourcesManager)
+   ArbitraryResourceWorkerJS(gd::ResourcesContainer &resourcesManager)
       : ArbitraryResourceWorker(resourcesManager){};
 
   void ExposeImage(gd::String &arg0) {
@@ -439,6 +442,7 @@ typedef EventsFunctionsContainer::FunctionOwner
     EventsFunctionsContainer_FunctionOwner;
 typedef std::unique_ptr<gd::Object> UniquePtrObject;
 typedef std::unique_ptr<gd::ObjectConfiguration> UniquePtrObjectConfiguration;
+typedef std::unique_ptr<gd::Behavior> UniquePtrBehavior;
 typedef std::unique_ptr<ExpressionNode> UniquePtrExpressionNode;
 typedef std::vector<gd::ExpressionParserError *>
     VectorExpressionParserError;
@@ -457,6 +461,7 @@ typedef std::map<gd::String, std::map<gd::String, gd::PropertyDescriptor>>
 typedef gd::Variable::Type Variable_Type;
 typedef gd::VariablesContainer::SourceType VariablesContainer_SourceType;
 typedef gd::ObjectsContainer::SourceType ObjectsContainer_SourceType;
+typedef gd::ResourcesContainer::SourceType ResourcesContainer_SourceType;
 typedef std::map<gd::String, gd::SerializerValue> MapStringSerializerValue;
 typedef std::vector<std::pair<gd::String, std::shared_ptr<SerializerElement>>>
     VectorPairStringSharedPtrSerializerElement;
@@ -566,8 +571,6 @@ typedef std::vector<gd::PropertyDescriptorChoice> VectorPropertyDescriptorChoice
   MakeNewProjectScopedContainersForProjectAndLayout
 #define STATIC_MakeNewProjectScopedContainersForProject \
   MakeNewProjectScopedContainersForProject
-#define STATIC_MakeNewProjectScopedContainersFor \
-  MakeNewProjectScopedContainersFor
 #define STATIC_MakeNewProjectScopedContainersForEventsFunctionsExtension \
   MakeNewProjectScopedContainersForEventsFunctionsExtension
 #define STATIC_MakeNewProjectScopedContainersForFreeEventsFunction \
@@ -668,6 +671,7 @@ typedef std::vector<gd::PropertyDescriptorChoice> VectorPropertyDescriptorChoice
   FindInvalidRequiredBehaviorProperties
 #define STATIC_GetBehaviorsWithType GetBehaviorsWithType
 #define STATIC_IsBehaviorCompatibleWithObject IsBehaviorCompatibleWithObject
+#define STATIC_FillBehaviorParameters FillBehaviorParameters
 #define STATIC_FixInvalidRequiredBehaviorProperties \
   FixInvalidRequiredBehaviorProperties
 #define STATIC_RemoveLayerInScene RemoveLayerInScene
