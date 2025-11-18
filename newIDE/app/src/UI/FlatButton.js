@@ -3,6 +3,10 @@ import * as React from 'react';
 import Button from '@material-ui/core/Button';
 import { type ButtonInterface } from './Button';
 import { Spacer } from './Grid';
+import classes from './FlatButton.module.css';
+import classNames from 'classnames';
+import { getBackgroundColor } from './Paper';
+import GDevelopThemeContext from './Theme/GDevelopThemeContext';
 
 // We support a subset of the props supported by Material-UI v0.x FlatButton
 // They should be self descriptive - refer to Material UI docs otherwise.
@@ -10,6 +14,7 @@ export type FlatButtonProps = {|
   label: React.Node,
   onClick: ?(ev: any) => void | Promise<void>,
   primary?: boolean,
+  color?: 'primary' | 'success' | 'danger' | 'premium' | 'ai',
   disabled?: boolean,
   keyboardFocused?: boolean,
   fullWidth?: boolean,
@@ -42,6 +47,7 @@ const FlatButton = React.forwardRef<FlatButtonProps, ButtonInterface>(
     {
       label,
       primary,
+      color,
       leftIcon,
       rightIcon,
       keyboardFocused,
@@ -58,25 +64,42 @@ const FlatButton = React.forwardRef<FlatButtonProps, ButtonInterface>(
     // always visible to be sure we're getting focusing right.
     const focusRipple = true;
 
+    const gdevelopTheme = React.useContext(GDevelopThemeContext);
+    const backgroundColor = getBackgroundColor(gdevelopTheme, 'dark');
+
     return (
-      <Button
-        variant="outlined"
-        size={size || 'small'}
-        color={primary ? 'secondary' : 'default'}
-        autoFocus={keyboardFocused}
-        focusRipple={focusRipple}
-        disabled={disabled}
-        id={id}
-        {...otherProps}
-        ref={ref}
+      <div
+        className={classNames({
+          [classes.coloredButtonContainer]: !!color,
+          [classes.buttonSuccess]: color === 'success',
+          [classes.buttonDanger]: color === 'danger',
+          [classes.buttonPremium]: color === 'premium',
+          [classes.buttonAi]: color === 'ai',
+        })}
       >
-        {leftIcon}
-        {leftIcon && label && <Spacer />}
-        {/* span element is required to prevent browser auto translators to crash the app - See https://github.com/4ian/GDevelop/issues/3453 */}
-        {label ? <span>{label}</span> : null}
-        {rightIcon && label && <Spacer />}
-        {rightIcon}
-      </Button>
+        <Button
+          variant="outlined"
+          size={size || 'small'}
+          color={primary || color === 'primary' ? 'secondary' : 'default'}
+          autoFocus={keyboardFocused}
+          focusRipple={focusRipple}
+          disabled={disabled}
+          id={id}
+          style={{
+            backgroundColor,
+            ...(otherProps.style || {}),
+          }}
+          {...otherProps}
+          ref={ref}
+        >
+          {leftIcon}
+          {leftIcon && label && <Spacer />}
+          {/* span element is required to prevent browser auto translators to crash the app - See https://github.com/4ian/GDevelop/issues/3453 */}
+          {label ? <span>{label}</span> : null}
+          {rightIcon && label && <Spacer />}
+          {rightIcon}
+        </Button>
+      </div>
     );
   }
 );

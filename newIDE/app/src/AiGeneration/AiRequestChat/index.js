@@ -35,7 +35,6 @@ import Help from '../../UI/CustomSvgIcons/Help';
 import Hammer from '../../UI/CustomSvgIcons/Hammer';
 import { ChatMessages } from './ChatMessages';
 import Send from '../../UI/CustomSvgIcons/Send';
-import { FeedbackBanner } from './FeedbackBanner';
 import classNames from 'classnames';
 import {
   type AiConfigurationPresetWithAvailability,
@@ -803,33 +802,12 @@ export const AiRequestChat = React.forwardRef<Props, AiRequestChatInterface>(
     const isPausedAndHasFunctionCallsToProcess =
       !isAutoProcessingFunctionCalls && allFunctionCallsToProcess.length > 0;
 
-    const lastMessageIndex = aiRequest.output.length - 1;
-    const lastMessage = aiRequest.output[lastMessageIndex];
     const shouldDisplayFeedbackBanner =
       !hasWorkingFunctionCalls &&
       !isPausedAndHasFunctionCallsToProcess &&
       !isSending &&
       aiRequest.status === 'ready' &&
-      aiRequest.mode === 'agent' &&
-      lastMessage.type === 'message' &&
-      lastMessage.role === 'assistant';
-    const lastMessageFeedbackBanner = shouldDisplayFeedbackBanner && (
-      <FeedbackBanner
-        onSendFeedback={(
-          feedback: 'like' | 'dislike',
-          reason?: string,
-          freeFormDetails?: string
-        ) => {
-          onSendFeedback(
-            aiRequestId,
-            lastMessageIndex,
-            feedback,
-            reason,
-            freeFormDetails
-          );
-        }}
-      />
-    );
+      aiRequest.mode === 'agent';
 
     const isForAnotherProject =
       !!requiredGameId &&
@@ -872,10 +850,12 @@ export const AiRequestChat = React.forwardRef<Props, AiRequestChatInterface>(
             editorCallbacks={editorCallbacks}
             project={project}
             onProcessFunctionCalls={onProcessFunctionCalls}
+            onUserRequestTextChange={onUserRequestTextChange}
+            disabled={isWorking || isForAnotherProject}
+            shouldDisplayFeedbackBanner={shouldDisplayFeedbackBanner}
           />
           <Spacer />
           <ColumnStackLayout noMargin>
-            {lastMessageFeedbackBanner}
             {userMessagesCount >= TOO_MANY_USER_MESSAGES_WARNING_COUNT ? (
               <AlertMessage
                 kind={
@@ -984,6 +964,7 @@ export const AiRequestChat = React.forwardRef<Props, AiRequestChatInterface>(
                     : t`Ask a follow up question`
                 }
                 rows={2}
+                maxRows={6}
                 onSubmit={() => {
                   setAutoProcessFunctionCalls(true);
                   onSendMessage({

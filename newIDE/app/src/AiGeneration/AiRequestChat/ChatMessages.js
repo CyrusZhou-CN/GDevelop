@@ -14,6 +14,8 @@ import { Trans, t } from '@lingui/macro';
 import {
   type AiRequest,
   type AiRequestMessageAssistantFunctionCall,
+  type AiRequestAssistantMessage,
+  type AiRequestFunctionCallOutput,
 } from '../../Utils/GDevelopServices/Generation';
 import {
   type EditorFunctionCallResult,
@@ -24,6 +26,89 @@ import { DislikeFeedbackDialog } from './DislikeFeedbackDialog';
 import LeftLoader from '../../UI/LeftLoader';
 import Text from '../../UI/Text';
 import AlertMessage from '../../UI/AlertMessage';
+import { ResponsiveLineStackLayout } from '../../UI/Layout';
+import FlatButton from '../../UI/FlatButton';
+import { FeedbackBanner } from './FeedbackBanner';
+
+const getMessageSuggestionsLines = ({
+  aiRequest,
+  onUserRequestTextChange,
+  disabled,
+  message,
+  messageIndex,
+}: {
+  aiRequest: AiRequest,
+  onUserRequestTextChange: (
+    userRequestText: string,
+    aiRequestIdToChange: string
+  ) => void,
+  disabled?: boolean,
+  message: AiRequestAssistantMessage | AiRequestFunctionCallOutput,
+  messageIndex: number,
+}) => {
+  const isLastMessage = messageIndex === aiRequest.output.length - 1;
+  const lines = [];
+  const isCorrectMessageType =
+    (message.type === 'message' && message.role === 'assistant') ||
+    message.type === 'function_call_output';
+  if (!isLastMessage || !isCorrectMessageType) {
+    return lines;
+  }
+
+  const suggestions = message.suggestions;
+
+  if (suggestions && suggestions.explanationMessage) {
+    lines.push(
+      <Line
+        key={`${messageIndex}-suggestion-message`}
+        justifyContent="flex-start"
+      >
+        <ChatBubble role="assistant">
+          <ChatMarkdownText source={suggestions.explanationMessage} />
+        </ChatBubble>
+      </Line>
+    );
+  }
+  if (suggestions && suggestions.suggestions.length) {
+    lines.push(
+      <Line
+        key={`${messageIndex}-suggestions-title`}
+        justifyContent="flex-start"
+        noMargin
+      >
+        <Text size="sub-title">
+          <Trans>What should I do next?</Trans>
+        </Text>
+      </Line>
+    );
+    lines.push(
+      <Line
+        key={`${messageIndex}-suggestions`}
+        justifyContent="flex-start"
+        noMargin
+      >
+        <ResponsiveLineStackLayout noMargin>
+          {suggestions.suggestions.map((suggestion, suggestionIndex) => (
+            <FlatButton
+              key={`suggestion-${suggestionIndex}`}
+              onClick={() => {
+                onUserRequestTextChange(
+                  suggestion.suggestedMessage,
+                  aiRequest.id
+                );
+              }}
+              label={suggestion.title}
+              disabled={disabled}
+              color="ai"
+            />
+          ))}
+        </ResponsiveLineStackLayout>
+      </Line>
+    );
+  }
+
+  return lines;
+};
 
 type Props = {|
   aiRequest: AiRequest,
@@ -43,6 +128,12 @@ type Props = {|
   ) => Promise<void>,
   editorCallbacks: EditorCallbacks,
   project: ?gdProject,
+  onUserRequestTextChange: (
+    userRequestText: string,
+    aiRequestIdToChange: string
+  ) => void,
+  disabled?: boolean,
+  shouldDisplayFeedbackBanner?: boolean,
 |};
 
 export const ChatMessages = React.memo<Props>(function ChatMessages({
@@ -52,8 +143,30 @@ export const ChatMessages = React.memo<Props>(function ChatMessages({
   onProcessFunctionCalls,
   editorCallbacks,
   project,
+  onUserRequestTextChange,
+  disabled,
+  shouldDisplayFeedbackBanner,
 }: Props) {
   const theme = React.useContext(GDevelopThemeContext);
+
+  const lastMessageIndex = aiRequest.output.length - 1;
+  const lastMessageFeedbackBanner = shouldDisplayFeedbackBanner && (
+    <FeedbackBanner
+      onSendFeedback={(
+        feedback: 'like' | 'dislike',
+        reason?: string,
+        freeFormDetails?: string
+      ) => {
+        onSendFeedback(
+          aiRequest.id,
+          lastMessageIndex,
+          feedback,
+          reason,
+          freeFormDetails
+        );
+      }}
+    />
+  );
 
   const [messageFeedbacks, setMessageFeedbacks] = React.useState({});
   const [
@@ -70,6 +183,8 @@ export const ChatMessages = React.memo<Props>(function ChatMessages({
   return (
     <>
       {aiRequest.output.flatMap((message, messageIndex) => {
+        const isLastMessage = messageIndex === aiRequest.output.length - 1;
+
         if (message.type === 'message' && message.role === 'user') {
           return [
             <Line key={messageIndex} justifyContent="flex-end">
@@ -86,7 +201,7 @@ export const ChatMessages = React.memo<Props>(function ChatMessages({
         if (message.type === 'message' && message.role === 'assistant') {
           return [
             ...message.content
-              .map((messageContent, messageContentIndex) => {
+              .flatMap((messageContent, messageContentIndex) => {
                 const key = `messageIndex${messageIndex}-${messageContentIndex}`;
                 if (messageContent.type === 'output_text') {
                   const feedbackKey = `${messageIndex}-${messageContentIndex}`;
@@ -98,7 +213,7 @@ export const ChatMessages = React.memo<Props>(function ChatMessages({
                     return null;
                   }
 
-                  return (
+                  return [
                     <Line key={key} justifyContent="flex-start">
                       <ChatBubble
                         role="assistant"
@@ -167,19 +282,20 @@ export const ChatMessages = React.memo<Props>(function ChatMessages({
                       >
                         <ChatMarkdownText source={trimmedText} />
                       </ChatBubble>
-                    </Line>
-                  );
+                    </Line>,
+                    isLastMessage ? lastMessageFeedbackBanner : null,
+                  ];
                 }
                 if (messageContent.type === 'reasoning') {
-                  return (
+                  return [
                     <Line key={key} justifyContent="flex-start">
                       <ChatBubble role="assistant">
                         <ChatMarkdownText
                           source={messageContent.summary.text}
                         />
                       </ChatBubble>
-                    </Line>
-                  );
+                    </Line>,
+                  ];
                 }
                 if (messageContent.type === 'function_call') {
                   const existingFunctionCallOutput = functionCallToFunctionCallOutput.get(
@@ -199,7 +315,7 @@ export const ChatMessages = React.memo<Props>(function ChatMessages({
                           functionCallOutput.call_id === messageContent.call_id
                       )) ||
                     null;
-                  return (
+                  return [
                     <FunctionCallRow
                       project={project}
                       key={key}
@@ -208,16 +324,31 @@ export const ChatMessages = React.memo<Props>(function ChatMessages({
                       editorFunctionCallResult={editorFunctionCallResult}
                       existingFunctionCallOutput={existingFunctionCallOutput}
                       editorCallbacks={editorCallbacks}
-                    />
-                  );
+                    />,
+                  ];
                 }
                 return null;
               })
               .filter(Boolean),
+            ...getMessageSuggestionsLines({
+              aiRequest,
+              onUserRequestTextChange,
+              disabled,
+              message,
+              messageIndex,
+            }),
           ];
         }
         if (message.type === 'function_call_output') {
-          return [];
+          return [
+            ...getMessageSuggestionsLines({
+              aiRequest,
+              onUserRequestTextChange,
+              disabled,
+              message,
+              messageIndex,
+            }),
+          ];
         }
 
         return [];

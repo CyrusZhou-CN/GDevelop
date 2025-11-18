@@ -63,7 +63,7 @@ export class Toolbar extends React.PureComponent<Props> {
 
         {canPause ? (
           <FlatButton
-            primary
+            color="primary"
             onClick={onPause}
             leftIcon={<PauseIcon />}
             label={<Trans>Pause</Trans>}
