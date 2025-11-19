@@ -231,6 +231,7 @@ type Props = {|
     eventsBasedObjectName: string,
     variantName: string
   ) => void,
+  onWillInstallExtension: (extensionNames: Array<string>) => void,
   onExtensionInstalled: (extensionNames: Array<string>) => void,
   onDeleteEventsBasedObjectVariant: (
     eventsFunctionsExtension: gdEventsFunctionsExtension,
@@ -809,21 +810,31 @@ export default class SceneEditor extends React.Component<Props, State> {
     this.setState({ layoutVariablesDialogOpen: open });
   };
 
-  editObject = (editedObject: ?gdObject, initialTab: ?ObjectEditorTab) => {
+  editObject = (
+    editedObject: ?gdObject,
+    initialTab: ?ObjectEditorTab,
+    callback?: () => void
+  ) => {
     const { project } = this.props;
     if (editedObject) {
-      this.setState({
-        editedObjectWithContext: {
-          object: editedObject,
-          global: project.getObjects().hasObjectNamed(editedObject.getName()),
+      this.setState(
+        {
+          editedObjectWithContext: {
+            object: editedObject,
+            global: project.getObjects().hasObjectNamed(editedObject.getName()),
+          },
+          editedObjectInitialTab: initialTab || 'properties',
         },
-        editedObjectInitialTab: initialTab || 'properties',
-      });
+        callback
+      );
     } else {
-      this.setState({
-        editedObjectWithContext: null,
-        editedObjectInitialTab: 'properties',
-      });
+      this.setState(
+        {
+          editedObjectWithContext: null,
+          editedObjectInitialTab: 'properties',
+        },
+        callback
+      );
     }
   };
 
@@ -2794,6 +2805,7 @@ export default class SceneEditor extends React.Component<Props, State> {
                 isActive={isActive}
                 onOpenedEditorsChanged={this.updateToolbar}
                 lastSelectionType={this.state.lastSelectionType}
+                onWillInstallExtension={this.props.onWillInstallExtension}
                 onExtensionInstalled={this.props.onExtensionInstalled}
                 editorViewPosition2D={this.editorViewPosition2D}
               />
@@ -2849,22 +2861,26 @@ export default class SceneEditor extends React.Component<Props, State> {
                           hasResourceChanged: boolean,
                           hasAnyEffectBeenAdded: boolean
                         ) => {
-                          // When resource parameters changed an hot-reload is
-                          // already triggered by _onObjectEdited.
-                          if (!hasResourceChanged) {
-                            // An hot-reload for an edited image may be on hold.
-                            this.props.triggerHotReloadInGameEditorIfNeeded();
-                          }
-                          if (editedObjectWithContext) {
-                            this._onObjectEdited(
-                              editedObjectWithContext,
-                              hasResourceChanged
-                            );
-                          }
-                          if (hasAnyEffectBeenAdded) {
-                            this.props.onEffectAdded();
-                          }
-                          this.editObject(null);
+                          // The editedObjectWithContext state must be reset
+                          // because no hot-reload can happen while an object is edited.
+                          const appliedObjectWithContext = editedObjectWithContext;
+                          this.editObject(null, undefined, () => {
+                            // When resource parameters changed an hot-reload is
+                            // already triggered by _onObjectEdited.
+                            if (!hasResourceChanged) {
+                              // An hot-reload for an edited image may be on hold.
+                              this.props.triggerHotReloadInGameEditorIfNeeded();
+                            }
+                            if (appliedObjectWithContext) {
+                              this._onObjectEdited(
+                                appliedObjectWithContext,
+                                hasResourceChanged
+                              );
+                            }
+                            if (hasAnyEffectBeenAdded) {
+                              this.props.onEffectAdded();
+                            }
+                          });
                         }}
                         hotReloadPreviewButtonProps={
                           this.props.hotReloadPreviewButtonProps
@@ -2873,6 +2889,9 @@ export default class SceneEditor extends React.Component<Props, State> {
                           this.updateBehaviorsSharedData()
                         }
                         openBehaviorEvents={this.props.openBehaviorEvents}
+                        onWillInstallExtension={
+                          this.props.onWillInstallExtension
+                        }
                         onExtensionInstalled={this.props.onExtensionInstalled}
                         onOpenEventBasedObjectEditor={
                           this.props.onOpenEventBasedObjectEditor
