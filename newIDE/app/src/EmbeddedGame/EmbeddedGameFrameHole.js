@@ -1,7 +1,8 @@
 // @flow
 import * as React from 'react';
 
-const embeddedGameFrameHoleId = 'instances-editor-embedded-game-frame-hole';
+export const embeddedGameFrameHoleId =
+  'instances-editor-embedded-game-frame-hole';
 
 let activeEmbeddedGameFrameHoleCount = 0;
 
@@ -45,7 +46,8 @@ export const getActiveEmbeddedGameFrameHoleRect = (): ?ClientRect => {
 
 type Props = {|
   isActive: boolean,
-  onRestartInGameEditorAfterError: (() => void) | null,
+  showRestartInGameEditorAfterErrorButton: boolean,
+  onRestartInGameEditor: (reason: string) => void,
   marginBottom?: number,
 |};
 
@@ -78,12 +80,14 @@ export const EmbeddedGameFrameHole = (props: Props) => {
       }}
       id={props.isActive ? embeddedGameFrameHoleId : undefined}
     >
-      {props.onRestartInGameEditorAfterError && (
+      {props.showRestartInGameEditorAfterErrorButton && (
         <button
           style={{
             pointerEvents: 'all',
           }}
-          onClick={props.onRestartInGameEditorAfterError}
+          onClick={() =>
+            props.onRestartInGameEditor('relaunched-manually-after-error')
+          }
         >
           Restart 3D editor
         </button>

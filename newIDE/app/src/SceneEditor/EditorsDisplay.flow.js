@@ -33,9 +33,8 @@ export type SceneEditorsDisplayProps = {|
   objectsContainer: gdObjectsContainer,
   projectScopedContainersAccessor: ProjectScopedContainersAccessor,
   initialInstances: gdInitialInstancesContainer,
-  lastSelectionType: 'instance' | 'object',
+  lastSelectionType: 'instance' | 'object' | 'layer',
   instancesSelection: InstancesSelection,
-  selectedLayer: string,
   onSelectInstances: (
     instances: Array<gdInitialInstance>,
     multiSelect: boolean,
@@ -46,6 +45,7 @@ export type SceneEditorsDisplayProps = {|
   editObjectByName: (objectName: string, initialTab?: ObjectEditorTab) => void,
   editObjectInPropertiesPanel: (objectName: string) => void,
   onEditObject: (object: gdObject, initialTab: ?ObjectEditorTab) => void,
+  onEffectAdded: () => void,
   onOpenEventBasedObjectEditor: (
     extensionName: string,
     eventsBasedObjectName: string
@@ -61,7 +61,10 @@ export type SceneEditorsDisplayProps = {|
     variant: gdEventsBasedObjectVariant
   ) => void,
   selectedObjectFolderOrObjectsWithContext: ObjectFolderOrObjectWithContext[],
-  onSelectLayer: (layerName: string) => void,
+  chosenLayer: string,
+  onChooseLayer: (layerName: string) => void,
+  selectedLayer: gdLayer | null,
+  onSelectLayer: (layer: gdLayer | null) => void,
   editLayerEffects: (layer: ?gdLayer) => void,
   editLayer: (layer: ?gdLayer) => void,
   onRemoveLayer: (layerName: string, done: (boolean) => void) => void,
@@ -151,7 +154,9 @@ export type SceneEditorsDisplayProps = {|
   instancesEditorShortcutsCallbacks: InstancesEditorShortcutsCallbacks,
 
   onOpenedEditorsChanged: () => void,
-  onRestartInGameEditorAfterError: (() => void) | null,
+  onRestartInGameEditor: (reason: string) => void,
+  showRestartInGameEditorAfterErrorButton: boolean,
+  onEventsBasedObjectChildrenEdited: gdEventsBasedObject => void,
 |};
 
 export type SceneEditorsDisplayInterface = {|
@@ -165,6 +170,7 @@ export type SceneEditorsDisplayInterface = {|
   openNewObjectDialog: () => void,
   toggleEditorView: (editorId: EditorId) => void,
   isEditorVisible: (editorId: EditorId) => boolean,
+  ensureEditorVisible: (editorId: EditorId) => void,
   viewControls: {|
     zoomBy: (factor: number) => void,
     setZoomFactor: (factor: number) => void,

@@ -27,6 +27,7 @@ const instancesEditorSettings: InstancesEditorSettings = {
   zoomFactor: 1,
   windowMask: false,
   selectedLayer: '',
+  gameEditorMode: 'instances-editor',
 };
 
 export default {
@@ -46,7 +47,7 @@ export const Default = () => (
         layersContainer={testProject.testLayout.getLayers()}
         globalObjectsContainer={testProject.project.getObjects()}
         objectsContainer={testProject.testLayout.getObjects()}
-        selectedLayer={''}
+        chosenLayer={''}
         initialInstances={testProject.testLayout.getInitialInstances()}
         instancesEditorSettings={instancesEditorSettings}
         onInstancesEditorSettingsMutated={() => {}}

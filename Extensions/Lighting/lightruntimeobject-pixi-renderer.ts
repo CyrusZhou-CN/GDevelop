@@ -3,6 +3,7 @@ namespace gdjs {
 
   /**
    * Pixi renderer for light runtime objects.
+   * @category Renderers > 2D Light
    */
   export class LightRuntimeObjectPixiRenderer {
     _object: gdjs.LightRuntimeObject;
@@ -101,15 +102,12 @@ namespace gdjs {
         this._debugGraphics.destroy();
         this._debugGraphics = null;
       }
-      if (this._texture) {
-        this._texture.destroy();
-        this._texture = null;
-      }
       if (this._light) {
         this._light.removeFromParent();
         this._light.destroy();
         this._light = null;
       }
+      // We dot not destroy the texture, as it is managed by the PixiImageManager.
     }
 
     static _verticesWithAngleComparator(vertexWithAngleA, vertexWithAngleB) {
@@ -639,7 +637,13 @@ namespace gdjs {
   }`;
   }
 
+  /**
+   * @category Renderers > 2D Light
+   */
   // @ts-ignore - Register the class to let the engine use it.
   export const LightRuntimeObjectRenderer = LightRuntimeObjectPixiRenderer;
+  /**
+   * @category Renderers > 2D Light
+   */
   export type LightRuntimeObjectRenderer = LightRuntimeObjectPixiRenderer;
 }

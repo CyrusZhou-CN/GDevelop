@@ -78,6 +78,7 @@ const SwipeableDrawerEditorsDisplay = React.forwardRef<
     objectsContainer,
     projectScopedContainersAccessor,
     initialInstances,
+    chosenLayer,
     selectedLayer,
     onSelectInstances,
     onInstancesModified,
@@ -85,7 +86,8 @@ const SwipeableDrawerEditorsDisplay = React.forwardRef<
     onWillInstallExtension,
     onExtensionInstalled,
     isActive,
-    onRestartInGameEditorAfterError,
+    onRestartInGameEditor,
+    showRestartInGameEditorAfterErrorButton,
   } = props;
   const selectedInstances = props.instancesSelection.getSelectedInstances();
   const { values } = React.useContext(PreferencesContext);
@@ -150,7 +152,7 @@ const SwipeableDrawerEditorsDisplay = React.forwardRef<
     []
   );
   const forceUpdateLayersList = React.useCallback(() => {
-    if (layersListRef.current) layersListRef.current.forceUpdate();
+    if (layersListRef.current) layersListRef.current.forceUpdateList();
   }, []);
   const getInstanceSize = React.useCallback((instance: gdInitialInstance) => {
     return editorRef.current
@@ -166,6 +168,14 @@ const SwipeableDrawerEditorsDisplay = React.forwardRef<
       return editorId === selectedEditorId && drawerOpeningState !== 'closed';
     },
     [selectedEditorId, drawerOpeningState]
+  );
+  const ensureEditorVisible = React.useCallback(
+    (editorId: EditorId) => {
+      if (!isEditorVisible(editorId)) {
+        halfOpenOrCloseDrawerOnEditor(editorId);
+      }
+    },
+    [halfOpenOrCloseDrawerOnEditor, isEditorVisible]
   );
   const openNewObjectDialog = React.useCallback(
     () => {
@@ -217,6 +227,7 @@ const SwipeableDrawerEditorsDisplay = React.forwardRef<
       openNewObjectDialog,
       toggleEditorView: halfOpenOrCloseDrawerOnEditor,
       isEditorVisible,
+      ensureEditorVisible,
       startSceneRendering,
       viewControls: {
         zoomBy: editor ? editor.zoomBy : noop,
@@ -299,8 +310,9 @@ const SwipeableDrawerEditorsDisplay = React.forwardRef<
               <EmbeddedGameFrameHole
                 marginBottom={bottomContainerHeight}
                 isActive={isActive}
-                onRestartInGameEditorAfterError={
-                  onRestartInGameEditorAfterError
+                onRestartInGameEditor={onRestartInGameEditor}
+                showRestartInGameEditorAfterErrorButton={
+                  showRestartInGameEditorAfterErrorButton
                 }
               />
             ) : (
@@ -315,7 +327,7 @@ const SwipeableDrawerEditorsDisplay = React.forwardRef<
                 globalObjectsContainer={globalObjectsContainer}
                 objectsContainer={objectsContainer}
                 layersContainer={layersContainer}
-                selectedLayer={selectedLayer}
+                chosenLayer={chosenLayer}
                 screenType={screenType}
                 initialInstances={initialInstances}
                 instancesEditorSettings={props.instancesEditorSettings}
@@ -369,6 +381,7 @@ const SwipeableDrawerEditorsDisplay = React.forwardRef<
                       globalObjectsContainer={globalObjectsContainer}
                       objectsContainer={objectsContainer}
                       layout={layout}
+                      eventsFunctionsExtension={eventsFunctionsExtension}
                       eventsBasedObject={eventsBasedObject}
                       initialInstances={initialInstances}
                       onSelectAllInstancesOfObjectInLayout={
@@ -442,16 +455,17 @@ const SwipeableDrawerEditorsDisplay = React.forwardRef<
                       }
                       objects={selectedObjects}
                       instances={selectedInstances}
+                      layer={selectedLayer}
                       editInstanceVariables={props.editInstanceVariables}
                       editObjectInPropertiesPanel={
                         props.editObjectInPropertiesPanel
                       }
                       onEditObject={props.onEditObject}
                       onObjectsModified={props.onObjectsModified}
+                      onEffectAdded={props.onEffectAdded}
                       onInstancesModified={forceUpdateInstancesList}
                       onGetInstanceSize={getInstanceSize}
                       ref={instanceOrObjectPropertiesEditorRef}
-                      unsavedChanges={props.unsavedChanges}
                       historyHandler={props.historyHandler}
                       tileMapTileSelection={props.tileMapTileSelection}
                       onSelectTileMapTile={props.onSelectTileMapTile}
@@ -466,6 +480,19 @@ const SwipeableDrawerEditorsDisplay = React.forwardRef<
                       }
                       isVariableListLocked={isCustomVariant}
                       isBehaviorListLocked={isCustomVariant}
+                      onEditLayerEffects={props.editLayerEffects}
+                      onEditLayer={props.editLayer}
+                      onLayersModified={props.onLayersModified}
+                      eventsBasedObject={props.eventsBasedObject}
+                      eventsBasedObjectVariant={props.eventsBasedObjectVariant}
+                      getContentAABB={
+                        editorRef.current
+                          ? editorRef.current.getContentAABB
+                          : () => null
+                      }
+                      onEventsBasedObjectChildrenEdited={
+                        props.onEventsBasedObjectChildrenEdited
+                      }
                     />
                   )}
                 </I18n>
@@ -524,6 +551,8 @@ const SwipeableDrawerEditorsDisplay = React.forwardRef<
                   layout={layout}
                   eventsFunctionsExtension={eventsFunctionsExtension}
                   eventsBasedObject={eventsBasedObject}
+                  chosenLayer={chosenLayer}
+                  onChooseLayer={props.onChooseLayer}
                   selectedLayer={selectedLayer}
                   onSelectLayer={props.onSelectLayer}
                   onEditLayerEffects={props.editLayerEffects}
@@ -536,7 +565,6 @@ const SwipeableDrawerEditorsDisplay = React.forwardRef<
                   onLayerRenamed={props.onLayerRenamed}
                   onCreateLayer={forceUpdatePropertiesEditor}
                   layersContainer={layersContainer}
-                  unsavedChanges={props.unsavedChanges}
                   ref={layersListRef}
                   hotReloadPreviewButtonProps={
                     props.hotReloadPreviewButtonProps

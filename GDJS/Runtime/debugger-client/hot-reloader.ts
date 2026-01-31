@@ -1,31 +1,77 @@
 namespace gdjs {
   const logger = new gdjs.Logger('Hot reloader');
+
+  /**
+   * @category Debugging > Hot reloader
+   */
   export type HotReloaderLog = {
     message: string;
     kind: 'fatal' | 'error' | 'warning' | 'info';
   };
 
+  /**
+   * @category Debugging > Hot reloader
+   */
   export type ChangedRuntimeBehavior = {
     oldBehaviorConstructor: Function;
     newBehaviorConstructor: Function;
     behaviorTypeName: string;
   };
 
+  /** Each hot-reload has a unique ID to ease the debugging/reading logs. */
+  let nextHotReloadId = 1;
+
+  type HotReloadOptions = {
+    shouldReloadResources: boolean;
+    projectData: ProjectData;
+    runtimeGameOptions: RuntimeGameOptions;
+  };
+
+  const cloneHotReloadOptions = (
+    options: HotReloadOptions
+  ): HotReloadOptions => {
+    return JSON.parse(JSON.stringify(options));
+  };
+
+  const getOptionsLogString = (options: HotReloadOptions): string => {
+    return JSON.stringify({
+      shouldReloadResources: options.shouldReloadResources,
+      shouldReloadLibraries: options.runtimeGameOptions.shouldReloadLibraries,
+      shouldGenerateScenesEventsCode:
+        options.runtimeGameOptions.shouldGenerateScenesEventsCode,
+      newScriptFilesCount: options.runtimeGameOptions.scriptFiles?.length,
+    });
+  };
+
   /**
    * Reload scripts/data of an exported game and applies the changes
    * to the running runtime game.
+   * @category Debugging > Hot reloader
    */
   export class HotReloader {
     _runtimeGame: gdjs.RuntimeGame;
     _reloadedScriptElement: Record<string, HTMLScriptElement> = {};
     _logs: HotReloaderLog[] = [];
     _alreadyLoadedScriptFiles: Record<string, boolean> = {};
+    _existingScriptFiles: RuntimeGameOptionsScriptFile[] | null = null;
+    _isHotReloadingSince: number | null = null;
+
+    _hotReloadsQueue: Array<{
+      hotReloadId: number;
+      onDone: (logs: HotReloaderLog[]) => void;
+      options: HotReloadOptions;
+    }> = [];
 
     /**
      * @param runtimeGame - The `gdjs.RuntimeGame` to be hot-reloaded.
      */
     constructor(runtimeGame: gdjs.RuntimeGame) {
       this._runtimeGame = runtimeGame;
+
+      // Remember the script files that were loaded when the game was started.
+      if (this._runtimeGame._options.scriptFiles) {
+        this._existingScriptFiles = this._runtimeGame._options.scriptFiles;
+      }
     }
 
     static indexByPersistentUuid<
@@ -144,16 +190,57 @@ namespace gdjs {
       });
     }
 
-    async hotReload({
-      shouldReloadResources,
-      projectData: newProjectData,
-      runtimeGameOptions: newRuntimeGameOptions,
-    }: {
-      shouldReloadResources: boolean;
-      projectData: ProjectData;
-      runtimeGameOptions: RuntimeGameOptions;
-    }): Promise<HotReloaderLog[]> {
-      logger.info('Hot reload started');
+    /**
+     * Trigger a hot-reload of the game.
+     * The hot-reload is added to a queue and processed in order.
+     *
+     * This allows the editor to trigger multiple hot-reloads in a row (even if
+     * it's sub-optimal) and not miss any (one could for example be reloading libraries
+     * or code, while other are just reloading resources).
+     */
+    async hotReload(options: HotReloadOptions): Promise<HotReloaderLog[]> {
+      return new Promise((resolve) => {
+        const hotReloadId = nextHotReloadId++;
+
+        this._hotReloadsQueue.push({
+          hotReloadId,
+          onDone: resolve,
+          // Clone the options to avoid any mutation while
+          // waiting for the hot-reload to be processed.
+          options: cloneHotReloadOptions(options),
+        });
+
+        if (this._hotReloadsQueue.length > 1) {
+          logger.info(
+            `Hot reload #${hotReloadId} added to queue. Options are: ${getOptionsLogString(options)}.`
+          );
+        }
+
+        this._processHotReloadsQueue();
+      });
+    }
+
+    private async _processHotReloadsQueue(): Promise<void> {
+      // Don't do anything if a hot-reload is already in progress:
+      // it will be processed later (see the end).
+      if (this._isHotReloadingSince || this._hotReloadsQueue.length === 0) {
+        return;
+      }
+
+      // Mark the hot reload as started (so no other hot-reload is started).
+      this._isHotReloadingSince = Date.now();
+
+      const { options, onDone, hotReloadId } = this._hotReloadsQueue.shift()!;
+      const {
+        shouldReloadResources,
+        projectData: newProjectData,
+        runtimeGameOptions: newRuntimeGameOptions,
+      } = options;
+
+      logger.info(
+        `Hot reload #${hotReloadId} started. Options are: ${getOptionsLogString(options)}.`
+      );
+
       const wasPaused = this._runtimeGame.isPaused();
       this._runtimeGame.pause(true);
       this._logs = [];
@@ -163,17 +250,13 @@ namespace gdjs {
       const oldProjectData: ProjectData = gdjs.projectData;
       gdjs.projectData = newProjectData;
 
-      const oldRuntimeGameOptions = gdjs.runtimeGameOptions;
-      gdjs.runtimeGameOptions = newRuntimeGameOptions;
-
-      const oldScriptFiles =
-        oldRuntimeGameOptions.scriptFiles as RuntimeGameOptionsScriptFile[];
-
-      oldScriptFiles.forEach((scriptFile) => {
+      (this._existingScriptFiles || []).forEach((scriptFile) => {
         this._alreadyLoadedScriptFiles[scriptFile.path] = true;
       });
-      const oldBehaviorConstructors: { [key: string]: Function } = {};
 
+      gdjs.runtimeGameOptions = newRuntimeGameOptions;
+
+      const oldBehaviorConstructors: { [key: string]: Function } = {};
       for (let behaviorTypeName in gdjs.behaviorsTypes.items) {
         oldBehaviorConstructors[behaviorTypeName] =
           gdjs.behaviorsTypes.items[behaviorTypeName];
@@ -187,8 +270,7 @@ namespace gdjs {
         );
       }
 
-      const newScriptFiles =
-        newRuntimeGameOptions.scriptFiles as RuntimeGameOptionsScriptFile[];
+      const newScriptFiles = newRuntimeGameOptions.scriptFiles;
       const shouldGenerateScenesEventsCode =
         !!newRuntimeGameOptions.shouldGenerateScenesEventsCode;
       const shouldReloadLibraries =
@@ -202,7 +284,7 @@ namespace gdjs {
         if (shouldReloadLibraries) {
           await this.reloadScriptFiles(
             newProjectData,
-            oldScriptFiles,
+            this._existingScriptFiles,
             newScriptFiles,
             shouldGenerateScenesEventsCode
           );
@@ -270,12 +352,32 @@ namespace gdjs {
         }
       }
 
+      // Remember the script files that were loaded for the game now that
+      // the hot-reload is finished. This will allow a next hot-reload to
+      // reload the scripts files that have been added or changed.
+      // Note that some hot-reload options do not have any "scriptFiles", in which
+      // case the game script files have not changed.
+      if (newRuntimeGameOptions.scriptFiles) {
+        this._existingScriptFiles = newRuntimeGameOptions.scriptFiles;
+      }
+
       logger.info(
-        'Hot reload finished with logs:',
-        this._logs.map((log) => '\n' + log.kind + ': ' + log.message)
+        `Hot reload #${hotReloadId} finished in ${Math.ceil(Date.now() - this._isHotReloadingSince)}ms with logs:\n${
+          this._logs.length > 0
+            ? this._logs.map((log) => '\n' + log.kind + ': ' + log.message)
+            : '(no logs)'
+        }`
       );
+      this._isHotReloadingSince = null;
       this._runtimeGame.pause(wasPaused);
-      return this._logs;
+      onDone(this._logs);
+
+      if (this._hotReloadsQueue.length > 0) {
+        logger.info(
+          `Still ${this._hotReloadsQueue.length} hot-reloads in queue. Starting the next one...`
+        );
+        this._processHotReloadsQueue();
+      }
     }
 
     _computeChangedRuntimeBehaviors(
@@ -318,8 +420,8 @@ namespace gdjs {
 
     reloadScriptFiles(
       newProjectData: ProjectData,
-      oldScriptFiles: RuntimeGameOptionsScriptFile[],
-      newScriptFiles: RuntimeGameOptionsScriptFile[],
+      oldScriptFiles: RuntimeGameOptionsScriptFile[] | null,
+      newScriptFiles: RuntimeGameOptionsScriptFile[] | undefined,
       shouldGenerateScenesEventsCode: boolean
     ): Promise<void[]> {
       const reloadPromises: Array<Promise<void>> = [];
@@ -330,46 +432,67 @@ namespace gdjs {
           reloadPromises.push(this._reloadScript('code' + index + '.js'));
         });
       }
-      for (let i = 0; i < newScriptFiles.length; ++i) {
-        const newScriptFile = newScriptFiles[i];
-        const oldScriptFile = oldScriptFiles.filter(
-          (scriptFile) => scriptFile.path === newScriptFile.path
-        )[0];
-        if (!oldScriptFile) {
-          // Script file added
-          this._logs.push({
-            kind: 'info',
-            message:
-              'Loading ' +
-              newScriptFile.path +
-              ' as it was added to the list of scripts.',
-          });
-          reloadPromises.push(this._reloadScript(newScriptFile.path));
-        } else {
-          // Script file changed, which can be the case for extensions created
-          // from the editor, containing free functions or behaviors.
-          if (newScriptFile.hash !== oldScriptFile.hash) {
+
+      if (!newScriptFiles) {
+        // Script files were not exported for this hot-reload.
+        // This means the hot-reload was just done for a new resource, object
+        // or other thing not reload to code generation. Just do nothing.
+        logger.info(
+          'Script files were not exported (previously or now for this hot-reload).'
+        );
+      } else if (!oldScriptFiles) {
+        // Script files are not available. This is suspicious as we should always
+        // have them stored.
+        logger.error(
+          'Existing script files are not available for the hot-reload. No new or modified script will be hot-reloaded.'
+        );
+
+        // TODO: Consider if this should be communicated as an error or fatal error.
+      } else {
+        for (let i = 0; i < newScriptFiles.length; ++i) {
+          const newScriptFile = newScriptFiles[i];
+          const oldScriptFile = oldScriptFiles.filter(
+            (scriptFile) => scriptFile.path === newScriptFile.path
+          )[0];
+          if (!oldScriptFile) {
+            // Script file added
             this._logs.push({
               kind: 'info',
               message:
-                'Reloading ' + newScriptFile.path + ' because it was changed.',
+                'Loading ' +
+                newScriptFile.path +
+                ' as it was added to the list of scripts.',
             });
             reloadPromises.push(this._reloadScript(newScriptFile.path));
+          } else {
+            // Script file changed, which can be the case for extensions created
+            // from the editor, containing free functions or behaviors.
+            if (newScriptFile.hash !== oldScriptFile.hash) {
+              this._logs.push({
+                kind: 'info',
+                message:
+                  'Reloading ' +
+                  newScriptFile.path +
+                  ' because it was changed.',
+              });
+              reloadPromises.push(this._reloadScript(newScriptFile.path));
+            }
           }
         }
-      }
-      for (let i = 0; i < oldScriptFiles.length; ++i) {
-        const oldScriptFile = oldScriptFiles[i];
-        const newScriptFile = newScriptFiles.filter(
-          (scriptFile) => scriptFile.path === oldScriptFile.path
-        )[0];
+        for (let i = 0; i < oldScriptFiles.length; ++i) {
+          const oldScriptFile = oldScriptFiles[i];
+          const newScriptFile = newScriptFiles.filter(
+            (scriptFile) => scriptFile.path === oldScriptFile.path
+          )[0];
 
-        // A file may be removed because of a partial preview.
-        if (!newScriptFile && !shouldGenerateScenesEventsCode) {
-          this._logs.push({
-            kind: 'warning',
-            message: 'Script file ' + oldScriptFile.path + ' was removed.',
-          });
+          // A file may be removed because of a partial preview.
+          if (!newScriptFile && !shouldGenerateScenesEventsCode) {
+            this._logs.push({
+              kind: 'warning',
+              message:
+                'Script file ' + oldScriptFile.path + ' was removed. Ignoring.',
+            });
+          }
         }
       }
       return Promise.all(reloadPromises);
@@ -1252,10 +1375,19 @@ namespace gdjs {
                 hotReloadSucceeded =
                   runtimeObject.updateAllEffectParameters(newEffectData) &&
                   hotReloadSucceeded;
+                if (oldEffectData.disabled !== newEffectData.disabled) {
+                  runtimeObject.enableEffect(
+                    newEffectData.name,
+                    !newEffectData.disabled
+                  );
+                }
               } else {
                 // Another effect type was applied
                 runtimeObject.removeEffect(oldEffectData.name);
                 runtimeObject.addEffect(newEffectData);
+                if (newEffectData.disabled) {
+                  runtimeObject.enableEffect(newEffectData.name, false);
+                }
               }
             });
             if (!hotReloadSucceeded) {
@@ -1279,6 +1411,9 @@ namespace gdjs {
           runtimeObjects.forEach((runtimeObject) => {
             hotReloadSucceeded =
               runtimeObject.addEffect(newEffectData) && hotReloadSucceeded;
+            if (newEffectData.disabled) {
+              runtimeObject.enableEffect(newEffectData.name, false);
+            }
           });
           if (!hotReloadSucceeded) {
             this._logs.push({
@@ -1311,27 +1446,16 @@ namespace gdjs {
 
     hotReloadRuntimeSceneLayers(
       newLayers: LayerData[],
+      oldLayers: LayerData[],
       runtimeInstanceContainer: gdjs.RuntimeInstanceContainer
     ): void {
-      const layerNames = [];
-      runtimeInstanceContainer.getAllLayerNames(layerNames);
-      const oldLayers = layerNames.map((layerName) =>
-        runtimeInstanceContainer.hasLayer(layerName)
-          ? runtimeInstanceContainer.getLayer(layerName)._initialLayerData
-          : null
-      );
       this._hotReloadRuntimeSceneLayers(
         oldLayers.filter(Boolean) as LayerData[],
         newLayers,
         runtimeInstanceContainer
       );
       // Update the GameData
-      for (let index = 0; index < newLayers.length; index++) {
-        const oldLayer = oldLayers[index];
-        if (oldLayer) {
-          HotReloader.assignOrDelete(oldLayer, newLayers[index]);
-        }
-      }
+      gdjs.copyArray(newLayers, oldLayers);
     }
 
     _hotReloadRuntimeSceneLayers(
@@ -1470,6 +1594,9 @@ namespace gdjs {
               // Effect changed type, consider it was removed and added back.
               runtimeLayer.removeEffect(name);
               runtimeLayer.addEffect(newEffectData);
+              if (newEffectData.disabled) {
+                runtimeLayer.enableEffect(newEffectData.name, false);
+              }
             } else {
               this._hotReloadRuntimeLayerEffect(
                 oldEffectData,
@@ -1489,6 +1616,9 @@ namespace gdjs {
         if (!oldEffectData && !runtimeLayer.hasEffect(name)) {
           // Effect was added
           runtimeLayer.addEffect(newEffectData);
+          if (newEffectData.disabled) {
+            runtimeLayer.enableEffect(newEffectData.name, false);
+          }
         }
       });
     }
@@ -1499,6 +1629,9 @@ namespace gdjs {
       runtimeLayer: gdjs.RuntimeLayer,
       effectName: string
     ): void {
+      if (oldEffectData.disabled !== newEffectData.disabled) {
+        runtimeLayer.enableEffect(newEffectData.name, !newEffectData.disabled);
+      }
       // We consider oldEffectData.effectType and newEffectData.effectType
       // are the same - it's responsibility of the caller to verify this.
       for (let parameterName in newEffectData.booleanParameters) {

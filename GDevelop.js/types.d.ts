@@ -155,6 +155,11 @@ export class VectorObjectFolderOrObject extends EmscriptenObject {
   at(index: number): ObjectFolderOrObject;
 }
 
+export class VectorPropertyFolderOrProperty extends EmscriptenObject {
+  size(): number;
+  at(index: number): PropertyFolderOrProperty;
+}
+
 export class VectorScreenshot extends EmscriptenObject {
   size(): number;
   at(index: number): Screenshot;
@@ -872,6 +877,8 @@ export class Effect extends EmscriptenObject {
   getEffectType(): string;
   setFolded(val: boolean): void;
   isFolded(): boolean;
+  setEnabled(val: boolean): void;
+  isEnabled(): boolean;
   setDoubleParameter(name: string, value: number): void;
   getDoubleParameter(name: string): number;
   hasDoubleParameter(name: string): boolean;
@@ -1323,6 +1330,13 @@ export class Serializer extends EmscriptenObject {
   static toJSObject(element: gdSerializerElement): any;
 }
 
+export class BinarySerializer extends EmscriptenObject {
+  static createBinarySnapshot(element: SerializerElement): number;
+  static getLastBinarySnapshotSize(): number;
+  static freeBinarySnapshot(bufferPtr: number): void;
+  static deserializeBinarySnapshot(bufferPtr: number, size: number): SerializerElement;
+}
+
 export class ObjectAssetSerializer extends EmscriptenObject {
   static serializeTo(project: Project, obj: gdObject, objectFullName: string, element: SerializerElement, usedResourceNames: VectorString): void;
 }
@@ -1608,8 +1622,10 @@ export class ObjectMetadata extends EmscriptenObject {
   getDescription(): string;
   getIconFilename(): string;
   getHelpPath(): string;
-  getCategoryFullName(): string;
-  setCategoryFullName(categoryFullName: string): ObjectMetadata;
+  getCategory(): string;
+  getAssetStoreTag(): string;
+  setCategory(categoryFullName: string): ObjectMetadata;
+  setAssetStoreTag(assetStoreTag: string): ObjectMetadata;
   addInGameEditorResource(): InGameEditorResourceMetadata;
   addScopedCondition(name: string, fullname: string, description: string, sentence: string, group: string, icon: string, smallicon: string): InstructionMetadata;
   addScopedAction(name: string, fullname: string, description: string, sentence: string, group: string, icon: string, smallicon: string): InstructionMetadata;
@@ -2068,6 +2084,10 @@ export class BehaviorParameterFiller extends EmscriptenObject {
   static fillBehaviorParameters(platform: Platform, projectScopedContainers: ProjectScopedContainers, instructionMetadata: InstructionMetadata, instruction: Instruction): boolean;
 }
 
+export class InstructionValidator extends EmscriptenObject {
+  static isParameterValid(platform: Platform, projectScopedContainers: ProjectScopedContainers, instruction: Instruction, metadata: InstructionMetadata, parameterIndex: number, value: string): boolean;
+}
+
 export class ObjectTools extends EmscriptenObject {
   static isBehaviorCompatibleWithObject(platform: Platform, objectType: string, behaviorType: string): boolean;
 }
@@ -2090,6 +2110,7 @@ export class UsedExtensionsResult extends EmscriptenObject {
 export class UsedExtensionsFinder extends EmscriptenObject {
   static scanProject(project: Project): UsedExtensionsResult;
   static scanEventsFunctionsExtension(project: Project, eventsFunctionsExtension: EventsFunctionsExtension): UsedExtensionsResult;
+  static findExtensionsDependentOn(project: Project, eventsFunctionsExtension: EventsFunctionsExtension): VectorString;
 }
 
 export class UsedObjectTypeFinder extends EmscriptenObject {
@@ -2348,7 +2369,9 @@ export class EventsBasedObject extends AbstractEventsBasedEntity {
   setDescription(description: string): EventsBasedObject;
   setPrivate(isPrivate: boolean): EventsBasedObject;
   setDefaultName(defaultName: string): EventsBasedObject;
+  setAssetStoreTag(assetStoreTag: string): EventsBasedObject;
   getDefaultName(): string;
+  getAssetStoreTag(): string;
   markAsRenderedIn3D(isRenderedIn3D: boolean): EventsBasedObject;
   isRenderedIn3D(): boolean;
   markAsAnimatable(isAnimatable: boolean): EventsBasedObject;
@@ -2436,6 +2459,28 @@ export class EventsBasedObjectsList extends EmscriptenObject {
   at(index: number): EventsBasedObject;
 }
 
+export class PropertyFolderOrProperty extends EmscriptenObject {
+  constructor();
+  isFolder(): boolean;
+  isRootFolder(): boolean;
+  getProperty(): NamedPropertyDescriptor;
+  getFolderName(): string;
+  setFolderName(name: string): void;
+  hasPropertyNamed(name: string): boolean;
+  getPropertyNamed(name: string): PropertyFolderOrProperty;
+  getChildrenCount(): number;
+  getChildAt(pos: number): PropertyFolderOrProperty;
+  getPropertyChild(name: string): PropertyFolderOrProperty;
+  getOrCreateChildFolder(name: string): PropertyFolderOrProperty;
+  getChildPosition(child: PropertyFolderOrProperty): number;
+  getParent(): PropertyFolderOrProperty;
+  insertNewFolder(name: string, newPosition: number): PropertyFolderOrProperty;
+  movePropertyFolderOrPropertyToAnotherFolder(propertyFolderOrProperty: PropertyFolderOrProperty, newParentFolder: PropertyFolderOrProperty, newPosition: number): void;
+  moveChild(oldIndex: number, newIndex: number): void;
+  removeFolderChild(childToRemove: PropertyFolderOrProperty): void;
+  isADescendantOf(otherPropertyFolderOrProperty: PropertyFolderOrProperty): boolean;
+}
+
 export class PropertiesContainer extends EmscriptenObject {
   constructor(owner: EventsFunctionsContainer_FunctionOwner);
   insertNew(name: string, pos: number): NamedPropertyDescriptor;
@@ -2449,6 +2494,10 @@ export class PropertiesContainer extends EmscriptenObject {
   getPosition(item: NamedPropertyDescriptor): number;
   size(): number;
   at(index: number): NamedPropertyDescriptor;
+  insertNewPropertyInFolder(name: string, folder: PropertyFolderOrProperty, pos: number): NamedPropertyDescriptor;
+  getRootFolder(): PropertyFolderOrProperty;
+  getAllPropertyFolderOrProperty(): VectorPropertyFolderOrProperty;
+  addMissingPropertiesInRootFolder(): void;
 }
 
 export class EventsFunctionsExtension extends EmscriptenObject {
@@ -3220,6 +3269,10 @@ export function compare<T extends EmscriptenObject>(object1: T, object2: T): boo
  * The alias {@link EmscriptenObject.delete} is recommended instead, for readability.
  */
 export function destroy(object: EmscriptenObject): void;
+
+export function _malloc(size: number): number;
+export function _free(ptr: number): void;
+export const HEAPU8: Uint8Array;
 
 export as namespace gd;
 

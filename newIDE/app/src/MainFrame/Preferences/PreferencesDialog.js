@@ -7,7 +7,7 @@ import FlatButton from '../../UI/FlatButton';
 import LocalFolderPicker from '../../UI/LocalFolderPicker';
 import SelectOption from '../../UI/SelectOption';
 import { CompactToggleField } from '../../UI/CompactToggleField';
-import Dialog, { DialogPrimaryButton } from '../../UI/Dialog';
+import Dialog from '../../UI/Dialog';
 import { Column, Line } from '../../UI/Grid';
 import { themes } from '../../UI/Theme/ThemeRegistry';
 import { getAllThemes } from '../../CodeEditor/Theme';
@@ -84,15 +84,13 @@ const PreferencesDialog = ({
     setPreviewCrashReportUploadLevel,
     setTakeScreenshotOnPreview,
     setShowAiAskButtonInTitleBar,
+    setAutomaticallyUseCreditsForAiRequests,
     setShowCreateSectionByDefault,
-    setShowGameEditorToggle,
+    setHasSeenInGameEditorWarning,
+    setUseBackgroundSerializerForSaving,
   } = React.useContext(PreferencesContext);
 
   const initialUse3DEditor = React.useRef<boolean>(values.use3DEditor);
-  const [
-    gameEditorToggleWarningDialogOpen,
-    setGameEditorToggleWarningDialogOpen,
-  ] = React.useState(false);
 
   return (
     <Dialog
@@ -558,6 +556,15 @@ const PreferencesDialog = ({
                 <CompactToggleField
                   labelColor="primary"
                   hideTooltip
+                  onCheck={setAutomaticallyUseCreditsForAiRequests}
+                  checked={values.automaticallyUseCreditsForAiRequests}
+                  label={i18n._(
+                    t`Automatically use GDevelop credits for AI requests when run out of AI credits`
+                  )}
+                />
+                <CompactToggleField
+                  labelColor="primary"
+                  hideTooltip
                   onCheck={check =>
                     setDisplaySaveReminder({ activated: check })
                   }
@@ -582,6 +589,15 @@ const PreferencesDialog = ({
                   checked={values.showDeprecatedInstructionWarning}
                   label={i18n._(
                     t`Show a warning on deprecated actions and conditions`
+                  )}
+                />
+                <CompactToggleField
+                  labelColor="primary"
+                  hideTooltip
+                  onCheck={setUseBackgroundSerializerForSaving}
+                  checked={values.useBackgroundSerializerForSaving}
+                  label={i18n._(
+                    t`Use experimental background serializer for saving projects`
                   )}
                 />
                 {!!electron && (
@@ -632,25 +648,16 @@ const PreferencesDialog = ({
                       t`Watch changes in game engine (GDJS) sources and auto import them (dev only)`
                     )}
                   />
-                  <CompactToggleField
-                    labelColor="primary"
-                    hideTooltip
-                    onCheck={check => {
-                      if (check) {
-                        setGameEditorToggleWarningDialogOpen(true);
-                      } else {
-                        setShowGameEditorToggle(false);
-                      }
-                    }}
-                    checked={values.showGameEditorToggle}
-                    label={i18n._(
-                      t`Show experimental, unfinished "Game Editor" toggle`
-                    )}
-                  />
                   <FlatButton
                     fullWidth
                     onClick={onOpenQuickCustomizationDialog}
                     label={<Trans>Open quick customization</Trans>}
+                  />
+                  <FlatButton
+                    fullWidth
+                    label={<Trans>Show again in-game editor warning</Trans>}
+                    onClick={() => setHasSeenInGameEditorWarning(false)}
+                    disabled={!values.hasSeenInGameEditorWarning}
                   />
                 </ColumnStackLayout>
               </ColumnStackLayout>
@@ -679,41 +686,6 @@ const PreferencesDialog = ({
             type="default-workspace"
           />
         </ColumnStackLayout>
-      )}
-      {gameEditorToggleWarningDialogOpen && (
-        <Dialog
-          open
-          title={<Trans>Here be dragons</Trans>}
-          actions={[
-            <FlatButton
-              key="accept"
-              label={
-                <Trans>Ok, I understand all of this and will be careful</Trans>
-              }
-              primary={false}
-              onClick={() => {
-                setShowGameEditorToggle(true);
-                setGameEditorToggleWarningDialogOpen(false);
-              }}
-            />,
-            <DialogPrimaryButton
-              primary
-              key="close"
-              label={<Trans>Close</Trans>}
-              onClick={() => setGameEditorToggleWarningDialogOpen(false)}
-            />,
-          ]}
-          flexColumnBody
-          onRequestClose={() => setGameEditorToggleWarningDialogOpen(false)}
-          maxWidth="md"
-        >
-          <Text>
-            <Trans>
-              This feature is experimental, unfinished and probably bugged. It's{' '}
-              <b>not ready to be shared</b> for now as it's being improved.
-            </Trans>
-          </Text>
-        </Dialog>
       )}
     </Dialog>
   );

@@ -384,6 +384,9 @@ const renderTreeViewItemRightComponent = (i18n: I18nType) => (
 const renameItem = (item: TreeViewItem, newName: string) => {
   item.content.rename(newName);
 };
+const onClickItem = (item: TreeViewItem) => {
+  item.content.onClick();
+};
 const editItem = (item: TreeViewItem) => {
   item.content.edit();
 };
@@ -429,6 +432,7 @@ export type ObjectsListInterface = {|
 type Props = {|
   project: gdProject,
   layout: ?gdLayout,
+  eventsFunctionsExtension: gdEventsFunctionsExtension | null,
   eventsBasedObject: gdEventsBasedObject | null,
   initialInstances?: gdInitialInstancesContainer,
   /** The objects retrieved from ProjectScopedContainers must never be kept in a
@@ -509,6 +513,7 @@ const ObjectsList = React.forwardRef<Props, ObjectsListInterface>(
     {
       project,
       layout,
+      eventsFunctionsExtension,
       eventsBasedObject,
       initialInstances,
       projectScopedContainersAccessor,
@@ -1559,7 +1564,11 @@ const ObjectsList = React.forwardRef<Props, ObjectsListInterface>(
                     <TreeView
                       key={listKey}
                       ref={treeViewRef}
-                      items={getTreeViewData(i18n)}
+                      items={
+                        // TreeView typing has issues, so we use any for now.
+                        // Search for "treeview typing issues" in the codebase.
+                        (getTreeViewData(i18n): any)
+                      }
                       height={height}
                       forceAllOpened={!!currentlyRunningInAppTutorial}
                       searchText={searchText}
@@ -1571,6 +1580,7 @@ const ObjectsList = React.forwardRef<Props, ObjectsListInterface>(
                       getItemHtmlId={getTreeViewItemHtmlId}
                       getItemDataset={getTreeViewItemDataSet}
                       onEditItem={editItem}
+                      onClickItem={onClickItem}
                       onCollapseItem={onCollapseItem}
                       selectedItems={selectedItems}
                       onSelectItems={items => {
@@ -1617,6 +1627,7 @@ const ObjectsList = React.forwardRef<Props, ObjectsListInterface>(
             onObjectsAddedFromAssets={onObjectsAddedFromAssets}
             project={project}
             layout={layout}
+            eventsFunctionsExtension={eventsFunctionsExtension}
             eventsBasedObject={eventsBasedObject}
             objectsContainer={objectsContainer}
             resourceManagementProps={resourceManagementProps}

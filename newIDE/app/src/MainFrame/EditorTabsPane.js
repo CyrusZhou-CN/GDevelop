@@ -40,9 +40,10 @@ import {
 } from '../ProjectsStorage';
 import UnsavedChangesContext from './UnsavedChangesContext';
 import { type OpenedVersionStatus } from '../VersionHistory';
-import { type StorageProvider } from '../ProjectsStorage';
+import { type StorageProvider, type SaveAsLocation } from '../ProjectsStorage';
 import { type ExampleShortHeader } from '../Utils/GDevelopServices/Example';
 import { type PrivateGameTemplateListingData } from '../Utils/GDevelopServices/Shop';
+import { type ExpandedCloudProjectVersion } from '../Utils/GDevelopServices/Project';
 import { type CourseChapter } from '../Utils/GDevelopServices/Asset';
 import {
   type NewProjectSetup,
@@ -103,7 +104,21 @@ export type EditorTabsPaneCommonProps = {|
 
   // Callbacks from MainFrame
   toggleProjectManager: () => void,
-  saveProject: () => Promise<void>,
+  saveProject: () => Promise<?FileMetadata>,
+  saveProjectAsWithStorageProvider: (
+    options: ?{|
+      requestedStorageProvider?: StorageProvider,
+      forcedSavedAsLocation?: SaveAsLocation,
+      createdProject?: gdProject,
+    |}
+  ) => Promise<?FileMetadata>,
+  onCheckoutVersion: (
+    version: ExpandedCloudProjectVersion,
+    options?: {| dontSaveCheckedOutVersionStatus?: boolean |}
+  ) => Promise<boolean>,
+  getOrLoadProjectVersion: (
+    versionId: string
+  ) => Promise<?ExpandedCloudProjectVersion>,
   openShareDialog: (tab?: ShareTab) => void,
   launchDebuggerAndPreview: () => void,
   launchNewPreview: (?{ numberOfWindows: number }) => Promise<void>,
@@ -115,7 +130,8 @@ export type EditorTabsPaneCommonProps = {|
     overridenPreviewLayoutName: ?string,
     overridenPreviewExternalLayoutName: ?string,
   |}) => void,
-  onRestartInGameEditorAfterError: (() => void) | null,
+  onRestartInGameEditor: (reason: string) => void,
+  showRestartInGameEditorAfterErrorButton: boolean,
   openVersionHistoryPanel: () => void,
   onQuitVersionHistory: () => Promise<void>,
   onOpenAskAi: (?OpenAskAiOptions) => void,
@@ -293,6 +309,9 @@ const EditorTabsPane = React.forwardRef<Props, {||}>((props, ref) => {
     gamesPlatformFrameTools,
     toggleProjectManager,
     saveProject,
+    saveProjectAsWithStorageProvider,
+    onCheckoutVersion,
+    getOrLoadProjectVersion,
     openShareDialog,
     launchDebuggerAndPreview,
     launchNewPreview,
@@ -370,7 +389,8 @@ const EditorTabsPane = React.forwardRef<Props, {||}>((props, ref) => {
     areSidePanesDrawers,
     gameEditorMode,
     setGameEditorMode,
-    onRestartInGameEditorAfterError,
+    onRestartInGameEditor,
+    showRestartInGameEditorAfterErrorButton,
   } = props;
 
   const toolbarRef = React.useRef<?ToolbarInterface>(null);
@@ -667,10 +687,14 @@ const EditorTabsPane = React.forwardRef<Props, {||}>((props, ref) => {
                       onOpenTemplateFromCourseChapter: openTemplateFromCourseChapter,
                       previewDebuggerServer,
                       hotReloadPreviewButtonProps,
-                      onRestartInGameEditorAfterError,
+                      onRestartInGameEditor,
+                      showRestartInGameEditorAfterErrorButton,
                       resourceManagementProps,
                       onSave: saveProject,
+                      onSaveProjectAsWithStorageProvider: saveProjectAsWithStorageProvider,
                       canSave,
+                      onCheckoutVersion,
+                      getOrLoadProjectVersion,
                       onCreateEventsFunction,
                       openInstructionOrExpression,
                       onOpenCustomObjectEditor: onOpenCustomObjectEditor,

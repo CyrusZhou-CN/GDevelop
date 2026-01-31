@@ -21,6 +21,7 @@ namespace gdjs {
 
   /**
    * A container of object instances rendered on screen.
+   * @category Core Engine > Instance Container
    */
   export abstract class RuntimeInstanceContainer {
     _initialBehaviorSharedData: Hashtable<BehaviorSharedData | null>;
@@ -665,6 +666,9 @@ namespace gdjs {
         !this._objects.containsKey(objectName)
       ) {
         if (this.getGame().isInGameEdition()) {
+          logger.error(
+            `Object "${objectName}" not found - creating a placeholder object as a fallback.`
+          );
           // Fallback on the UnknownRuntimeObject.
           objectName = '';
         } else {

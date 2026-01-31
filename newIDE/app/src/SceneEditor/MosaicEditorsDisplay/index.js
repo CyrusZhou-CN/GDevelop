@@ -86,13 +86,15 @@ const MosaicEditorsDisplay = React.forwardRef<
     objectsContainer,
     projectScopedContainersAccessor,
     initialInstances,
+    chosenLayer,
     selectedLayer,
     onSelectInstances,
     onInstancesModified,
     onWillInstallExtension,
     onExtensionInstalled,
     isActive,
-    onRestartInGameEditorAfterError,
+    onRestartInGameEditor,
+    showRestartInGameEditorAfterErrorButton,
   } = props;
   const {
     getDefaultEditorMosaicNode,
@@ -134,7 +136,7 @@ const MosaicEditorsDisplay = React.forwardRef<
     []
   );
   const forceUpdateLayersList = React.useCallback(() => {
-    if (layersListRef.current) layersListRef.current.forceUpdate();
+    if (layersListRef.current) layersListRef.current.forceUpdateList();
   }, []);
   const getInstanceSize = React.useCallback((instance: gdInitialInstance) => {
     return editorRef.current
@@ -161,6 +163,14 @@ const MosaicEditorsDisplay = React.forwardRef<
     if (!editorMosaicRef.current) return false;
     return editorMosaicRef.current.getOpenedEditorNames().includes(editorId);
   }, []);
+  const ensureEditorVisible = React.useCallback(
+    (editorId: EditorId) => {
+      if (!isEditorVisible(editorId)) {
+        toggleEditorView(editorId);
+      }
+    },
+    [isEditorVisible, toggleEditorView]
+  );
 
   const startSceneRendering = React.useCallback((start: boolean) => {
     const editor = editorRef.current;
@@ -197,6 +207,7 @@ const MosaicEditorsDisplay = React.forwardRef<
       openNewObjectDialog,
       toggleEditorView,
       isEditorVisible,
+      ensureEditorVisible,
       startSceneRendering,
       viewControls: {
         zoomBy: editor ? editor.zoomBy : noop,
@@ -280,10 +291,12 @@ const MosaicEditorsDisplay = React.forwardRef<
               projectScopedContainersAccessor={projectScopedContainersAccessor}
               instances={selectedInstances}
               objects={selectedObjects}
+              layer={selectedLayer}
               editInstanceVariables={props.editInstanceVariables}
               editObjectInPropertiesPanel={props.editObjectInPropertiesPanel}
               onEditObject={props.onEditObject}
               onObjectsModified={props.onObjectsModified}
+              onEffectAdded={props.onEffectAdded}
               onInstancesModified={_onInstancesModified}
               onGetInstanceSize={getInstanceSize}
               ref={instanceOrObjectPropertiesEditorRef}
@@ -302,6 +315,19 @@ const MosaicEditorsDisplay = React.forwardRef<
               }
               isVariableListLocked={isCustomVariant}
               isBehaviorListLocked={isCustomVariant}
+              onEditLayerEffects={props.editLayerEffects}
+              onEditLayer={props.editLayer}
+              onLayersModified={props.onLayersModified}
+              eventsBasedObject={props.eventsBasedObject}
+              eventsBasedObjectVariant={props.eventsBasedObjectVariant}
+              getContentAABB={
+                editorRef.current
+                  ? editorRef.current.getContentAABB
+                  : () => null
+              }
+              onEventsBasedObjectChildrenEdited={
+                props.onEventsBasedObjectChildrenEdited
+              }
             />
           )}
         </I18n>
@@ -316,6 +342,8 @@ const MosaicEditorsDisplay = React.forwardRef<
           layout={layout}
           eventsFunctionsExtension={eventsFunctionsExtension}
           eventsBasedObject={eventsBasedObject}
+          chosenLayer={chosenLayer}
+          onChooseLayer={props.onChooseLayer}
           selectedLayer={selectedLayer}
           onSelectLayer={props.onSelectLayer}
           onEditLayerEffects={props.editLayerEffects}
@@ -328,7 +356,6 @@ const MosaicEditorsDisplay = React.forwardRef<
           onLayerRenamed={props.onLayerRenamed}
           onCreateLayer={forceUpdatePropertiesEditor}
           layersContainer={layersContainer}
-          unsavedChanges={props.unsavedChanges}
           ref={layersListRef}
           hotReloadPreviewButtonProps={props.hotReloadPreviewButtonProps}
           onBackgroundColorChanged={props.onBackgroundColorChanged}
@@ -358,8 +385,9 @@ const MosaicEditorsDisplay = React.forwardRef<
             renderEditor: () => (
               <EmbeddedGameFrameHole
                 isActive={isActive}
-                onRestartInGameEditorAfterError={
-                  onRestartInGameEditorAfterError
+                onRestartInGameEditor={onRestartInGameEditor}
+                showRestartInGameEditorAfterErrorButton={
+                  showRestartInGameEditorAfterErrorButton
                 }
               />
             ),
@@ -377,7 +405,7 @@ const MosaicEditorsDisplay = React.forwardRef<
                 globalObjectsContainer={globalObjectsContainer}
                 objectsContainer={objectsContainer}
                 layersContainer={layersContainer}
-                selectedLayer={selectedLayer}
+                chosenLayer={chosenLayer}
                 initialInstances={initialInstances}
                 instancesEditorSettings={props.instancesEditorSettings}
                 onInstancesEditorSettingsMutated={
@@ -419,6 +447,7 @@ const MosaicEditorsDisplay = React.forwardRef<
               )}
               project={project}
               layout={layout}
+              eventsFunctionsExtension={eventsFunctionsExtension}
               eventsBasedObject={eventsBasedObject}
               projectScopedContainersAccessor={projectScopedContainersAccessor}
               globalObjectsContainer={globalObjectsContainer}

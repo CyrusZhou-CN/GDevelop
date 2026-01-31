@@ -343,6 +343,7 @@ namespace gdjs {
 
   const editorCameraFov = 45;
 
+  /** @category In-Game Editor */
   export type InGameEditorSettings = {
     theme: {
       iconButtonSelectedBackgroundColor: string;
@@ -783,6 +784,7 @@ namespace gdjs {
     return { forward };
   };
 
+  /** @category In-Game Editor */
   export class InGameEditor {
     private _editorId: string = '';
     private _runtimeGame: RuntimeGame;
@@ -790,9 +792,11 @@ namespace gdjs {
     private _editedInstanceContainer: gdjs.RuntimeInstanceContainer | null =
       null;
     private _editedInstanceDataList: InstanceData[] = [];
+    private _editedLayerDataList: LayerData[] = [];
     private _selectedLayerName: string = '';
     private _innerArea: AABB3D | null = null;
     private _threeInnerArea: THREE.Object3D | null = null;
+    private _unregisterContextLostListener: (() => void) | null = null;
     private _tempVector2d: THREE.Vector2 = new THREE.Vector2();
     private _raycaster: THREE.Raycaster = new THREE.Raycaster();
 
@@ -811,6 +815,8 @@ namespace gdjs {
       dummyThreeObject: THREE.Object3D;
       threeTransformControls: THREE_ADDONS.TransformControls;
     } | null = null;
+    private _transformControlsMode: 'translate' | 'rotate' | 'scale' =
+      'translate';
     private _editorGrid: EditorGrid;
     private _selectionControlsMovementTotalDelta: {
       translationX: float;
@@ -919,6 +925,42 @@ namespace gdjs {
 
       this._applyInGameEditorSettings();
       this.onProjectDataChange(projectData);
+
+      // Uncomment to get access to the runtime game from the console and do
+      // testing.
+      // window.globalRuntimeGameForTesting = game;
+    }
+
+    private _setupWebGLContextLostListener(): void {
+      const canvas = this._runtimeGame.getRenderer().getCanvas();
+      if (!canvas) return;
+
+      const handleContextLost = (event: Event) => {
+        console.warn('WebGL context lost, notifying the editor...');
+
+        // Prevent to restore the context, and prefer to let the editor handle this
+        // to restart from a clean state.
+        event.preventDefault();
+
+        const debuggerClient = this._runtimeGame._debuggerClient;
+        if (debuggerClient) {
+          debuggerClient.sendGraphicsContextLost();
+        }
+      };
+
+      canvas.addEventListener('webglcontextlost', handleContextLost);
+      canvas.addEventListener('contextlost', handleContextLost);
+      this._unregisterContextLostListener = () => {
+        canvas.removeEventListener('webglcontextlost', handleContextLost);
+        canvas.removeEventListener('contextlost', handleContextLost);
+      };
+    }
+
+    dispose(): void {
+      if (this._unregisterContextLostListener) {
+        this._unregisterContextLostListener();
+        this._unregisterContextLostListener = null;
+      }
     }
 
     private _applyInGameEditorSettings() {
@@ -1019,6 +1061,10 @@ namespace gdjs {
       return this._editedInstanceDataList;
     }
 
+    getEditedLayerDataList(): LayerData[] {
+      return this._editedLayerDataList;
+    }
+
     getEditedInstanceContainer(): gdjs.RuntimeInstanceContainer | null {
       return this._editedInstanceContainer;
     }
@@ -1085,6 +1131,7 @@ namespace gdjs {
         .map((object) => object.persistentUuid)
         .filter(Boolean) as Array<string>;
 
+      let editedLayerDataList: Array<LayerData> = [];
       let editedInstanceDataList: Array<InstanceData> = [];
       if (eventsBasedObjectType) {
         const eventsBasedObjectVariantData =
@@ -1093,6 +1140,7 @@ namespace gdjs {
             eventsBasedObjectVariantName || ''
           );
         if (eventsBasedObjectVariantData) {
+          editedLayerDataList = eventsBasedObjectVariantData.layers;
           editedInstanceDataList = eventsBasedObjectVariantData.instances;
           await this._runtimeGame._resourcesLoader.loadResources(
             eventsBasedObjectVariantData.usedResources.map(
@@ -1154,6 +1202,9 @@ namespace gdjs {
         }
         this._currentScene = newScene;
         this._editedInstanceContainer = newScene;
+        if (sceneAndExtensionsData) {
+          editedLayerDataList = sceneAndExtensionsData.sceneData.layers;
+        }
         if (externalLayoutName) {
           const externalLayoutData =
             this._runtimeGame.getExternalLayoutData(externalLayoutName);
@@ -1171,6 +1222,7 @@ namespace gdjs {
         console.warn('eventsBasedObjectType or sceneName must be set.');
       }
       this._editedInstanceDataList = editedInstanceDataList;
+      this._editedLayerDataList = editedLayerDataList;
       this._editorId = editorId || '';
       if (editorCamera3D) {
         this.restoreCameraState(editorCamera3D);
@@ -2080,20 +2132,14 @@ namespace gdjs {
       this._selectionBoxes.set(object, objectBoxHelper);
     }
 
-    private _getTransformControlsMode():
-      | 'translate'
-      | 'rotate'
-      | 'scale'
-      | null {
-      if (!this._selectionControls) {
-        return null;
-      }
-      return this._selectionControls.threeTransformControls.mode;
+    private _getTransformControlsMode(): 'translate' | 'rotate' | 'scale' {
+      return this._transformControlsMode;
     }
 
     private _setTransformControlsMode(
       mode: 'translate' | 'rotate' | 'scale'
     ): void {
+      this._transformControlsMode = mode;
       if (!this._selectionControls) {
         return;
       }
@@ -2113,22 +2159,17 @@ namespace gdjs {
         return;
       }
       dummyThreeObject.rotation.copy(threeObject.rotation);
-      if (threeTransformControls.mode === 'rotate') {
+      if (this._transformControlsMode === 'rotate') {
         dummyThreeObject.rotation.y = -dummyThreeObject.rotation.y;
         dummyThreeObject.rotation.z = -dummyThreeObject.rotation.z;
       }
     }
 
     private _forceUpdateSelectionControls() {
-      let mode: 'translate' | 'rotate' | 'scale' | null = null;
       if (this._selectionControls) {
-        mode = this._selectionControls.threeTransformControls.mode;
         this._removeSelectionControls();
       }
       this._updateSelectionControls();
-      if (mode && this._selectionControls) {
-        this._setTransformControlsMode(mode);
-      }
     }
 
     private _updateSelectionControls() {
@@ -2201,6 +2242,7 @@ namespace gdjs {
 
             threeTransformControls.rotation.order = 'ZYX';
             threeTransformControls.scale.y = -1;
+            threeTransformControls.mode = this._transformControlsMode;
             threeTransformControls.traverse((obj) => {
               // To be detected correctly by OutlinePass.
               // @ts-ignore
@@ -2256,7 +2298,7 @@ namespace gdjs {
               let translationZ =
                 dummyThreeObject.position.z - initialDummyPosition.z;
               if (
-                threeTransformControls.mode === 'translate' &&
+                this._transformControlsMode === 'translate' &&
                 threeTransformControls.axis
               ) {
                 if (threeTransformControls.axis === 'XYZ') {
@@ -2417,7 +2459,7 @@ namespace gdjs {
           this._editorGrid.setTreeScene(threeScene);
         }
         this._editorGrid.setVisible(
-          threeTransformControls.mode === 'translate'
+          this._transformControlsMode === 'translate'
         );
       }
     }
@@ -2432,7 +2474,7 @@ namespace gdjs {
       dummyThreeObject.position.copy(threeObject.position);
       dummyThreeObject.rotation.copy(threeObject.rotation);
       dummyThreeObject.scale.copy(threeObject.scale);
-      if (threeTransformControls.mode === 'rotate') {
+      if (this._transformControlsMode === 'rotate') {
         // This is only done for the rotate mode because it messes with the
         // orientation of the scale mode.
         dummyThreeObject.rotation.y = -dummyThreeObject.rotation.y;
@@ -3428,6 +3470,10 @@ namespace gdjs {
     }
 
     updateAndRender() {
+      if (!this._unregisterContextLostListener) {
+        this._setupWebGLContextLostListener();
+      }
+
       const objectUnderCursor: gdjs.RuntimeObject | null =
         this.getObjectUnderCursor();
 
@@ -3539,11 +3585,7 @@ namespace gdjs {
       orbitCameraButton: HTMLButtonElement;
     } | null = null;
     private _parent: HTMLElement | null = null;
-    private _getTransformControlsMode: () =>
-      | 'translate'
-      | 'rotate'
-      | 'scale'
-      | null;
+    private _getTransformControlsMode: () => 'translate' | 'rotate' | 'scale';
     private _setTransformControlsMode: (
       mode: 'translate' | 'rotate' | 'scale'
     ) => void;
@@ -3642,7 +3684,7 @@ namespace gdjs {
       getSvgIconUrl,
       hasSelectionControlsShown,
     }: {
-      getTransformControlsMode: () => 'translate' | 'rotate' | 'scale' | null;
+      getTransformControlsMode: () => 'translate' | 'rotate' | 'scale';
       setTransformControlsMode: (
         mode: 'translate' | 'rotate' | 'scale'
       ) => void;
@@ -3948,6 +3990,7 @@ namespace gdjs {
     }
   }
 
+  /** @category In-Game Editor */
   export type EditorCameraState = {
     cameraMode: 'free' | 'orbit';
     positionX: float;
@@ -4443,7 +4486,7 @@ namespace gdjs {
             if (dy3 !== 0) {
               const tiltSpeed = 0.2;
               this.elevationAngle += dy3 * tiltSpeed;
-              if (this.elevationAngle < 5) this.elevationAngle = 5;
+              if (this.elevationAngle < -45) this.elevationAngle = -45;
               if (this.elevationAngle > 175) this.elevationAngle = 175;
               this._editorCamera.onHasCameraChanged();
             }
@@ -4747,10 +4790,15 @@ namespace gdjs {
             inputManager.isMouseButtonPressed(0)) ||
           (isShiftPressed(inputManager) && inputManager.isMouseButtonPressed(2))
         ) {
-          const xDelta = this._lastCursorX - inputManager.getCursorX();
-          const yDelta = this._lastCursorY - inputManager.getCursorY();
-          moveCameraByVector(up, -yDelta);
-          moveCameraByVector(right, xDelta);
+          // Use movement deltas when pointer is locked, otherwise use cursor position delta
+          const xDelta = renderer.isPointerLocked()
+            ? inputManager.getMouseMovementX()
+            : inputManager.getCursorX() - this._lastCursorX;
+          const yDelta = renderer.isPointerLocked()
+            ? inputManager.getMouseMovementY()
+            : inputManager.getCursorY() - this._lastCursorY;
+          moveCameraByVector(up, yDelta);
+          moveCameraByVector(right, -xDelta);
         }
 
         // Right click: rotate the camera.

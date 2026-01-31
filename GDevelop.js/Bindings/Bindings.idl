@@ -59,6 +59,11 @@ interface VectorObjectFolderOrObject {
     [Const] ObjectFolderOrObject at(unsigned long index);
 };
 
+interface VectorPropertyFolderOrProperty {
+    unsigned long size();
+    [Const] PropertyFolderOrProperty at(unsigned long index);
+};
+
 interface VectorScreenshot {
     unsigned long size();
     [Const, Ref] Screenshot at(unsigned long index);
@@ -1064,6 +1069,8 @@ interface Effect {
 
   void SetFolded(boolean val);
   boolean IsFolded();
+  void SetEnabled(boolean val);
+  boolean IsEnabled();
 
   void SetDoubleParameter([Const] DOMString name, double value);
   double GetDoubleParameter([Const] DOMString name);
@@ -1601,6 +1608,21 @@ interface Serializer {
     [Value] SerializerElement STATIC_FromJSON([Const] DOMString json);
 };
 
+[NoDelete]
+interface BinarySerializer {
+    // Create a binary snapshot, returns pointer to buffer in Emscripten heap
+    unsigned long STATIC_CreateBinarySnapshot([Ref] SerializerElement element);
+
+    // Get the size of the last created snapshot
+    unsigned long STATIC_GetLastBinarySnapshotSize();
+
+    // Free the binary snapshot
+    void STATIC_FreeBinarySnapshot(unsigned long bufferPtr);
+
+    // Deserialize from a pointer in Emscripten heap
+    SerializerElement STATIC_DeserializeBinarySnapshot(unsigned long bufferPtr, unsigned long size);
+};
+
 interface ObjectAssetSerializer {
     void STATIC_SerializeTo([Ref] Project project, [Const, Ref] gdObject obj,
         [Const] DOMString objectFullName, [Ref] SerializerElement element,
@@ -1953,9 +1975,11 @@ interface ObjectMetadata {
     [Const, Ref] DOMString GetDescription();
     [Const, Ref] DOMString GetIconFilename();
     [Const, Ref] DOMString GetHelpPath();
-    [Const, Ref] DOMString GetCategoryFullName();
+    [Const, Ref] DOMString GetCategory();
+    [Const, Ref] DOMString GetAssetStoreTag();
 
-    [Ref] ObjectMetadata SetCategoryFullName([Const] DOMString categoryFullName);
+    [Ref] ObjectMetadata SetCategory([Const] DOMString categoryFullName);
+    [Ref] ObjectMetadata SetAssetStoreTag([Const] DOMString assetStoreTag);
     [Ref] InGameEditorResourceMetadata AddInGameEditorResource();
 
     [Const, Ref] InstructionMetadata AddScopedCondition([Const] DOMString name,
@@ -2898,6 +2922,16 @@ interface BehaviorParameterFiller {
         [Ref] Instruction instruction);
 };
 
+interface InstructionValidator {
+  boolean STATIC_IsParameterValid(
+    [Const, Ref] Platform platform,
+    [Const, Ref] ProjectScopedContainers projectScopedContainers,
+    [Const, Ref] Instruction instruction,
+    [Const, Ref] InstructionMetadata metadata,
+    long parameterIndex,
+    [Const] DOMString value);
+};
+
 interface ObjectTools {
     boolean STATIC_IsBehaviorCompatibleWithObject(
         [Const, Ref] Platform platform,
@@ -2927,6 +2961,9 @@ interface UsedExtensionsResult {
 interface UsedExtensionsFinder {
   [Value] UsedExtensionsResult STATIC_ScanProject([Ref] Project project);
   [Value] UsedExtensionsResult STATIC_ScanEventsFunctionsExtension(
+    [Ref] Project project, [Const, Ref]
+    EventsFunctionsExtension eventsFunctionsExtension);
+  [Value] VectorString STATIC_FindExtensionsDependentOn(
     [Ref] Project project, [Const, Ref]
     EventsFunctionsExtension eventsFunctionsExtension);
 };
@@ -3245,8 +3282,11 @@ interface EventsBasedObject {
     [Ref] EventsBasedObject SetDescription([Const] DOMString description);
     [Ref] EventsBasedObject SetPrivate(boolean isPrivate);
 
+
     [Ref] EventsBasedObject SetDefaultName([Const] DOMString defaultName);
+    [Ref] EventsBasedObject SetAssetStoreTag([Const] DOMString assetStoreTag);
     [Const, Ref] DOMString GetDefaultName();
+    [Const, Ref] DOMString GetAssetStoreTag();
     [Ref] EventsBasedObject MarkAsRenderedIn3D(boolean isRenderedIn3D);
     boolean IsRenderedIn3D();
     [Ref] EventsBasedObject MarkAsAnimatable(boolean isAnimatable);
@@ -3343,6 +3383,28 @@ interface EventsBasedObjectsList {
     [Ref] EventsBasedObject at(unsigned long index);
 };
 
+interface PropertyFolderOrProperty {
+    void PropertyFolderOrProperty();
+    boolean IsFolder();
+    boolean IsRootFolder();
+    [Ref] NamedPropertyDescriptor GetProperty();
+    [Const, Ref] DOMString GetFolderName();
+    void SetFolderName([Const] DOMString name);
+    boolean HasPropertyNamed([Const] DOMString name);
+    [Ref] PropertyFolderOrProperty GetPropertyNamed([Const] DOMString name);
+    unsigned long GetChildrenCount();
+    [Ref] PropertyFolderOrProperty GetChildAt(unsigned long pos);
+    [Ref] PropertyFolderOrProperty GetPropertyChild([Const] DOMString name);
+    [Ref] PropertyFolderOrProperty GetOrCreateChildFolder([Const] DOMString name);
+    unsigned long GetChildPosition([Const, Ref] PropertyFolderOrProperty child);
+    [Ref] PropertyFolderOrProperty GetParent();
+    [Ref] PropertyFolderOrProperty InsertNewFolder([Const] DOMString name, unsigned long newPosition);
+    void MovePropertyFolderOrPropertyToAnotherFolder([Ref] PropertyFolderOrProperty propertyFolderOrProperty, [Ref] PropertyFolderOrProperty newParentFolder, unsigned long newPosition);
+    void MoveChild(unsigned long oldIndex, unsigned long newIndex);
+    void RemoveFolderChild([Const, Ref] PropertyFolderOrProperty childToRemove);
+    boolean IsADescendantOf([Const, Ref] PropertyFolderOrProperty otherPropertyFolderOrProperty);
+};
+
 interface PropertiesContainer {
     void PropertiesContainer(EventsFunctionsContainer_FunctionOwner owner);
 
@@ -3358,6 +3420,14 @@ interface PropertiesContainer {
 
     unsigned long size();
     [Ref] NamedPropertyDescriptor at(unsigned long index);
+
+    [Ref] NamedPropertyDescriptor InsertNewPropertyInFolder(
+        [Const] DOMString name,
+        [Ref] PropertyFolderOrProperty folder,
+        unsigned long pos);
+    [Ref] PropertyFolderOrProperty GetRootFolder();
+    [Value] VectorPropertyFolderOrProperty GetAllPropertyFolderOrProperty();
+    void AddMissingPropertiesInRootFolder();
 };
 
 interface EventsFunctionsExtension {

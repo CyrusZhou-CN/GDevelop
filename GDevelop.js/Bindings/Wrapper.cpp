@@ -24,6 +24,7 @@
 #include <GDCore/Extensions/Platform.h>
 #include <GDCore/IDE/AbstractFileSystem.h>
 #include <GDCore/IDE/BehaviorParameterFiller.h>
+#include <GDCore/IDE/InstructionValidator.h>
 #include <GDCore/IDE/Dialogs/LayoutEditorCanvas/EditorSettings.h>
 #include <GDCore/IDE/Events/ArbitraryEventsWorker.h>
 #include <GDCore/IDE/Events/BehaviorDefaultFlagClearer.h>
@@ -90,6 +91,7 @@
 #include <GDCore/Project/PropertiesContainer.h>
 #include <GDCore/Project/PropertiesContainersList.h>
 #include <GDCore/Project/PropertyDescriptor.h>
+#include <GDCore/Project/PropertyFolderOrProperty.h>
 #include <GDCore/Project/ResourcesContainer.h>
 #include <GDCore/Project/ResourcesContainersList.h>
 #include <GDCore/Project/Variable.h>
@@ -98,6 +100,7 @@
 #include <GDCore/Project/QuickCustomization.h>
 #include <GDCore/Serialization/Serializer.h>
 #include <GDCore/Serialization/SerializerElement.h>
+#include <GDCore/Serialization/BinarySerializer.h>
 #include <GDCore/IDE/ObjectAssetSerializer.h>
 #include <GDJS/Events/Builtin/JsCodeEvent.h>
 #include <GDJS/Events/CodeGeneration/BehaviorCodeGenerator.h>
@@ -469,6 +472,7 @@ typedef std::shared_ptr<SerializerElement> SharedPtrSerializerElement;
 typedef std::vector<UnfilledRequiredBehaviorPropertyProblem>
     VectorUnfilledRequiredBehaviorPropertyProblem;
 typedef std::vector<const gd::ObjectFolderOrObject*> VectorObjectFolderOrObject;
+typedef std::vector<const gd::PropertyFolderOrProperty*> VectorPropertyFolderOrProperty;
 typedef std::vector<gd::Screenshot> VectorScreenshot;
 typedef QuickCustomization::Visibility
     QuickCustomization_Visibility;
@@ -673,6 +677,7 @@ typedef std::vector<gd::PropertyDescriptorChoice> VectorPropertyDescriptorChoice
 #define STATIC_GetBehaviorsWithType GetBehaviorsWithType
 #define STATIC_IsBehaviorCompatibleWithObject IsBehaviorCompatibleWithObject
 #define STATIC_FillBehaviorParameters FillBehaviorParameters
+#define STATIC_IsParameterValid IsParameterValid
 #define STATIC_FixInvalidRequiredBehaviorProperties \
   FixInvalidRequiredBehaviorProperties
 #define STATIC_RemoveLayerInScene RemoveLayerInScene
@@ -833,6 +838,7 @@ typedef std::vector<gd::PropertyDescriptorChoice> VectorPropertyDescriptorChoice
 
 #define STATIC_ScanProject ScanProject
 #define STATIC_ScanEventsFunctionsExtension ScanEventsFunctionsExtension
+#define STATIC_FindExtensionsDependentOn FindExtensionsDependentOn
 #define STATIC_GetUsedExtensions GetUsedExtensions
 #define STATIC_SerializeProjectData SerializeProjectData
 #define STATIC_SerializeObjectWithCleanDefaultBehaviorFlags SerializeObjectWithCleanDefaultBehaviorFlags
@@ -852,6 +858,10 @@ typedef std::vector<gd::PropertyDescriptorChoice> VectorPropertyDescriptorChoice
 #define STATIC_GetDefaultMeasurementUnitByName GetDefaultMeasurementUnitByName
 #define STATIC_HasDefaultMeasurementUnitNamed HasDefaultMeasurementUnitNamed
 #define STATIC_GetEdgeAnchorFromString GetEdgeAnchorFromString
+#define STATIC_CreateBinarySnapshot CreateBinarySnapshot
+#define STATIC_GetLastBinarySnapshotSize GetLastBinarySnapshotSize
+#define STATIC_FreeBinarySnapshot FreeBinarySnapshot
+#define STATIC_DeserializeBinarySnapshot DeserializeBinarySnapshot
 
 // We postfix some methods with "At" as Javascript does not support overloading
 #define GetLayoutAt GetLayout

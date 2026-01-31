@@ -186,7 +186,8 @@ type Props = {|
   editorId: string,
   gameEditorMode: 'embedded-game' | 'instances-editor',
   setGameEditorMode: ('embedded-game' | 'instances-editor') => void,
-  onRestartInGameEditorAfterError: (() => void) | null,
+  onRestartInGameEditor: (reason: string) => void,
+  showRestartInGameEditorAfterErrorButton: boolean,
   project: gdProject,
   projectScopedContainersAccessor: ProjectScopedContainersAccessor,
   layout: gdLayout | null,
@@ -278,11 +279,12 @@ type State = {|
   additionalWorkInfoBar: InfoBarDetails,
 
   selectedObjectFolderOrObjectsWithContext: Array<ObjectFolderOrObjectWithContext>,
-  selectedLayer: string,
+  chosenLayer: string,
+  selectedLayer: gdLayer | null,
 
   tileMapTileSelection: ?TileMapTileSelection,
 
-  lastSelectionType: 'instance' | 'object',
+  lastSelectionType: 'instance' | 'object' | 'layer',
 |};
 
 type CopyCutPasteOptions = {|
@@ -341,8 +343,9 @@ export default class SceneEditor extends React.Component<Props, State> {
       tileMapTileSelection: null,
 
       selectedObjectFolderOrObjectsWithContext: [],
-      selectedLayer:
+      chosenLayer:
         initialInstancesEditorSettings.selectedLayer || BASE_LAYER_NAME,
+      selectedLayer: null,
       invisibleLayerOnWhichInstancesHaveJustBeenAdded: null,
 
       lastSelectionType: 'instance',
@@ -356,6 +359,16 @@ export default class SceneEditor extends React.Component<Props, State> {
   }
 
   componentDidMount() {
+    // Sync the saved gameEditorMode from instancesEditorSettings to MainFrame.
+    if (
+      this.props.isActive &&
+      this.state.instancesEditorSettings.gameEditorMode
+    ) {
+      this.props.setGameEditorMode(
+        this.state.instancesEditorSettings.gameEditorMode
+      );
+    }
+
     this.resourceExternallyChangedCallbackId = registerOnResourceExternallyChangedCallback(
       this.onResourceExternallyChanged.bind(this)
     );
@@ -368,10 +381,23 @@ export default class SceneEditor extends React.Component<Props, State> {
           onConnectionErrored: () => {},
           onServerStateChanged: () => {},
           onHandleParsedMessage: ({ id, parsedMessage }) => {
-            if (
-              this.props.gameEditorMode !== 'embedded-game' ||
-              parsedMessage.editorId !== this.props.editorId
-            ) {
+            if (parsedMessage.editorId !== this.props.editorId) {
+              return; // Message is not for this editor - ignore it.
+            }
+
+            if (parsedMessage.command === 'notifyGraphicsContextLost') {
+              // Even if the in0game editor is not visible, a lost context needs
+              // to have the in-game editor restarted as it is impossible to use for the user.
+              console.info(
+                'Embedded game frame notified the graphics context was lost, restarting the editor...'
+              );
+              this.props.onRestartInGameEditor(
+                'relaunched-because-graphics-context-lost'
+              );
+            }
+
+            // The rest of the messages are only relevant when the embedded game editor is visible.
+            if (this.props.gameEditorMode !== 'embedded-game') {
               return;
             }
             if (parsedMessage.command === 'updateInstances') {
@@ -639,8 +665,8 @@ export default class SceneEditor extends React.Component<Props, State> {
     if (editorDisplay.getName() === 'mosaic') {
       this.props.setToolbar(
         <MosaicEditorsDisplayToolbar
-          gameEditorMode={this.props.gameEditorMode}
-          setGameEditorMode={this.props.setGameEditorMode}
+          gameEditorMode={this.state.instancesEditorSettings.gameEditorMode}
+          setGameEditorMode={this.setGameEditorMode}
           selectedInstancesCount={
             this.instancesSelection.getSelectedInstances().length
           }
@@ -719,6 +745,14 @@ export default class SceneEditor extends React.Component<Props, State> {
       this.openSceneProperties(false);
     }
     if (!this.props.isActive && nextProps.isActive) {
+      // Sync the saved gameEditorMode from instancesEditorSettings to mainframe
+      // when the editor becomes active again
+      if (this.state.instancesEditorSettings.gameEditorMode) {
+        this.props.setGameEditorMode(
+          this.state.instancesEditorSettings.gameEditorMode
+        );
+      }
+
       // When the scene is refocused, the selections are cleaned
       // to avoid cases where we hold references to instances or objects
       // deleted by something outside of the scene (for example,
@@ -774,6 +808,16 @@ export default class SceneEditor extends React.Component<Props, State> {
       grid: !this.state.instancesEditorSettings.grid,
       snap: !this.state.instancesEditorSettings.grid,
     });
+  };
+
+  setGameEditorMode = (newMode: 'instances-editor' | 'embedded-game') => {
+    this.setInstancesEditorSettings({
+      ...this.state.instancesEditorSettings,
+      gameEditorMode: newMode,
+    });
+
+    // Call the setGameEditorMode from mainframe so it can make some global changes. (ex: hot reload)
+    this.props.setGameEditorMode(newMode);
   };
 
   openSetupGrid = (open: boolean = true) => {
@@ -871,8 +915,11 @@ export default class SceneEditor extends React.Component<Props, State> {
       selectedObjectFolderOrObjectsWithContext: [
         objectFolderOrObjectWithContext,
       ],
+      selectedLayer: null,
       lastSelectionType: 'object',
     });
+    if (this.editorDisplay)
+      this.editorDisplay.ensureEditorVisible('properties');
   };
 
   _editObjectGroup = (group: ?gdObjectGroup) => {
@@ -908,14 +955,16 @@ export default class SceneEditor extends React.Component<Props, State> {
     const { previewDebuggerServer } = this.props;
     if (!previewDebuggerServer) return;
 
-    previewDebuggerServer.getExistingDebuggerIds().forEach(debuggerId => {
-      previewDebuggerServer.sendMessage(debuggerId, {
-        command: 'setInstancesEditorSettings',
-        payload: {
-          instancesEditorSettings,
-        },
+    previewDebuggerServer
+      .getExistingEmbeddedGameFrameDebuggerIds()
+      .forEach(debuggerId => {
+        previewDebuggerServer.sendMessage(debuggerId, {
+          command: 'setInstancesEditorSettings',
+          payload: {
+            instancesEditorSettings,
+          },
+        });
       });
-    });
   };
 
   /**
@@ -978,14 +1027,16 @@ export default class SceneEditor extends React.Component<Props, State> {
 
     const instances = serializeToJSObject(this.props.initialInstances);
 
-    previewDebuggerServer.getExistingDebuggerIds().forEach(debuggerId => {
-      previewDebuggerServer.sendMessage(debuggerId, {
-        command: 'hotReloadAllInstances',
-        payload: {
-          instances,
-        },
+    previewDebuggerServer
+      .getExistingEmbeddedGameFrameDebuggerIds()
+      .forEach(debuggerId => {
+        previewDebuggerServer.sendMessage(debuggerId, {
+          command: 'hotReloadAllInstances',
+          payload: {
+            instances,
+          },
+        });
       });
-    });
   };
 
   _onObjectFolderOrObjectWithContextSelected = (
@@ -1002,6 +1053,7 @@ export default class SceneEditor extends React.Component<Props, State> {
       {
         lastSelectionType: 'object',
         selectedObjectFolderOrObjectsWithContext,
+        selectedLayer: null,
       },
       () => {
         // We update the toolbar because we need to update the objects selected
@@ -1051,7 +1103,7 @@ export default class SceneEditor extends React.Component<Props, State> {
     const instances = this.editorDisplay.instancesHandlers.addInstances(
       pos,
       [objectName],
-      this.state.selectedLayer
+      this.state.chosenLayer
     );
     this._onInstancesAddedAndSendToEditor3D(instances);
   };
@@ -1110,15 +1162,19 @@ export default class SceneEditor extends React.Component<Props, State> {
   _sendAddedInstances = (instances: Array<gdInitialInstance>) => {
     const { previewDebuggerServer } = this.props;
     if (previewDebuggerServer) {
-      previewDebuggerServer.getExistingDebuggerIds().forEach(debuggerId => {
-        previewDebuggerServer.sendMessage(debuggerId, {
-          command: 'addInstances',
-          payload: {
-            instances: instances.map(instance => serializeToJSObject(instance)),
-            moveUnderCursor: false,
-          },
+      previewDebuggerServer
+        .getExistingEmbeddedGameFrameDebuggerIds()
+        .forEach(debuggerId => {
+          previewDebuggerServer.sendMessage(debuggerId, {
+            command: 'addInstances',
+            payload: {
+              instances: instances.map(instance =>
+                serializeToJSObject(instance)
+              ),
+              moveUnderCursor: false,
+            },
+          });
         });
-      });
     }
   };
 
@@ -1133,6 +1189,7 @@ export default class SceneEditor extends React.Component<Props, State> {
         {
           lastSelectionType: 'instance',
           selectedObjectFolderOrObjectsWithContext: [],
+          selectedLayer: null,
         },
         this.updateToolbar
       );
@@ -1158,6 +1215,7 @@ export default class SceneEditor extends React.Component<Props, State> {
               global: true,
             },
           ],
+          selectedLayer: null,
         },
         this.updateToolbar
       );
@@ -1173,6 +1231,7 @@ export default class SceneEditor extends React.Component<Props, State> {
               global: false,
             },
           ],
+          selectedLayer: null,
         },
         this.updateToolbar
       );
@@ -1246,14 +1305,16 @@ export default class SceneEditor extends React.Component<Props, State> {
     const { previewDebuggerServer } = this.props;
     if (!previewDebuggerServer) return;
 
-    previewDebuggerServer.getExistingDebuggerIds().forEach(debuggerId => {
-      previewDebuggerServer.sendMessage(debuggerId, {
-        command: 'updateInstances',
-        payload: {
-          instances: instances.map(instance => serializeToJSObject(instance)),
-        },
+    previewDebuggerServer
+      .getExistingEmbeddedGameFrameDebuggerIds()
+      .forEach(debuggerId => {
+        previewDebuggerServer.sendMessage(debuggerId, {
+          command: 'updateInstances',
+          payload: {
+            instances: instances.map(instance => serializeToJSObject(instance)),
+          },
+        });
       });
-    });
   };
 
   _onObjectsModified = (objects: Array<gdObject>) => {
@@ -1274,14 +1335,16 @@ export default class SceneEditor extends React.Component<Props, State> {
     );
     const { previewDebuggerServer } = this.props;
     if (previewDebuggerServer) {
-      previewDebuggerServer.getExistingDebuggerIds().forEach(debuggerId => {
-        previewDebuggerServer.sendMessage(debuggerId, {
-          command: 'hotReloadObjects',
-          payload: {
-            updatedObjects: serializedObjects,
-          },
+      previewDebuggerServer
+        .getExistingEmbeddedGameFrameDebuggerIds()
+        .forEach(debuggerId => {
+          previewDebuggerServer.sendMessage(debuggerId, {
+            command: 'hotReloadObjects',
+            payload: {
+              updatedObjects: serializedObjects,
+            },
+          });
         });
-      });
     }
   };
 
@@ -1342,16 +1405,18 @@ export default class SceneEditor extends React.Component<Props, State> {
   _sendSelectedInstances = () => {
     const { previewDebuggerServer } = this.props;
     if (previewDebuggerServer) {
-      previewDebuggerServer.getExistingDebuggerIds().forEach(debuggerId => {
-        previewDebuggerServer.sendMessage(debuggerId, {
-          command: 'setSelectedInstances',
-          payload: {
-            instanceUuids: this.instancesSelection
-              .getSelectedInstances()
-              .map(instance => instance.getPersistentUuid()),
-          },
+      previewDebuggerServer
+        .getExistingEmbeddedGameFrameDebuggerIds()
+        .forEach(debuggerId => {
+          previewDebuggerServer.sendMessage(debuggerId, {
+            command: 'setSelectedInstances',
+            payload: {
+              instanceUuids: this.instancesSelection
+                .getSelectedInstances()
+                .map(instance => instance.getPersistentUuid()),
+            },
+          });
         });
-      });
     }
   };
 
@@ -1424,11 +1489,11 @@ export default class SceneEditor extends React.Component<Props, State> {
 
   _onRemoveLayer = (layerName: string, done: boolean => void) => {
     const getNewState = (doRemove: boolean) => {
-      const newState: {| layerRemoved: null, selectedLayer?: string |} = {
+      const newState: {| layerRemoved: null, chosenLayer?: string |} = {
         layerRemoved: null,
       };
-      if (doRemove && layerName === this.state.selectedLayer) {
-        newState.selectedLayer = BASE_LAYER_NAME;
+      if (doRemove && layerName === this.state.chosenLayer) {
+        newState.chosenLayer = BASE_LAYER_NAME;
       }
       return newState;
     };
@@ -1502,15 +1567,17 @@ export default class SceneEditor extends React.Component<Props, State> {
       return serializeToJSObject(layer);
     });
     if (previewDebuggerServer) {
-      previewDebuggerServer.getExistingDebuggerIds().forEach(debuggerId => {
-        previewDebuggerServer.sendMessage(debuggerId, {
-          command: 'hotReloadLayers',
-          payload: {
-            layers,
-            areEffectsHidden: project.areEffectsHiddenInEditor(),
-          },
+      previewDebuggerServer
+        .getExistingEmbeddedGameFrameDebuggerIds()
+        .forEach(debuggerId => {
+          previewDebuggerServer.sendMessage(debuggerId, {
+            command: 'hotReloadLayers',
+            payload: {
+              layers,
+              areEffectsHidden: project.areEffectsHiddenInEditor(),
+            },
+          });
         });
-      });
     }
   };
 
@@ -1520,18 +1587,20 @@ export default class SceneEditor extends React.Component<Props, State> {
       return;
     }
     if (previewDebuggerServer) {
-      previewDebuggerServer.getExistingDebuggerIds().forEach(debuggerId => {
-        previewDebuggerServer.sendMessage(debuggerId, {
-          command: 'setBackgroundColor',
-          payload: {
-            backgroundColor: [
-              layout.getBackgroundColorRed(),
-              layout.getBackgroundColorGreen(),
-              layout.getBackgroundColorBlue(),
-            ],
-          },
+      previewDebuggerServer
+        .getExistingEmbeddedGameFrameDebuggerIds()
+        .forEach(debuggerId => {
+          previewDebuggerServer.sendMessage(debuggerId, {
+            command: 'setBackgroundColor',
+            payload: {
+              backgroundColor: [
+                layout.getBackgroundColorRed(),
+                layout.getBackgroundColorGreen(),
+                layout.getBackgroundColorBlue(),
+              ],
+            },
+          });
         });
-      });
     }
   };
 
@@ -1549,26 +1618,31 @@ export default class SceneEditor extends React.Component<Props, State> {
     this._sendHotReloadLayers();
   };
 
-  _onSelectLayer = (layerName: string) => {
+  _onChooseLayer = (layerName: string) => {
     this.setState({
-      selectedLayer: layerName,
-      instancesEditorSettings: {
-        ...this.state.instancesEditorSettings,
-        selectedLayer: layerName,
-      },
+      chosenLayer: layerName,
     });
 
     const { previewDebuggerServer } = this.props;
     if (previewDebuggerServer) {
-      previewDebuggerServer.getExistingDebuggerIds().forEach(debuggerId => {
-        previewDebuggerServer.sendMessage(debuggerId, {
-          command: 'setSelectedLayer',
-          payload: {
-            layerName,
-          },
+      previewDebuggerServer
+        .getExistingEmbeddedGameFrameDebuggerIds()
+        .forEach(debuggerId => {
+          previewDebuggerServer.sendMessage(debuggerId, {
+            command: 'setSelectedLayer',
+            payload: {
+              layerName,
+            },
+          });
         });
-      });
     }
+  };
+
+  _onSelectLayer = (layer: gdLayer | null) => {
+    this.setState({
+      selectedLayer: layer,
+      lastSelectionType: 'layer',
+    });
   };
 
   _onDeleteObjects = (
@@ -1938,12 +2012,14 @@ export default class SceneEditor extends React.Component<Props, State> {
 
     const { previewDebuggerServer } = this.props;
     if (previewDebuggerServer) {
-      previewDebuggerServer.getExistingDebuggerIds().forEach(debuggerId => {
-        previewDebuggerServer.sendMessage(debuggerId, {
-          command: 'deleteSelection',
-          payload: {},
+      previewDebuggerServer
+        .getExistingEmbeddedGameFrameDebuggerIds()
+        .forEach(debuggerId => {
+          previewDebuggerServer.sendMessage(debuggerId, {
+            command: 'deleteSelection',
+            payload: {},
+          });
         });
-      });
     }
   };
 
@@ -2117,14 +2193,16 @@ export default class SceneEditor extends React.Component<Props, State> {
     if (this.props.gameEditorMode === 'embedded-game') {
       const { previewDebuggerServer } = this.props;
       if (!previewDebuggerServer) return;
-      previewDebuggerServer.getExistingDebuggerIds().forEach(debuggerId => {
-        previewDebuggerServer.sendMessage(debuggerId, {
-          command: 'setZoom',
-          payload: {
-            zoom,
-          },
+      previewDebuggerServer
+        .getExistingEmbeddedGameFrameDebuggerIds()
+        .forEach(debuggerId => {
+          previewDebuggerServer.sendMessage(debuggerId, {
+            command: 'setZoom',
+            payload: {
+              zoom,
+            },
+          });
         });
-      });
     }
   }
 
@@ -2132,14 +2210,16 @@ export default class SceneEditor extends React.Component<Props, State> {
     if (this.props.gameEditorMode === 'embedded-game') {
       const { previewDebuggerServer } = this.props;
       if (!previewDebuggerServer) return;
-      previewDebuggerServer.getExistingDebuggerIds().forEach(debuggerId => {
-        previewDebuggerServer.sendMessage(debuggerId, {
-          command: 'zoomBy',
-          payload: {
-            zoomFactor,
-          },
+      previewDebuggerServer
+        .getExistingEmbeddedGameFrameDebuggerIds()
+        .forEach(debuggerId => {
+          previewDebuggerServer.sendMessage(debuggerId, {
+            command: 'zoomBy',
+            payload: {
+              zoomFactor,
+            },
+          });
         });
-      });
     }
   }
 
@@ -2539,8 +2619,8 @@ export default class SceneEditor extends React.Component<Props, State> {
 
   forceUpdateLayersList = () => {
     // The selected layer could have been deleted when editing a linked external layout.
-    if (!this.props.layersContainer.hasLayerNamed(this.state.selectedLayer)) {
-      this.setState({ selectedLayer: BASE_LAYER_NAME });
+    if (!this.props.layersContainer.hasLayerNamed(this.state.chosenLayer)) {
+      this.setState({ chosenLayer: BASE_LAYER_NAME });
     }
     if (this.editorDisplay) this.editorDisplay.forceUpdateLayersList();
   };
@@ -2684,8 +2764,9 @@ export default class SceneEditor extends React.Component<Props, State> {
               <EditorsDisplay
                 ref={ref => (this.editorDisplay = ref)}
                 gameEditorMode={this.props.gameEditorMode}
-                onRestartInGameEditorAfterError={
-                  this.props.onRestartInGameEditorAfterError
+                onRestartInGameEditor={this.props.onRestartInGameEditor}
+                showRestartInGameEditorAfterErrorButton={
+                  this.props.showRestartInGameEditorAfterErrorButton
                 }
                 project={project}
                 layout={layout}
@@ -2703,7 +2784,10 @@ export default class SceneEditor extends React.Component<Props, State> {
                 onSelectInstances={this._onSelectInstances}
                 onInstancesModified={this._onInstancesModified}
                 onAddObjectInstance={this.addInstanceOnTheScene}
+                chosenLayer={this.state.chosenLayer}
+                onChooseLayer={this._onChooseLayer}
                 selectedLayer={this.state.selectedLayer}
+                onSelectLayer={this._onSelectLayer}
                 editLayer={this.editLayer}
                 editLayerEffects={this.editLayerEffects}
                 editInstanceVariables={this.editInstanceVariables}
@@ -2719,7 +2803,6 @@ export default class SceneEditor extends React.Component<Props, State> {
                   this._onLayersVisibilityInEditorChanged
                 }
                 onRemoveLayer={this._onRemoveLayer}
-                onSelectLayer={this._onSelectLayer}
                 tileMapTileSelection={this.state.tileMapTileSelection}
                 onSelectTileMapTile={this.onSelectTileMapTile}
                 onExportAssets={this.openObjectExporterDialog}
@@ -2749,6 +2832,7 @@ export default class SceneEditor extends React.Component<Props, State> {
                 onObjectCreated={this._onObjectCreated}
                 onObjectEdited={this._onObjectEdited}
                 onObjectsModified={this._onObjectsModified}
+                onEffectAdded={this.props.onEffectAdded}
                 onObjectFolderOrObjectWithContextSelected={
                   this._onObjectFolderOrObjectWithContextSelected
                 }
@@ -2808,6 +2892,9 @@ export default class SceneEditor extends React.Component<Props, State> {
                 onWillInstallExtension={this.props.onWillInstallExtension}
                 onExtensionInstalled={this.props.onExtensionInstalled}
                 editorViewPosition2D={this.editorViewPosition2D}
+                onEventsBasedObjectChildrenEdited={
+                  this.props.onEventsBasedObjectChildrenEdited
+                }
               />
               <I18n>
                 {({ i18n }) => (
@@ -3080,7 +3167,7 @@ export default class SceneEditor extends React.Component<Props, State> {
                       const { previewDebuggerServer } = this.props;
                       if (previewDebuggerServer) {
                         previewDebuggerServer
-                          .getExistingDebuggerIds()
+                          .getExistingEmbeddedGameFrameDebuggerIds()
                           .forEach(debuggerId => {
                             previewDebuggerServer.sendMessage(debuggerId, {
                               command: 'updateInnerArea',

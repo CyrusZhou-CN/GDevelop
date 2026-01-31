@@ -160,6 +160,7 @@ namespace gdjs {
   /**
    * The base class describing a debugger client, that can be used to inspect
    * a runtime game (dump its state) or alter it.
+   * @category Debugging > Debugger Client
    */
   export abstract class AbstractDebuggerClient {
     _runtimegame: gdjs.RuntimeGame;
@@ -304,6 +305,7 @@ namespace gdjs {
           if (inGameEditor) {
             const editedInstanceContainer =
               inGameEditor.getEditedInstanceContainer();
+            const editedLayerDataList = inGameEditor.getEditedLayerDataList();
             if (editedInstanceContainer) {
               inGameEditor.onLayersDataChange(
                 data.payload.layers,
@@ -311,6 +313,7 @@ namespace gdjs {
               );
               that._hotReloader.hotReloadRuntimeSceneLayers(
                 data.payload.layers,
+                editedLayerDataList,
                 editedInstanceContainer
               );
               // Apply `areEffectsHidden` to all the layers of the project data.
@@ -955,6 +958,20 @@ namespace gdjs {
                 maxY: 0,
                 maxZ: 0,
               },
+        })
+      );
+    }
+
+    sendGraphicsContextLost(): void {
+      const inGameEditor = this._runtimegame.getInGameEditor();
+      if (!inGameEditor) {
+        return;
+      }
+      this._sendMessage(
+        circularSafeStringify({
+          command: 'notifyGraphicsContextLost',
+          editorId: inGameEditor.getEditorId(),
+          payload: {},
         })
       );
     }

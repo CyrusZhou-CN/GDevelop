@@ -312,7 +312,6 @@ bool ExporterHelper::ExportProjectForPixiPreview(
     ExportProjectData(fs, exportedProject, codeOutputDir + "/data.js",
                       runtimeGameOptions, options.isInGameEdition,
                       inGameEditorResources);
-    includesFiles.push_back(codeOutputDir + "/data.js");
 
     previousTime = LogTimeSpent("Project data export", previousTime);
   }
@@ -321,6 +320,7 @@ bool ExporterHelper::ExportProjectForPixiPreview(
   }
 
   if (options.shouldReloadLibraries || options.shouldClearExportFolder) {
+    includesFiles.push_back(codeOutputDir + "/data.js");
     // Copy all the dependencies and their source maps
     ExportIncludesAndLibs(includesFiles, options.exportPath, true);
     ExportIncludesAndLibs(resourcesFiles, options.exportPath, true);
@@ -351,7 +351,7 @@ gd::String ExporterHelper::ExportProjectData(
   fs.MkDir(fs.DirNameFrom(filename));
 
   gd::SerializerElement projectDataElement;
-  ExporterHelper::StriptAndSerializeProjectData(project, projectDataElement,
+  ExporterHelper::StripAndSerializeProjectData(project, projectDataElement,
                                                 isInGameEdition,
                                                 inGameEditorResources);
 
@@ -492,17 +492,22 @@ void ExporterHelper::SerializeRuntimeGameOptions(
   }
 
   // Pass in the options the list of scripts files - useful for hot-reloading.
-  auto &scriptFilesElement = runtimeGameOptions.AddChild("scriptFiles");
-  scriptFilesElement.ConsiderAsArrayOf("scriptFile");
+  // If includeFiles is empty, it means that the include files have not been
+  // generated, so do not even add them to the runtime game options, so the
+  // hot-reloader will not try to reload them.
+  if (!includesFiles.empty()) {
+    auto &scriptFilesElement = runtimeGameOptions.AddChild("scriptFiles");
+    scriptFilesElement.ConsiderAsArrayOf("scriptFile");
 
-  for (const auto &includeFile : includesFiles) {
-    auto hashIt = options.includeFileHashes.find(includeFile);
-    gd::String scriptSrc = GetExportedIncludeFilename(fs, gdjsRoot, includeFile);
-    scriptFilesElement.AddChild("scriptFile")
-        .SetStringAttribute("path", scriptSrc)
-        .SetIntAttribute(
-            "hash",
-            hashIt != options.includeFileHashes.end() ? hashIt->second : 0);
+    for (const auto &includeFile : includesFiles) {
+      auto hashIt = options.includeFileHashes.find(includeFile);
+      gd::String scriptSrc = GetExportedIncludeFilename(fs, gdjsRoot, includeFile);
+      scriptFilesElement.AddChild("scriptFile")
+          .SetStringAttribute("path", scriptSrc)
+          .SetIntAttribute(
+              "hash",
+              hashIt != options.includeFileHashes.end() ? hashIt->second : 0);
+    }
   }
 }
 
@@ -537,15 +542,25 @@ void ExporterHelper::SerializeProjectData(gd::AbstractFileSystem &fs,
     resourcesMergingHelper.PreserveDirectoriesStructure(false);
     resourcesMergingHelper.PreserveAbsoluteFilenames(false);
   }
+
+  if (!options.fullLoadingScreen) {
+    // Most of the time, we skip the logo and minimum duration so that
+    // the preview start as soon as possible.
+    clonedProject.GetLoadingScreen()
+        .ShowGDevelopLogoDuringLoadingScreen(false)
+        .SetMinDuration(0);
+    clonedProject.GetWatermark().ShowGDevelopWatermark(false);
+  }
+
   gd::ResourceExposer::ExposeWholeProjectResources(clonedProject,
                                                    resourcesMergingHelper);
 
-  ExporterHelper::StriptAndSerializeProjectData(clonedProject, rootElement,
+  ExporterHelper::StripAndSerializeProjectData(clonedProject, rootElement,
                                                 options.isInGameEdition,
                                                 inGameEditorResources);
 }
 
-void ExporterHelper::StriptAndSerializeProjectData(
+void ExporterHelper::StripAndSerializeProjectData(
     gd::Project &project, gd::SerializerElement &rootElement,
     bool isInGameEdition,
     const std::vector<gd::InGameEditorResourceMetadata> &inGameEditorResources) {

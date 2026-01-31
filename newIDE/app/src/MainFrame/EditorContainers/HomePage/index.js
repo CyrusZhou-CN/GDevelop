@@ -46,7 +46,6 @@ import { type GamesPlatformFrameTools } from './PlaySection/UseGamesPlatformFram
 import { type CourseChapter } from '../../../Utils/GDevelopServices/Asset';
 import useCourses from './UseCourses';
 import PreferencesContext from '../../Preferences/PreferencesContext';
-import useSubscriptionPlans from '../../../Utils/UseSubscriptionPlans';
 import { BundleStoreContext } from '../../../AssetStore/Bundles/BundleStoreContext';
 import {
   setEditorHotReloadNeeded,
@@ -172,7 +171,9 @@ type Props = {|
   onExtensionInstalled: (extensionNames: Array<string>) => void,
 
   // Project save
-  onSave: () => Promise<void>,
+  onSave: (options?: {|
+    skipNewVersionWarning: boolean,
+  |}) => Promise<?FileMetadata>,
   canSave: boolean,
 
   resourceManagementProps: ResourceManagementProps,
@@ -322,10 +323,6 @@ export const HomePage = React.memo<Props>(
       const [learnCategory, setLearnCategory] = React.useState<LearnCategory>(
         null
       );
-      const { getSubscriptionPlansWithPricingSystems } = useSubscriptionPlans({
-        authenticatedUser,
-        includeLegacy: false,
-      });
 
       const { isMobile } = useResponsiveWindowSize();
       const {
@@ -608,7 +605,6 @@ export const HomePage = React.memo<Props>(
                       onOpenLayout={onOpenLayout}
                       onWillInstallExtension={onWillInstallExtension}
                       onExtensionInstalled={onExtensionInstalled}
-                      onOpenAskAi={onOpenAskAi}
                       onCloseAskAi={onCloseAskAi}
                       closeProject={closeProject}
                       games={games}
@@ -664,9 +660,6 @@ export const HomePage = React.memo<Props>(
                         onSelectPrivateGameTemplateListingData
                       }
                       onSelectExampleShortHeader={onSelectExampleShortHeader}
-                      getSubscriptionPlansWithPricingSystems={
-                        getSubscriptionPlansWithPricingSystems
-                      }
                       clearInitialBundleValues={() => {
                         setInitialBundleUserFriendlySlugForLearn(null);
                         setInitialBundleCategoryForLearn(null);
@@ -698,9 +691,6 @@ export const HomePage = React.memo<Props>(
                       }}
                       courses={courses}
                       getCourseCompletion={getCourseCompletion}
-                      getSubscriptionPlansWithPricingSystems={
-                        getSubscriptionPlansWithPricingSystems
-                      }
                     />
                   )}
                   {activeTab === 'team-view' &&

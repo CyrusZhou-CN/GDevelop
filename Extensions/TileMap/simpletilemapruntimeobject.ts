@@ -1,5 +1,8 @@
 /// <reference path="helper/TileMapHelper.d.ts" />
 namespace gdjs {
+  /**
+   * @category Objects > Tile Map
+   */
   export type SimpleTileMapObjectDataType = {
     content: {
       atlasImage: string;
@@ -10,19 +13,29 @@ namespace gdjs {
     };
   };
 
+  /**
+   * @category Objects > Tile Map
+   */
   export type SimpleTileMapObjectData = ObjectData &
     SimpleTileMapObjectDataType;
 
+  /**
+   * @category Objects > Tile Map
+   */
   export type SimpleTileMapNetworkSyncDataType = {
     op: number;
     tm?: TileMapHelper.EditableTileMapAsJsObject;
   };
 
+  /**
+   * @category Objects > Tile Map
+   */
   export type SimpleTileMapNetworkSyncData = ObjectNetworkSyncData &
     SimpleTileMapNetworkSyncDataType;
 
   /**
    * Displays a SimpleTileMap object.
+   * @category Objects > Tile Map
    */
   export class SimpleTileMapRuntimeObject
     extends gdjs.RuntimeObject
@@ -58,7 +71,7 @@ namespace gdjs {
 
     constructor(
       instanceContainer: gdjs.RuntimeInstanceContainer,
-      objectData: SimpleTileMapObjectDataType
+      objectData: ObjectData & SimpleTileMapObjectDataType
     ) {
       super(instanceContainer, objectData);
       this._atlasImage = objectData.content.atlasImage;
@@ -262,7 +275,9 @@ namespace gdjs {
               );
           }
 
+          this._transformationIsUpToDate = false;
           this.updateTransformation();
+          this.invalidateHitboxes();
         }
       );
     }

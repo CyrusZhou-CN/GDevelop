@@ -63,7 +63,7 @@ export type PreviewOptions = {|
   editorId: string,
   getIsMenuBarHiddenInPreview: () => boolean,
   getIsAlwaysOnTopInPreview: () => boolean,
-  captureOptions: CaptureOptions,
+  captureOptions: CaptureOptions | null,
   onCaptureFinished: CaptureOptions => Promise<void>,
   inAppTutorialMessageInPreview: string,
   inAppTutorialMessagePositionInPreview: string,
@@ -135,6 +135,8 @@ export interface PreviewDebuggerServer {
   startServer({ origin?: string }): Promise<void>;
   getServerState(): 'started' | 'stopped';
   getExistingDebuggerIds(): Array<DebuggerId>;
+  getExistingEmbeddedGameFrameDebuggerIds(): Array<DebuggerId>;
+  getExistingPreviewDebuggerIds(): Array<DebuggerId>;
   sendMessage(id: DebuggerId, message: Object): void;
   sendMessageWithResponse(message: Object): Promise<Object>;
   registerCallbacks(callbacks: PreviewDebuggerServerCallbacks): () => void;

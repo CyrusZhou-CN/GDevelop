@@ -16,7 +16,10 @@ namespace gdjs {
   type Model3DObjectNetworkSyncData = Object3DNetworkSyncData &
     Model3DObjectNetworkSyncDataType;
 
-  /** Base parameters for {@link gdjs.Cube3DRuntimeObject} */
+  /**
+   * Base parameters for {@link gdjs.Model3DRuntimeObject}
+   * @category Objects > 3D Model
+   */
   export interface Model3DObjectData extends Object3DData {
     /** The base parameters of the Model3D object */
     content: Object3DDataContent & {
@@ -65,6 +68,7 @@ namespace gdjs {
 
   /**
    * A 3D object which displays a 3D model.
+   * @category Objects > 3D Model
    */
   export class Model3DRuntimeObject
     extends gdjs.RuntimeObject3D
@@ -106,12 +110,14 @@ namespace gdjs {
     _crossfadeDuration: float = 0;
     _isCastingShadow: boolean = true;
     _isReceivingShadow: boolean = true;
+    _data: Model3DObjectData;
 
     constructor(
       instanceContainer: gdjs.RuntimeInstanceContainer,
       objectData: Model3DObjectData
     ) {
       super(instanceContainer, objectData);
+      this._data = objectData;
       this._modelResourceName = objectData.content.modelResourceName;
       this._animations = objectData.content.animations;
       this._originPoint = getPointForLocation(
@@ -497,6 +503,7 @@ namespace gdjs {
     }
   }
 
+  /** @category Objects > 3D Model */
   export namespace Model3DRuntimeObject {
     export enum MaterialType {
       Basic,

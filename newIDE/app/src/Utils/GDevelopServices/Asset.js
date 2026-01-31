@@ -16,6 +16,7 @@ import {
   isPrivateAssetResourceAuthorizedUrl,
 } from './Shop';
 import { type ExtensionDependency } from '../../Utils/GDevelopServices/Extension';
+import { ensureObjectHasProperty, ensureIsArray } from '../DataValidator';
 
 export type License = {|
   name: string,
@@ -254,6 +255,12 @@ export type TextBasedCourseChapterCodeItem = {|
   language?: string,
 |};
 
+export type TextBasedCourseChapterCalloutItem = {|
+  type: 'callout',
+  kind: 'info' | 'warning' | 'error' | 'valid',
+  text: string,
+|};
+
 export type TextBasedCourseChapterTableItem = {|
   type: 'table',
   header?: Array<string>,
@@ -268,6 +275,7 @@ export type TextBasedCourseChapterTaskItem = {|
     | TextBasedCourseChapterImageItem
     | TextBasedCourseChapterVideoItem
     | TextBasedCourseChapterCodeItem
+    | TextBasedCourseChapterCalloutItem
     | TextBasedCourseChapterTableItem
   >,
   answer?: {
@@ -276,6 +284,7 @@ export type TextBasedCourseChapterTaskItem = {|
       | TextBasedCourseChapterImageItem
       | TextBasedCourseChapterVideoItem
       | TextBasedCourseChapterCodeItem
+      | TextBasedCourseChapterCalloutItem
       | TextBasedCourseChapterTableItem
     >,
   },
@@ -294,6 +303,7 @@ export type UnlockedTextBasedCourseChapter = {|
     | TextBasedCourseChapterTaskItem
     | TextBasedCourseChapterVideoItem
     | TextBasedCourseChapterCodeItem
+    | TextBasedCourseChapterCalloutItem
     | TextBasedCourseChapterTableItem
   >,
 |};
@@ -366,6 +376,9 @@ export const client = axios.create({
   baseURL: GDevelopAssetApi.baseUrl,
 });
 
+// Separate client for fetching static JSON files from the CDN
+export const cdnClient = axios.create();
+
 export const isAssetPackAudioOnly = (assetPack: PrivateAssetPack): boolean => {
   const contentKeys = Object.keys(assetPack.content);
   return contentKeys.length === 1 && contentKeys[0] === 'audio';
@@ -401,15 +414,15 @@ export const listAllPublicAssets = async ({
   }
 
   const responsesData = await Promise.all([
-    client
+    cdnClient
       .get(assetShortHeadersUrl)
       .then(response => response.data)
       .catch(e => e),
-    client
+    cdnClient
       .get(filtersUrl)
       .then(response => response.data)
       .catch(e => e),
-    client
+    cdnClient
       .get(assetPacksUrl)
       .then(response => response.data)
       .catch(e => e),
@@ -440,12 +453,16 @@ export const getPublicAsset = async (
   assetShortHeader: AssetShortHeader,
   { environment }: {| environment: Environment |}
 ): Promise<Asset> => {
-  const assetResponse = await client.get(
+  const assetResponse = await cdnClient.get(
     `${GDevelopAssetCdn.baseUrl[environment]}/assets/${
       assetShortHeader.id
     }.json`
   );
-  return assetResponse.data;
+  return ensureObjectHasProperty({
+    data: assetResponse.data,
+    propertyName: 'id',
+    endpointName: '/assets/{id}.json of Asset API',
+  });
 };
 
 export const getPrivateAsset = async (
@@ -465,7 +482,11 @@ export const getPrivateAsset = async (
     authorizationToken
   );
   const assetResponse = await client.get(authorizedUrl);
-  return assetResponse.data;
+  return ensureObjectHasProperty({
+    data: assetResponse.data,
+    propertyName: 'id',
+    endpointName: '/private-assets/{packId}/{assetId}.json of Asset API',
+  });
 };
 
 export const getPrivateAssetPackAudioFilesArchiveUrl = (
@@ -529,7 +550,12 @@ export const listAllAuthors = ({
         throw new Error('Unexpected response from author endpoint.');
       return client.get(authorsUrl);
     })
-    .then(response => response.data);
+    .then(response =>
+      ensureIsArray({
+        data: response.data,
+        endpointName: '/author of Asset API',
+      })
+    );
 };
 
 export const listAllLicenses = ({
@@ -549,26 +575,43 @@ export const listAllLicenses = ({
         throw new Error('Unexpected response from license endpoint.');
       return client.get(licensesUrl);
     })
-    .then(response => response.data);
+    .then(response =>
+      ensureIsArray({
+        data: response.data,
+        endpointName: '/license of Asset API',
+      })
+    );
 };
 
 export const getPrivateAssetPack = async (
   assetPackId: string
 ): Promise<PrivateAssetPack> => {
   const response = await client.get(`/asset-pack/${assetPackId}`);
-  return response.data;
+  return ensureObjectHasProperty({
+    data: response.data,
+    propertyName: 'id',
+    endpointName: '/asset-pack/{id} of Asset API',
+  });
 };
 
 export const getPrivateGameTemplate = async (
   gameTemplateId: string
 ): Promise<PrivateGameTemplate> => {
   const response = await client.get(`/game-template/${gameTemplateId}`);
-  return response.data;
+  return ensureObjectHasProperty({
+    data: response.data,
+    propertyName: 'id',
+    endpointName: '/game-template/{id} of Asset API',
+  });
 };
 
 export const getBundle = async (bundleId: string): Promise<Bundle> => {
   const response = await client.get(`/bundle/${bundleId}`);
-  return response.data;
+  return ensureObjectHasProperty({
+    data: response.data,
+    propertyName: 'id',
+    endpointName: '/bundle/{id} of Asset API',
+  });
 };
 
 export const getPrivatePdfTutorial = async (
@@ -590,7 +633,11 @@ export const getPrivatePdfTutorial = async (
       Authorization: authorizationHeader,
     },
   });
-  return response.data;
+  return ensureObjectHasProperty({
+    data: response.data,
+    propertyName: 'id',
+    endpointName: '/pdf-tutorial/{id} of Asset API',
+  });
 };
 
 export const createPrivateGameTemplateUrl = async (
@@ -635,7 +682,10 @@ export const listReceivedAssetShortHeaders = async (
     headers: { Authorization: authorizationHeader },
     params: { userId },
   });
-  return response.data;
+  return ensureIsArray({
+    data: response.data,
+    endpointName: '/asset-short-header of Asset API',
+  });
 };
 
 export const listReceivedAssetPacks = async (
@@ -651,7 +701,10 @@ export const listReceivedAssetPacks = async (
     headers: { Authorization: authorizationHeader },
     params: { userId },
   });
-  return response.data;
+  return ensureIsArray({
+    data: response.data,
+    endpointName: '/asset-pack of Asset API',
+  });
 };
 
 export const listReceivedGameTemplates = async (
@@ -667,7 +720,10 @@ export const listReceivedGameTemplates = async (
     headers: { Authorization: authorizationHeader },
     params: { userId },
   });
-  return response.data;
+  return ensureIsArray({
+    data: response.data,
+    endpointName: '/game-template of Asset API',
+  });
 };
 
 export const listReceivedBundles = async (
@@ -683,7 +739,10 @@ export const listReceivedBundles = async (
     headers: { Authorization: authorizationHeader },
     params: { userId },
   });
-  return response.data;
+  return ensureIsArray({
+    data: response.data,
+    endpointName: '/bundle of Asset API',
+  });
 };
 
 export const isPublicAssetResourceUrl = (url: string) =>
@@ -732,10 +791,15 @@ export const listCourses = async (
         Authorization: authorizationHeader,
       },
     });
-    return response.data;
+    return ensureIsArray({
+      data: response.data,
+      endpointName: '/course of Asset API',
+    });
   }
-  const response = await client.get(`/course`);
-  return response.data;
+  return ensureIsArray({
+    data: (await client.get(`/course`)).data,
+    endpointName: '/course of Asset API',
+  });
 };
 
 export const listCourseChapters = async (
@@ -762,12 +826,17 @@ export const listCourseChapters = async (
         Authorization: authorizationHeader,
       },
     });
-    return response.data;
+    return ensureIsArray({
+      data: response.data,
+      endpointName: '/course/{id}/chapter of Asset API',
+    });
   }
-  const response = await client.get(`/course/${courseId}/chapter`, {
-    params: { language },
+  return ensureIsArray({
+    data: (await client.get(`/course/${courseId}/chapter`, {
+      params: { language },
+    })).data,
+    endpointName: '/course/{id}/chapter of Asset API',
   });
-  return response.data;
 };
 
 export const getCourseChapterRatingUrl = ({

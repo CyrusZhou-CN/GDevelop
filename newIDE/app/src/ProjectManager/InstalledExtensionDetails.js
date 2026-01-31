@@ -51,10 +51,21 @@ function InstalledExtensionDetails({
           extensionShortHeadersByName,
         }
       );
+      if (
+        !requiredExtensionInstallation.missingExtensionShortHeaders.includes(
+          extensionShortHeader
+        )
+      ) {
+        // The extension chosen by users is not part of `requiredExtensions`
+        // but should always be installed. This is true even if the versions
+        // are matching to allow to reinstall the extension.
+        requiredExtensionInstallation.missingExtensionShortHeaders.push(
+          extensionShortHeader
+        );
+      }
       await installExtension({
         project,
         requiredExtensionInstallation,
-        userSelectedExtensionNames: [],
         importedSerializedExtensions: [],
         onWillInstallExtension,
         onExtensionInstalled,

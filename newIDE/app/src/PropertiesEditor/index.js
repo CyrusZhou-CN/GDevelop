@@ -33,26 +33,14 @@ import {
   type ValueField,
   type ActionButton,
   type SectionTitle,
+  type Title,
   type ResourceField,
   type LeaderboardIdField,
-} from '../CompactPropertiesEditor';
+  type Instances,
+} from './PropertiesEditorSchema';
 import LeaderboardIdPropertyField from './LeaderboardIdPropertyField';
 import SemiControlledAutoComplete from '../UI/SemiControlledAutoComplete';
 import { ProjectScopedContainersAccessor } from '../InstructionOrExpression/EventsScope';
-
-// Re-export the types.
-export type {
-  Schema,
-  ValueField,
-  ActionButton,
-  SectionTitle,
-  ResourceField,
-  Field,
-} from '../CompactPropertiesEditor';
-
-// An "instance" here is the objects for which properties are shown
-export type Instance = Object; // This could be improved using generics.
-export type Instances = Array<Instance>;
 
 type Props = {|
   onInstancesModified?: Instances => void,
@@ -105,39 +93,68 @@ const getDisabled = ({
     : false;
 };
 
+export const hasMixedValues = ({
+  instances,
+  field,
+}: {|
+  instances: Instances,
+  field: ValueField | Title | ActionButton,
+|}): boolean => {
+  if (!instances[0]) {
+    console.log(
+      'hasMixedValues was called with an empty list of instances (or containing undefined). This is a bug that should be fixed'
+    );
+    return true;
+  }
+  const { getValue } = field;
+  if (!getValue) return false;
+
+  const value = getValue(instances[0]);
+  for (var i = 1; i < instances.length; ++i) {
+    if (value !== getValue(instances[i])) {
+      return true;
+    }
+  }
+  return false;
+};
+
 /**
  * Get the value for the given field across all instances.
  * If one of the instances doesn't share the same value, returns the default value.
  * If there is no instances, returns the default value.
  * If the field does not have a `getValue` method, returns `null`.
  */
-const getFieldValue = ({
+export const getFieldValue = ({
   instances,
   field,
-  defaultValue,
+  mixedValueFallback,
 }: {|
   instances: Instances,
-  field: ValueField | ActionButton | SectionTitle,
-  defaultValue?: any,
+  field: ValueField | Title,
+  mixedValueFallback?: any,
 |}): any => {
   if (!instances[0]) {
     console.log(
       'getFieldValue was called with an empty list of instances (or containing undefined). This is a bug that should be fixed'
     );
-    return defaultValue;
+    return mixedValueFallback;
   }
-
-  const { getValue } = field;
+  const { getValue, defaultValue } = field;
   if (!getValue) return null;
 
-  let value = getValue(instances[0]);
-  for (var i = 1; i < instances.length; ++i) {
-    if (value !== getValue(instances[i])) {
-      if (typeof defaultValue !== 'undefined') value = defaultValue;
-      break;
-    }
+  if (
+    typeof mixedValueFallback !== 'undefined' &&
+    hasMixedValues({ instances, field })
+  ) {
+    return mixedValueFallback;
   }
-
+  let value = getValue(instances[0]);
+  if (value === null) {
+    value = defaultValue;
+  }
+  if (value === null) {
+    value = '';
+  }
   return value;
 };
 
@@ -324,7 +341,7 @@ const PropertiesEditor = ({
                 value={getFieldValue({
                   instances,
                   field,
-                  defaultValue: '(Multiple values)',
+                  mixedValueFallback: '(Multiple values)',
                 })}
                 id={field.name}
                 floatingLabelText={getFieldLabel({ instances, field })}
@@ -411,7 +428,7 @@ const PropertiesEditor = ({
             value={getFieldValue({
               instances,
               field,
-              defaultValue: '(Multiple values)',
+              mixedValueFallback: '(Multiple values)',
             })}
             key={field.name}
             id={field.name}
@@ -442,7 +459,7 @@ const PropertiesEditor = ({
       const value = getFieldValue({
         instances,
         field,
-        defaultValue: '(Multiple values)',
+        mixedValueFallback: '(Multiple values)',
       });
 
       return (
@@ -484,13 +501,10 @@ const PropertiesEditor = ({
     (field: ActionButton) => {
       let disabled = false;
       if (field.disabled === 'onValuesDifferent') {
-        const DIFFERENT_VALUES = 'DIFFERENT_VALUES';
-        disabled =
-          getFieldValue({
-            instances,
-            field,
-            defaultValue: DIFFERENT_VALUES,
-          }) === DIFFERENT_VALUES;
+        disabled = hasMixedValues({
+          instances,
+          field,
+        });
       }
       return (
         <RaisedButton
@@ -532,7 +546,7 @@ const PropertiesEditor = ({
         resourceName={getFieldValue({
           instances,
           field,
-          defaultValue: '(Multiple values)', //TODO
+          mixedValueFallback: '(Multiple values)', //TODO
         })}
         onChange={newValue => {
           instances.forEach(i => setValue(i, newValue));
@@ -557,7 +571,7 @@ const PropertiesEditor = ({
         value={getFieldValue({
           instances,
           field,
-          defaultValue: '(Multiple values)', //TODO
+          mixedValueFallback: '(Multiple values)', //TODO
         })}
         onChange={newValue => {
           instances.forEach(i => setValue(i, newValue));

@@ -29,6 +29,7 @@ import {
 } from '../../Utils/Extension/ExtensionCompatibilityChecker.js';
 import InAppTutorialContext from '../../InAppTutorial/InAppTutorialContext';
 import PromisePool from '@supercharge/promise-pool';
+import { retryIfFailed } from '../../Utils/RetryIfFailed';
 
 const gd: libGDevelop = global.gd;
 
@@ -178,12 +179,10 @@ export const useExtensionUpdateAlertDialog = () => {
   return async ({
     project,
     outOfDateExtensionShortHeaders,
-    userSelectedExtensionNames,
     reason,
   }: {|
     project: gdProject,
     outOfDateExtensionShortHeaders: Array<ExtensionShortHeader>,
-    userSelectedExtensionNames: Array<string>,
     reason: 'asset' | 'extension' | 'behavior',
   |}): Promise<string> => {
     if (currentlyRunningInAppTutorial) {
@@ -209,9 +208,7 @@ export const useExtensionUpdateAlertDialog = () => {
       }
     }
     const notBreakingExtensions = outOfDateExtensionShortHeaders.filter(
-      extension =>
-        !breakingChanges.has(extension) &&
-        !userSelectedExtensionNames.includes(extension.name)
+      extension => !breakingChanges.has(extension)
     );
     if (breakingChanges.size > 0) {
       // Extensions without breaking changes are not listed since it would make
@@ -297,7 +294,6 @@ export const useInstallExtension = () => {
   return async ({
     project,
     requiredExtensionInstallation,
-    userSelectedExtensionNames,
     importedSerializedExtensions,
     onWillInstallExtension,
     onExtensionInstalled,
@@ -306,7 +302,6 @@ export const useInstallExtension = () => {
   }: {|
     project: gdProject,
     requiredExtensionInstallation: RequiredExtensionInstallation,
-    userSelectedExtensionNames: Array<string>,
     importedSerializedExtensions: Array<SerializedExtension>,
     onWillInstallExtension: (extensionNames: Array<string>) => void,
     onExtensionInstalled: (extensionNames: Array<string>) => void,
@@ -333,7 +328,6 @@ export const useInstallExtension = () => {
               updateMode === 'all'
                 ? outOfDateExtensionShortHeaders
                 : safeToUpdateExtensions,
-            userSelectedExtensionNames,
             reason,
           });
     if (extensionUpdateAction === 'abort') {
@@ -414,7 +408,7 @@ export const installRequiredExtensions = async ({
 
   const downloadedSerializedExtensions = await Promise.all(
     neededExtensions.map(extensionShortHeader =>
-      getExtension(extensionShortHeader)
+      retryIfFailed({ times: 3 }, () => getExtension(extensionShortHeader))
     )
   );
 
@@ -542,7 +536,7 @@ export const useImportExtension = () => {
       );
 
       if (
-        importedExtensionNames.includes(extensionName =>
+        importedExtensionNames.some(extensionName =>
           project.hasEventsFunctionsExtensionNamed(extensionName)
         )
       ) {
@@ -614,7 +608,6 @@ export const useImportExtension = () => {
       const wasExtensionInstalled = await installExtension({
         project,
         requiredExtensionInstallation,
-        userSelectedExtensionNames: [],
         importedSerializedExtensions,
         onWillInstallExtension,
         onExtensionInstalled,

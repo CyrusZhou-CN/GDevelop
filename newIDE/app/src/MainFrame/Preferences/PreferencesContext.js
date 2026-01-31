@@ -228,15 +228,23 @@ export type PreferencesValues = {|
   gamesDashboardOrderBy: GamesDashboardOrderBy,
   takeScreenshotOnPreview: boolean,
   showAiAskButtonInTitleBar: boolean,
-  aiState: {| aiRequestId: string | null, mode: 'chat' | 'agent' |},
-  showGameEditorToggle: boolean,
+  aiState: {| aiRequestId: string | null |},
+  automaticallyUseCreditsForAiRequests: boolean,
+  hasSeenInGameEditorWarning: boolean,
+  useBackgroundSerializerForSaving: boolean,
 |};
+
+/**
+ * Partial PreferencesValues that can be overridden per-project via preferences block in gdevelop-settings.yaml.
+ */
+export type ProjectSpecificPreferencesValues = $Shape<PreferencesValues>;
 
 /**
  * Type containing all the preferences of GDevelop and their setters.
  */
 export type Preferences = {|
   values: PreferencesValues,
+  setMultipleValues: (updates: ProjectSpecificPreferencesValues) => void,
   setLanguage: (language: string) => void,
   setThemeName: (themeName: string) => void,
   setCodeEditorThemeName: (codeEditorThemeName: string) => void,
@@ -339,9 +347,10 @@ export type Preferences = {|
   setShowAiAskButtonInTitleBar: (enabled: boolean) => void,
   setAiState: ({|
     aiRequestId: string | null,
-    mode: 'chat' | 'agent',
   |}) => void,
-  setShowGameEditorToggle: (enabled: boolean) => void,
+  setAutomaticallyUseCreditsForAiRequests: (enabled: boolean) => void,
+  setHasSeenInGameEditorWarning: (enabled: boolean) => void,
+  setUseBackgroundSerializerForSaving: (enabled: boolean) => void,
 |};
 
 export const initialPreferences = {
@@ -401,9 +410,12 @@ export const initialPreferences = {
     gamesDashboardOrderBy: 'lastModifiedAt',
     takeScreenshotOnPreview: true,
     showAiAskButtonInTitleBar: true,
-    aiState: { aiRequestId: null, mode: 'agent' },
-    showGameEditorToggle: false,
+    aiState: { aiRequestId: null },
+    automaticallyUseCreditsForAiRequests: false,
+    hasSeenInGameEditorWarning: false,
+    useBackgroundSerializerForSaving: false,
   },
+  setMultipleValues: () => {},
   setLanguage: () => {},
   setThemeName: () => {},
   setCodeEditorThemeName: () => {},
@@ -480,14 +492,10 @@ export const initialPreferences = {
   ) => {},
   setTakeScreenshotOnPreview: (enabled: boolean) => {},
   setShowAiAskButtonInTitleBar: (enabled: boolean) => {},
-  setAiState: ({
-    aiRequestId,
-    mode,
-  }: {|
-    aiRequestId: string | null,
-    mode: 'chat' | 'agent',
-  |}) => {},
-  setShowGameEditorToggle: (enabled: boolean) => {},
+  setAiState: ({ aiRequestId }: {| aiRequestId: string | null |}) => {},
+  setAutomaticallyUseCreditsForAiRequests: (enabled: boolean) => {},
+  setHasSeenInGameEditorWarning: (enabled: boolean) => {},
+  setUseBackgroundSerializerForSaving: (enabled: boolean) => {},
 };
 
 const PreferencesContext = React.createContext<Preferences>(initialPreferences);

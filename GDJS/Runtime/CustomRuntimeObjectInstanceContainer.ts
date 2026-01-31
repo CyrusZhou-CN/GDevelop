@@ -8,6 +8,7 @@ namespace gdjs {
    * The instance container of a custom object, containing instances of objects rendered on screen.
    *
    * @see gdjs.CustomRuntimeObject
+   * @category Core Engine > Instance Container
    */
   export class CustomRuntimeObjectInstanceContainer extends gdjs.RuntimeInstanceContainer {
     _debuggerRenderer: gdjs.DebuggerRenderer;
@@ -432,7 +433,7 @@ namespace gdjs {
      * in milliseconds, for objects on the layer.
      */
     getElapsedTime(): float {
-      return this._parent.getElapsedTime();
+      return this._customObject.getElapsedTime();
     }
   }
 }

@@ -11,6 +11,7 @@ import { getIDEVersion } from '../../Version';
 import {
   type PreferencesValues,
   type EditorMosaicName,
+  type ProjectSpecificPreferencesValues,
 } from './PreferencesContext';
 import type {
   ResourceKind,
@@ -94,6 +95,7 @@ const getPreferences = (): PreferencesValues => {
 export default class PreferencesProvider extends React.Component<Props, State> {
   state = {
     values: getPreferences(),
+    setMultipleValues: this._setMultipleValues.bind(this),
     setLanguage: this._setLanguage.bind(this),
     setThemeName: this._setThemeName.bind(this),
     setCodeEditorThemeName: this._setCodeEditorThemeName.bind(this),
@@ -202,11 +204,31 @@ export default class PreferencesProvider extends React.Component<Props, State> {
     setTakeScreenshotOnPreview: this._setTakeScreenshotOnPreview.bind(this),
     setShowAiAskButtonInTitleBar: this._setShowAiAskButtonInTitleBar.bind(this),
     setAiState: this._setAiState.bind(this),
-    setShowGameEditorToggle: this._setShowGameEditorToggle.bind(this),
+    setAutomaticallyUseCreditsForAiRequests: this._setAutomaticallyUseCreditsForAiRequests.bind(
+      this
+    ),
+    setHasSeenInGameEditorWarning: this._setHasSeenInGameEditorWarning.bind(
+      this
+    ),
+    setUseBackgroundSerializerForSaving: this._setUseBackgroundSerializerForSaving.bind(
+      this
+    ),
   };
 
   componentDidMount() {
     setTimeout(() => this._checkUpdates(), CHECK_APP_UPDATES_TIMEOUT);
+  }
+
+  _setMultipleValues(updates: ProjectSpecificPreferencesValues) {
+    this.setState(
+      state => ({
+        values: {
+          ...state.values,
+          ...updates,
+        },
+      }),
+      () => this._persistValuesToLocalStorage(this.state)
+    );
   }
 
   _setLanguage(language: string) {
@@ -993,13 +1015,22 @@ export default class PreferencesProvider extends React.Component<Props, State> {
     );
   }
 
-  _setShowGameEditorToggle(newValue: boolean) {
+  _setHasSeenInGameEditorWarning(newValue: boolean) {
     this.setState(
       state => ({
         values: {
           ...state.values,
-          showGameEditorToggle: newValue,
+          hasSeenInGameEditorWarning: newValue,
         },
+      }),
+      () => this._persistValuesToLocalStorage(this.state)
+    );
+  }
+
+  _setUseBackgroundSerializerForSaving(newValue: boolean) {
+    this.setState(
+      state => ({
+        values: { ...state.values, useBackgroundSerializerForSaving: newValue },
       }),
       () => this._persistValuesToLocalStorage(this.state)
     );
@@ -1087,10 +1118,7 @@ export default class PreferencesProvider extends React.Component<Props, State> {
     );
   }
 
-  _setAiState(newValue: {|
-    aiRequestId: string | null,
-    mode: 'chat' | 'agent',
-  |}) {
+  _setAiState(newValue: {| aiRequestId: string | null |}) {
     this.setState(
       state => ({
         values: {
@@ -1099,6 +1127,18 @@ export default class PreferencesProvider extends React.Component<Props, State> {
             ...state.values.aiState,
             ...newValue,
           },
+        },
+      }),
+      () => this._persistValuesToLocalStorage(this.state)
+    );
+  }
+
+  _setAutomaticallyUseCreditsForAiRequests(newValue: boolean) {
+    this.setState(
+      state => ({
+        values: {
+          ...state.values,
+          automaticallyUseCreditsForAiRequests: newValue,
         },
       }),
       () => this._persistValuesToLocalStorage(this.state)

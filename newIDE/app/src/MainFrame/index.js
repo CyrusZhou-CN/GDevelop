@@ -109,6 +109,7 @@ import {
   type SaveAsOptions,
   type FileMetadataAndStorageProviderName,
   type ResourcesActionsMenuBuilder,
+  type SaveProjectOptions,
 } from '../ProjectsStorage';
 import OpenFromStorageProviderDialog from '../ProjectsStorage/OpenFromStorageProviderDialog';
 import SaveToStorageProviderDialog from '../ProjectsStorage/SaveToStorageProviderDialog';
@@ -198,6 +199,8 @@ import { QuickCustomizationDialog } from '../QuickCustomization/QuickCustomizati
 import { type ObjectWithContext } from '../ObjectsList/EnumerateObjects';
 import useGamesList from '../GameDashboard/UseGamesList';
 import useCapturesManager from './UseCapturesManager';
+import { readProjectSettings } from '../Utils/ProjectSettingsReader';
+import { applyProjectSettings } from '../Utils/ApplyProjectSettings';
 import {
   EmbeddedGameFrame,
   setEditorHotReloadNeeded,
@@ -221,6 +224,7 @@ import {
 import StandaloneDialog from './StandAloneDialog';
 import { useInGameEditorSettings } from '../EmbeddedGame/InGameEditorSettings';
 import { ProjectScopedContainersAccessor } from '../InstructionOrExpression/EventsScope';
+import { useAutomatedRegularInGameEditorRestart } from '../EmbeddedGame/UseAutomatedRegularInGameEditorRestart';
 
 const GD_STARTUP_TIMES = global.GD_STARTUP_TIMES || [];
 
@@ -316,6 +320,24 @@ const initialPreviewState: PreviewState = {
   isPreviewOverriden: false,
   overridenPreviewLayoutName: null,
   overridenPreviewExternalLayoutName: null,
+};
+
+const usePreviewLoadingState = () => {
+  const forceUpdate = useForceUpdate();
+  const previewLoadingRef = React.useRef<
+    null | 'preview' | 'hot-reload-for-in-game-edition'
+  >(null);
+
+  return {
+    previewLoadingRef,
+    setPreviewLoading: React.useCallback(
+      (previewLoading: null | 'preview' | 'hot-reload-for-in-game-edition') => {
+        previewLoadingRef.current = previewLoading;
+        forceUpdate();
+      },
+      [forceUpdate]
+    ),
+  };
 };
 
 export type Props = {|
@@ -429,10 +451,14 @@ const MainFrame = (props: Props) => {
     standaloneDialogOpen,
     setStandaloneDialogOpen,
   ] = React.useState<boolean>(false);
-  const { showConfirmation, showAlert } = useAlertDialog();
+  const {
+    showConfirmation,
+    showAlert,
+    showDeleteConfirmation,
+  } = useAlertDialog();
   const preferences = React.useContext(PreferencesContext);
   const { setHasProjectOpened } = preferences;
-  const [previewLoading, setPreviewLoading] = React.useState<boolean>(false);
+  const { previewLoadingRef, setPreviewLoading } = usePreviewLoadingState();
   const [previewState, setPreviewState] = React.useState(initialPreviewState);
   const commandPaletteRef = React.useRef((null: ?CommandPaletteInterface));
   const inAppTutorialOrchestratorRef = React.useRef<?InAppTutorialOrchestratorInterface>(
@@ -859,7 +885,6 @@ const MainFrame = (props: Props) => {
   const openAskAi = React.useCallback(
     (options: ?OpenAskAiOptions) => {
       const {
-        mode,
         aiRequestId,
         paneIdentifier,
         continueProcessingFunctionCallsOnMount,
@@ -907,11 +932,7 @@ const MainFrame = (props: Props) => {
       }).then(state => {
         // Wait for the state to be updated before starting/opening the chat,
         // as the editor needs to be mounted.
-        const params =
-          // Both need to be defined.
-          mode === undefined || aiRequestId === undefined
-            ? undefined
-            : { mode, aiRequestId };
+        const params = aiRequestId === undefined ? undefined : { aiRequestId };
         const openedEditor = getOpenedAskAiEditor(state.editorTabs);
         if (!openedEditor) {
           console.error(
@@ -1077,6 +1098,21 @@ const MainFrame = (props: Props) => {
           authenticatedUser,
         }));
 
+        // Read and apply project settings from gdevelop-settings.yaml if it exists
+        try {
+          const rawSettings = await readProjectSettings(
+            updatedFileMetadata.fileIdentifier
+          );
+          if (rawSettings) {
+            applyProjectSettings(rawSettings, preferences);
+          }
+        } catch (error) {
+          console.warn(
+            '[MainFrame] Failed to read project settings:',
+            error.message
+          );
+        }
+
         setIsProjectClosedSoAvoidReloadingExtensions(false);
       }
 
@@ -1121,7 +1157,10 @@ const MainFrame = (props: Props) => {
   const openFromFileMetadata = React.useCallback(
     async (
       fileMetadata: FileMetadata,
-      options?: {| openingMessage?: ?MessageDescriptor |}
+      options?: {|
+        openingMessage?: ?MessageDescriptor,
+        ignoreAutoSave?: boolean,
+      |}
     ): Promise<?State> => {
       const storageProviderOperations = getStorageProviderOperations();
 
@@ -1142,7 +1181,11 @@ const MainFrame = (props: Props) => {
       }
 
       const checkForAutosave = async (): Promise<FileMetadata> => {
-        if (!getAutoSaveCreationDate || !onGetAutoSave) {
+        if (
+          !getAutoSaveCreationDate ||
+          !onGetAutoSave ||
+          (options && options.ignoreAutoSave)
+        ) {
           return fileMetadata;
         }
 
@@ -1167,7 +1210,11 @@ const MainFrame = (props: Props) => {
       };
 
       const checkForAutosaveAfterFailure = async (): Promise<?FileMetadata> => {
-        if (!getAutoSaveCreationDate || !onGetAutoSave) {
+        if (
+          !getAutoSaveCreationDate ||
+          !onGetAutoSave ||
+          (options && options.ignoreAutoSave)
+        ) {
           return null;
         }
 
@@ -1304,9 +1351,7 @@ const MainFrame = (props: Props) => {
           currentFileMetadata: newFileMetadata,
         }));
       }
-      if (!options.dontCloseNewProjectSetupDialog) {
-        setNewProjectSetupDialogOpen(false);
-      }
+      setNewProjectSetupDialogOpen(false);
       if (options.openQuickCustomizationDialog) {
         setQuickCustomizationDialogOpenedFromGameId(oldProjectId);
       } else {
@@ -1315,25 +1360,22 @@ const MainFrame = (props: Props) => {
         openLeaderboardReplacerDialogIfNeeded(project, oldProjectId);
         configureMultiplayerLobbiesIfNeeded(project, oldProjectId);
       }
-      if (!options.dontOpenAnySceneOrProjectManager) {
-        options.openAllScenes || options.openQuickCustomizationDialog
-          ? openAllScenes({
-              currentProject: project,
-              editorTabs,
-            })
-          : openSceneOrProjectManager({
-              currentProject: project,
-              editorTabs: editorTabs,
-            });
-      }
-      if (!options.dontRepositionAskAiEditor) {
-        // If Ask AI editor was opened, reposition it.
-        const openedAskAIEditor = getOpenedAskAiEditor(state.editorTabs);
-        if (openedAskAIEditor) {
-          openAskAi({
-            paneIdentifier: 'right',
+      options.openAllScenes || options.openQuickCustomizationDialog
+        ? openAllScenes({
+            currentProject: project,
+            editorTabs,
+          })
+        : openSceneOrProjectManager({
+            currentProject: project,
+            editorTabs: editorTabs,
           });
-        }
+      // If Ask AI editor was opened, reposition it.
+      const openedAskAIEditor = getOpenedAskAiEditor(state.editorTabs);
+      if (openedAskAIEditor || options.forceOpenAskAiEditor) {
+        openAskAi({
+          paneIdentifier: 'right',
+          continueProcessingFunctionCallsOnMount: true,
+        });
       }
       setIsProjectClosedSoAvoidReloadingExtensions(false);
     },
@@ -1442,19 +1484,42 @@ const MainFrame = (props: Props) => {
     });
   };
 
-  const deleteEventsFunctionsExtension = (
+  const deleteEventsFunctionsExtension = async (
     eventsFunctionsExtension: gdEventsFunctionsExtension
   ) => {
     const { currentProject } = state;
     const { i18n } = props;
     if (!currentProject) return;
 
-    const answer = Window.showConfirmDialog(
-      i18n._(
-        t`Are you sure you want to remove this extension? This can't be undone.`
-      )
-    );
-    if (!answer) return;
+    const dependentExtensionNames = gd.UsedExtensionsFinder.findExtensionsDependentOn(
+      currentProject,
+      eventsFunctionsExtension
+    ).toJSArray();
+
+    const deleteAnswer = await showDeleteConfirmation({
+      title: t`Remove the extension`,
+      message: t`${
+        dependentExtensionNames.length > 0
+          ? i18n._(
+              `This extension is used by the following extensions:${'\n\n' +
+                dependentExtensionNames
+                  .map(
+                    extensionName =>
+                      `- ${(currentProject.hasEventsFunctionsExtensionNamed(
+                        extensionName
+                      )
+                        ? currentProject
+                            .getEventsFunctionsExtension(extensionName)
+                            .getFullName()
+                        : extensionName) || extensionName}\n`
+                  )
+                  .join('') +
+                '\n'}`
+            )
+          : ''
+      }Are you sure you want to remove this extension? This can't be undone.`,
+    });
+    if (!deleteAnswer) return;
 
     const extensionName = eventsFunctionsExtension.getName();
     const hasCustomObject =
@@ -1465,20 +1530,24 @@ const MainFrame = (props: Props) => {
         state.editorTabs,
         extensionName
       ),
-    })).then(state => {
+    })).then(async state => {
+      // Ensure no other previous call to this method is happening on an
+      // outdated extension list.
+      await eventsFunctionsExtensionsState.loadProjectEventsFunctionsExtensions(
+        currentProject
+      );
+
       // Unload the Platform extension that was generated from the events
       // functions extension.
       eventsFunctionsExtensionsState.unloadProjectEventsFunctionsExtension(
         currentProject,
         extensionName
       );
-
       currentProject.removeEventsFunctionsExtension(extensionName);
-      _onProjectItemModified();
 
       // Reload extensions to make sure any extension that would have been relying
       // on the unloaded extension is updated.
-      eventsFunctionsExtensionsState.reloadProjectEventsFunctionsExtensions(
+      await eventsFunctionsExtensionsState.reloadProjectEventsFunctionsExtensions(
         currentProject
       );
 
@@ -1499,6 +1568,7 @@ const MainFrame = (props: Props) => {
           reasons: ['deleted-extension-without-custom-object'],
         });
       }
+      _onProjectItemModified();
     });
   };
 
@@ -1612,21 +1682,17 @@ const MainFrame = (props: Props) => {
     setShowRestartInGameEditorAfterErrorButton,
   ] = React.useState(false);
   const onRestartInGameEditor = React.useCallback(
-    () => {
+    (reason: string) => {
       setShowRestartInGameEditorAfterErrorButton(false);
       notifyChangesToInGameEditor({
         shouldReloadProjectData: true,
         shouldReloadLibraries: true,
         shouldReloadResources: true,
         shouldHardReload: true,
-        reasons: [
-          showRestartInGameEditorAfterErrorButton
-            ? 'relaunched-after-uncaught-error-or-hot-reload-error'
-            : 'relaunched-manually',
-        ],
+        reasons: [reason],
       });
     },
-    [notifyChangesToInGameEditor, showRestartInGameEditorAfterErrorButton]
+    [notifyChangesToInGameEditor]
   );
 
   React.useEffect(
@@ -1668,6 +1734,11 @@ const MainFrame = (props: Props) => {
     },
     [gameEditorMode, state.editorTabs, notifyChangesToInGameEditor]
   );
+
+  useAutomatedRegularInGameEditorRestart({
+    onRestartInGameEditor,
+    gameEditorMode,
+  });
 
   const onExternalLayoutAssociationChanged = React.useCallback(
     () => {
@@ -2100,8 +2171,43 @@ const MainFrame = (props: Props) => {
       if (!currentProject) return;
       if (currentProject.getLayoutsCount() === 0) return;
 
+      console.info(
+        `Launching a new ${
+          isForInGameEdition ? 'in-game edition preview' : 'preview'
+        } with options:`,
+        {
+          networkPreview,
+          numberOfWindows,
+          hotReload,
+          shouldReloadProjectData,
+          shouldReloadLibraries,
+          shouldGenerateScenesEventsCode,
+          shouldReloadResources,
+          shouldHardReload,
+          fullLoadingScreen,
+          forceDiagnosticReport,
+          launchCaptureOptions,
+          isForInGameEdition,
+        }
+      );
+
       const previewLauncher = _previewLauncher.current;
-      if (!previewLauncher) return;
+      if (!previewLauncher) {
+        console.error('Preview launcher not found.');
+        return;
+      }
+
+      if (previewLoadingRef.current) {
+        console.error(
+          'Preview already loading. Ignoring but it should not be even possible to launch a preview while another one is loading, as this could break the game of the first preview when it is loading or reading files.'
+        );
+        // Note that in an ideal situation, each previewed game could continue to load
+        // without being impacted by a new preview being worked on.
+        // The main issue currently is files being erased/copied by the second preview,
+        // which can break the game of the first preview,
+        // when the game is loading its resources or reading files.
+        return;
+      }
 
       // Open the preview windows immediately, if required by the preview launcher.
       // This is because some browsers (like Safari or Firefox) will block the
@@ -2115,7 +2221,16 @@ const MainFrame = (props: Props) => {
           })
         : null;
 
-      setPreviewLoading(true);
+      // Mark the preview as loading. Note that it's important that nothing is asynchronous
+      // before this point (no asynchronous work, no delay):
+      // - to ensure the state is changed as soon as possible (avoid wrongly launching two previews),
+      // - and to ensure preview windows are opened on browsers following a "user gesture".
+      setPreviewLoading(
+        isForInGameEdition && hotReload
+          ? 'hot-reload-for-in-game-edition'
+          : 'preview'
+      );
+
       notifyPreviewOrExportWillStart(state.editorTabs);
 
       const sceneName = isForInGameEdition
@@ -2129,9 +2244,11 @@ const MainFrame = (props: Props) => {
         ? previewState.overridenPreviewExternalLayoutName
         : previewState.previewExternalLayoutName;
 
-      autosaveProjectIfNeeded().catch(err => {
-        console.error('Error while auto-saving the project. Ignoring.', err);
-      });
+      if (!isForInGameEdition) {
+        autosaveProjectIfNeeded().catch(err => {
+          console.error('Error while auto-saving the project. Ignoring.', err);
+        });
+      }
 
       // Note that in the future, this kind of checks could be done
       // and stored in a "diagnostic report", rather than hiding errors
@@ -2145,11 +2262,12 @@ const MainFrame = (props: Props) => {
           }
         : null;
 
-      const authenticatedPlayer = await getAuthenticatedPlayerForPreview();
-
-      const captureOptions = await createCaptureOptionsForPreview(
-        launchCaptureOptions
-      );
+      const [authenticatedPlayer, captureOptions] = await Promise.all([
+        isForInGameEdition ? null : getAuthenticatedPlayerForPreview(),
+        isForInGameEdition
+          ? null
+          : createCaptureOptionsForPreview(launchCaptureOptions),
+      ]);
 
       try {
         await eventsFunctionsExtensionsState.ensureLoadFinished();
@@ -2207,7 +2325,8 @@ const MainFrame = (props: Props) => {
 
           previewWindows,
         });
-        setPreviewLoading(false);
+
+        setPreviewLoading(null);
 
         if (!isForInGameEdition)
           sendPreviewStarted({
@@ -2240,6 +2359,7 @@ const MainFrame = (props: Props) => {
           }
         }
       } catch (error) {
+        setPreviewLoading(null);
         console.error(
           'Error caught while launching preview, this should never happen.',
           error
@@ -2266,6 +2386,8 @@ const MainFrame = (props: Props) => {
       onCaptureFinished,
       createCaptureOptionsForPreview,
       inGameEditorSettings,
+      previewLoadingRef,
+      setPreviewLoading,
     ]
   );
 
@@ -3143,11 +3265,9 @@ const MainFrame = (props: Props) => {
           editorRef.onObjectsModifiedOutsideEditor(changes);
         }
       }
-      if (changes.isNewObjectTypeUsed) {
-        onObjectListsModified({
-          isNewObjectTypeUsed: changes.isNewObjectTypeUsed,
-        });
-      }
+      onObjectListsModified({
+        isNewObjectTypeUsed: changes.isNewObjectTypeUsed,
+      });
     },
     [state.editorTabs, onObjectListsModified]
   );
@@ -3397,6 +3517,7 @@ const MainFrame = (props: Props) => {
       options: ?{|
         openAllScenes?: boolean,
         ignoreUnsavedChanges?: boolean,
+        ignoreAutoSave?: boolean,
         openingMessage?: ?MessageDescriptor,
       |}
     ): Promise<void> => {
@@ -3421,6 +3542,7 @@ const MainFrame = (props: Props) => {
       getStorageProviderOperations(storageProvider);
       await openFromFileMetadata(fileMetadata, {
         openingMessage: (options && options.openingMessage) || null,
+        ignoreAutoSave: (options && options.ignoreAutoSave) || false,
       })
         .then(state => {
           if (state) {
@@ -3495,11 +3617,13 @@ const MainFrame = (props: Props) => {
       fileMetadata,
       versionId,
       ignoreUnsavedChanges,
+      ignoreAutoSave,
       openingMessage,
     }: {|
       fileMetadata: FileMetadata,
       versionId: string,
       ignoreUnsavedChanges: boolean,
+      ignoreAutoSave: boolean,
       openingMessage: MessageDescriptor,
     |}): Promise<void> => {
       return openFromFileMetadataWithStorageProvider(
@@ -3510,7 +3634,7 @@ const MainFrame = (props: Props) => {
             version: versionId,
           },
         },
-        { ignoreUnsavedChanges, openingMessage }
+        { ignoreUnsavedChanges, ignoreAutoSave, openingMessage }
       );
     },
     [openFromFileMetadataWithStorageProvider]
@@ -3521,6 +3645,8 @@ const MainFrame = (props: Props) => {
     openVersionHistoryPanel,
     checkedOutVersionStatus,
     onQuitVersionHistory,
+    onCheckoutVersion,
+    getOrLoadProjectVersion,
   } = useVersionHistory({
     getStorageProvider,
     isSavingProject,
@@ -3545,9 +3671,16 @@ const MainFrame = (props: Props) => {
       options: ?{|
         requestedStorageProvider?: StorageProvider,
         forcedSavedAsLocation?: SaveAsLocation,
+        createdProject?: gdProject,
       |}
-    ) => {
-      if (!currentProject) return;
+    ): Promise<?FileMetadata> => {
+      // In some cases (ex: when a project is created by the AI), the project in
+      // the mainframe state is not updated yet, so we use the provided one.
+      const upToDateProject =
+        options && options.createdProject
+          ? options.createdProject
+          : currentProject;
+      if (!upToDateProject) return;
       // Prevent saving if there are errors in the extension modules, as
       // this can lead to corrupted projects.
       if (hasExtensionLoadErrors) return;
@@ -3602,7 +3735,7 @@ const MainFrame = (props: Props) => {
             saveAsLocation,
             saveAsOptions,
           } = await onChooseSaveProjectAsLocation({
-            project: currentProject,
+            project: upToDateProject,
             fileMetadata: currentFileMetadata,
             displayOptionToGenerateNewProjectUuid:
               // No need to display the option if current file metadata doesn't have
@@ -3639,8 +3772,8 @@ const MainFrame = (props: Props) => {
 
         let originalProjectUuid = null;
         if (newSaveAsOptions && newSaveAsOptions.generateNewProjectUuid) {
-          originalProjectUuid = currentProject.getProjectUuid();
-          currentProject.resetProjectUuid();
+          originalProjectUuid = upToDateProject.getProjectUuid();
+          upToDateProject.resetProjectUuid();
         }
         let originalProjectName = null;
         const newProjectName =
@@ -3648,12 +3781,12 @@ const MainFrame = (props: Props) => {
             ? newSaveAsLocation.name
             : null;
         if (newProjectName) {
-          originalProjectName = currentProject.getName();
-          currentProject.setName(newProjectName);
+          originalProjectName = upToDateProject.getName();
+          upToDateProject.setName(newProjectName);
         }
 
         const { wasSaved, fileMetadata } = await onSaveProjectAs(
-          currentProject,
+          upToDateProject,
           newSaveAsLocation,
           {
             onStartSaving: () =>
@@ -3661,7 +3794,7 @@ const MainFrame = (props: Props) => {
             onMoveResources: async ({ newFileMetadata }) => {
               if (currentFileMetadata)
                 await ensureResourcesAreMoved({
-                  project: currentProject,
+                  project: upToDateProject,
                   newFileMetadata,
                   newStorageProvider,
                   newStorageProviderOperations,
@@ -3676,9 +3809,9 @@ const MainFrame = (props: Props) => {
 
         if (!wasSaved) {
           _replaceSnackMessage(i18n._(t`An error occurred. Please try again.`));
-          if (originalProjectName) currentProject.setName(originalProjectName);
+          if (originalProjectName) upToDateProject.setName(originalProjectName);
           if (originalProjectUuid)
-            currentProject.setProjectUuid(originalProjectUuid);
+            upToDateProject.setProjectUuid(originalProjectUuid);
           return;
         }
 
@@ -3726,7 +3859,7 @@ const MainFrame = (props: Props) => {
         // Ensure resources are re-loaded from their new location.
         ResourcesLoader.burstAllUrlsCache();
 
-        if (isCurrentProjectFresh(currentProjectRef, currentProject)) {
+        if (isCurrentProjectFresh(currentProjectRef, upToDateProject)) {
           // We do not want to change the current file metadata if the
           // project has changed since the beginning of the save, which
           // can happen if another project was loaded in the meantime.
@@ -3735,6 +3868,8 @@ const MainFrame = (props: Props) => {
             currentFileMetadata: fileMetadata,
           }));
         }
+
+        return fileMetadata;
       } catch (rawError) {
         _closeSnackMessage();
         const errorMessage = getWriteErrorMessage
@@ -3814,8 +3949,12 @@ const MainFrame = (props: Props) => {
     ]
   );
 
+  const saveWithBackgroundSerializer =
+    preferences.values.useBackgroundSerializerForSaving;
   const saveProject = React.useCallback(
-    async () => {
+    async (options?: {|
+      skipNewVersionWarning: boolean,
+    |}): Promise<?FileMetadata> => {
       if (!currentProject) return;
       // Prevent saving if there are errors in the extension modules, as
       // this can lead to corrupted projects.
@@ -3833,10 +3972,7 @@ const MainFrame = (props: Props) => {
       }
 
       const storageProviderOperations = getStorageProviderOperations();
-      const {
-        onSaveProject,
-        canFileMetadataBeSafelySaved,
-      } = storageProviderOperations;
+      const { onSaveProject } = storageProviderOperations;
       if (!onSaveProject) {
         return saveProjectAs();
       }
@@ -3856,15 +3992,6 @@ const MainFrame = (props: Props) => {
           message: t`You're trying to save changes made to a previous version of your project. If you continue, it will be used as the new latest version.`,
         });
         if (!shouldRestoreCheckedOutVersion) return;
-      } else if (canFileMetadataBeSafelySaved) {
-        const canProjectBeSafelySaved = await canFileMetadataBeSafelySaved(
-          currentFileMetadata,
-          {
-            showAlert,
-            showConfirmation,
-          }
-        );
-        if (!canProjectBeSafelySaved) return;
       }
 
       _showSnackMessage(i18n._(t`Saving...`), null);
@@ -3878,9 +4005,16 @@ const MainFrame = (props: Props) => {
         // store their values in variables now.
         const storageProviderInternalName = getStorageProvider().internalName;
 
-        const saveOptions = {};
+        const saveOptions: SaveProjectOptions = {
+          useBackgroundSerializer: saveWithBackgroundSerializer,
+          skipNewVersionWarning:
+            !!checkedOutVersionStatus ||
+            (options && options.skipNewVersionWarning),
+        };
         if (cloudProjectRecoveryOpenedVersionId) {
           saveOptions.previousVersion = cloudProjectRecoveryOpenedVersionId;
+        } else {
+          saveOptions.previousVersion = currentFileMetadata.version;
         }
         if (checkedOutVersionStatus) {
           saveOptions.restoredFromVersionId =
@@ -3889,7 +4023,11 @@ const MainFrame = (props: Props) => {
         const { wasSaved, fileMetadata } = await onSaveProject(
           currentProject,
           currentFileMetadata,
-          saveOptions
+          saveOptions,
+          {
+            showAlert,
+            showConfirmation,
+          }
         );
 
         if (wasSaved) {
@@ -3938,6 +4076,10 @@ const MainFrame = (props: Props) => {
 
           sealUnsavedChanges();
           _replaceSnackMessage(i18n._(t`Project properly saved`));
+
+          // Return the new file metadata, to allow further operations,
+          // without having to wait for the state to be updated.
+          return fileMetadata;
         }
       } catch (error) {
         const extractedStatusAndCode = extractGDevelopApiErrorStatusAndCode(
@@ -3957,6 +4099,7 @@ const MainFrame = (props: Props) => {
       }
     },
     [
+      saveWithBackgroundSerializer,
       isSavingProject,
       currentProject,
       currentProjectRef,
@@ -4087,6 +4230,7 @@ const MainFrame = (props: Props) => {
         fileMetadata: cloudProjectFileMetadataToRecover,
         versionId,
         ignoreUnsavedChanges: false,
+        ignoreAutoSave: true,
         openingMessage: t`Recovering older version...`,
       });
       setCloudProjectFileMetadataToRecover(null);
@@ -4556,7 +4700,6 @@ const MainFrame = (props: Props) => {
     createEmptyProject,
     createProjectFromExample,
     createProjectFromPrivateGameTemplate,
-    openAskAi,
     closeAskAi,
     storageProviders: props.storageProviders,
     storageProvider: getStorageProvider(),
@@ -4571,11 +4714,15 @@ const MainFrame = (props: Props) => {
     onOpenProfileDialog,
   });
 
+  const previewLoading = previewLoadingRef.current;
   const hideAskAi =
     !!authenticatedUser.limits &&
     !!authenticatedUser.limits.capabilities.classrooms &&
     authenticatedUser.limits.capabilities.classrooms.hideAskAi;
-  const showLoader = isProjectOpening || isLoadingProject || previewLoading;
+  const showLoaderAfterDelay =
+    previewLoading === 'hot-reload-for-in-game-edition';
+  const showLoaderImmediately =
+    isProjectOpening || isLoadingProject || previewLoading === 'preview';
   const shortcutMap = useShortcutMap();
 
   const buildMainMenuProps = {
@@ -4636,6 +4783,9 @@ const MainFrame = (props: Props) => {
     toggleProjectManager: toggleProjectManager,
     setEditorTabs: setEditorTabs,
     saveProject: saveProject,
+    saveProjectAsWithStorageProvider: saveProjectAsWithStorageProvider,
+    onCheckoutVersion: onCheckoutVersion,
+    getOrLoadProjectVersion: getOrLoadProjectVersion,
     openShareDialog: openShareDialog,
     launchDebuggerAndPreview: launchDebuggerAndPreview,
     launchNewPreview: launchNewPreview,
@@ -4705,9 +4855,8 @@ const MainFrame = (props: Props) => {
     onExternalLayoutAssociationChanged,
     gamesList: gamesList,
     triggerHotReloadInGameEditorIfNeeded,
-    onRestartInGameEditorAfterError: showRestartInGameEditorAfterErrorButton
-      ? onRestartInGameEditor
-      : null,
+    onRestartInGameEditor,
+    showRestartInGameEditorAfterErrorButton,
   };
 
   const hasEditorsInLeftPane = hasEditorsInPane(state.editorTabs, 'left');
@@ -4839,7 +4988,8 @@ const MainFrame = (props: Props) => {
       </LeaderboardProvider>
       <CommandPaletteWithAlgoliaSearch ref={commandPaletteRef} />
       <LoaderModal
-        show={showLoader}
+        showImmediately={showLoaderImmediately}
+        showAfterDelay={showLoaderAfterDelay}
         progress={fileMetadataOpeningProgress}
         message={
           loaderModalOpeningMessage ||
@@ -5040,7 +5190,9 @@ const MainFrame = (props: Props) => {
           onLaunchNewPreview={() => {
             clearEditorHotReloadLogs();
             clearEditorUncaughtError();
-            onRestartInGameEditor();
+            onRestartInGameEditor(
+              'relaunched-after-uncaught-error-or-hot-reload-error'
+            );
           }}
         />
       )}

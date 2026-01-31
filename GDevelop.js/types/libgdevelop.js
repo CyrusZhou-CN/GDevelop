@@ -2,7 +2,12 @@
 declare class libGDevelop {
   getPointer(gdEmscriptenObject): number;
   castObject<T>(gdEmscriptenObject, Class<T>): T;
+  wrapPointer<T>(ptr: number, objectClass: Class<T>): T;
   compare(gdEmscriptenObject, gdEmscriptenObject): boolean;
+
+  _malloc(size: number): number;
+  _free(ptr: number): void;
+  HEAPU8: Uint8Array;
 
   getTypeOfObject(globalObjectsContainer: gdObjectsContainer, objectsContainer: gdObjectsContainer, objectName: string, searchInGroups: boolean): string;
   getTypeOfBehavior(globalObjectsContainer: gdObjectsContainer, objectsContainer: gdObjectsContainer, objectName: string, searchInGroups: boolean): string;
@@ -47,6 +52,7 @@ declare class libGDevelop {
   VectorInt: Class<gdVectorInt>;
   VectorVariable: Class<gdVectorVariable>;
   VectorObjectFolderOrObject: Class<gdVectorObjectFolderOrObject>;
+  VectorPropertyFolderOrProperty: Class<gdVectorPropertyFolderOrProperty>;
   VectorScreenshot: Class<gdVectorScreenshot>;
   MapStringString: Class<gdMapStringString>;
   MapStringBoolean: Class<gdMapStringBoolean>;
@@ -141,6 +147,7 @@ declare class libGDevelop {
   SerializerElement: Class<gdSerializerElement>;
   SharedPtrSerializerElement: Class<gdSharedPtrSerializerElement>;
   Serializer: Class<gdSerializer>;
+  BinarySerializer: Class<gdBinarySerializer>;
   ObjectAssetSerializer: Class<gdObjectAssetSerializer>;
   InstructionsList: Class<gdInstructionsList>;
   Instruction: Class<gdInstruction>;
@@ -192,6 +199,7 @@ declare class libGDevelop {
   VariablesChangeset: Class<gdVariablesChangeset>;
   WholeProjectRefactorer: Class<gdWholeProjectRefactorer>;
   BehaviorParameterFiller: Class<gdBehaviorParameterFiller>;
+  InstructionValidator: Class<gdInstructionValidator>;
   ObjectTools: Class<gdObjectTools>;
   EventsBasedObjectDependencyFinder: Class<gdEventsBasedObjectDependencyFinder>;
   PropertyFunctionGenerator: Class<gdPropertyFunctionGenerator>;
@@ -234,6 +242,7 @@ declare class libGDevelop {
   EventsBasedObjectVariant: Class<gdEventsBasedObjectVariant>;
   EventsBasedObjectVariantsContainer: Class<gdEventsBasedObjectVariantsContainer>;
   EventsBasedObjectsList: Class<gdEventsBasedObjectsList>;
+  PropertyFolderOrProperty: Class<gdPropertyFolderOrProperty>;
   PropertiesContainer: Class<gdPropertiesContainer>;
   EventsFunctionsExtension: Class<gdEventsFunctionsExtension>;
   AbstractFileSystem: Class<gdAbstractFileSystem>;
