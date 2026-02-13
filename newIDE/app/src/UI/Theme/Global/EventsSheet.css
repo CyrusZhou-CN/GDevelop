@@ -215,6 +215,12 @@
     underline wavy;
 }
 
+.gd-events-sheet .instruction-parameter .instruction-deprecated-parameter {
+  color: var(--event-sheet-instruction-parameter-warning-color);
+  text-decoration: var(--event-sheet-instruction-parameter-warning-color)
+    underline wavy;
+}
+
 .gd-events-sheet .instruction-parameter .instruction-missing-parameter {
   display: inline-flex;
   background-color: var(
@@ -223,6 +229,17 @@
   border-bottom: 1px dashed var(--event-sheet-instruction-parameter-error-color);
   min-width: var(--instruction-missing-parameter-min-width);
   min-height: var(--instruction-missing-parameter-min-height);
+}
+
+.gd-events-sheet .else-text-container {
+  padding-left: 1px;
+}
+
+.gd-events-sheet .invalid-else {
+  padding-left: 1px;
+  color: var(--event-sheet-instruction-parameter-warning-color);
+  opacity: 0.5;
+  text-decoration: line-through;
 }
 
 /**

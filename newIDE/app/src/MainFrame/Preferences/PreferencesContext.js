@@ -209,7 +209,10 @@ export type PreferencesValues = {|
   showExperimentalExtensions: boolean,
   showCreateSectionByDefault: boolean,
   showInAppTutorialDeveloperMode: boolean,
-  showDeprecatedInstructionWarning: boolean,
+  showDeprecatedInstructionWarning:
+    | 'no'
+    | 'icon'
+    | 'icon-and-deprecated-warning-text',
   openDiagnosticReportAutomatically: boolean,
   use3DEditor: boolean,
   showBasicProfilingCounters: boolean,
@@ -230,8 +233,8 @@ export type PreferencesValues = {|
   showAiAskButtonInTitleBar: boolean,
   aiState: {| aiRequestId: string | null |},
   automaticallyUseCreditsForAiRequests: boolean,
-  hasSeenInGameEditorWarning: boolean,
   useBackgroundSerializerForSaving: boolean,
+  disableNpmScriptConfirmation: boolean,
 |};
 
 /**
@@ -309,11 +312,17 @@ export type Preferences = {|
   setShowInAppTutorialDeveloperMode: (enabled: boolean) => void,
   setOpenDiagnosticReportAutomatically: (enabled: boolean) => void,
   getOpenDiagnosticReportAutomatically: () => boolean,
-  setShowDeprecatedInstructionWarning: (enabled: boolean) => void,
-  getShowDeprecatedInstructionWarning: () => boolean,
+  setShowDeprecatedInstructionWarning: (
+    value: 'no' | 'icon' | 'icon-and-deprecated-warning-text'
+  ) => void,
+  getShowDeprecatedInstructionWarning: () =>
+    | 'no'
+    | 'icon'
+    | 'icon-and-deprecated-warning-text',
   setUse3DEditor: (enabled: boolean) => void,
   getUse3DEditor: () => boolean,
   setShowBasicProfilingCounters: (enabled: boolean) => void,
+  setDisableNpmScriptConfirmation: (enabled: boolean) => void,
   setNewProjectsDefaultStorageProviderName: (name: string) => void,
   saveTutorialProgress: ({|
     tutorialId: string,
@@ -349,7 +358,6 @@ export type Preferences = {|
     aiRequestId: string | null,
   |}) => void,
   setAutomaticallyUseCreditsForAiRequests: (enabled: boolean) => void,
-  setHasSeenInGameEditorWarning: (enabled: boolean) => void,
   setUseBackgroundSerializerForSaving: (enabled: boolean) => void,
 |};
 
@@ -394,7 +402,7 @@ export const initialPreferences = {
     showCreateSectionByDefault: false,
     showInAppTutorialDeveloperMode: false,
     openDiagnosticReportAutomatically: true,
-    showDeprecatedInstructionWarning: false,
+    showDeprecatedInstructionWarning: 'no',
     use3DEditor: isWebGLSupported(),
     showBasicProfilingCounters: false,
     inAppTutorialsProgress: {},
@@ -412,8 +420,8 @@ export const initialPreferences = {
     showAiAskButtonInTitleBar: true,
     aiState: { aiRequestId: null },
     automaticallyUseCreditsForAiRequests: false,
-    hasSeenInGameEditorWarning: false,
     useBackgroundSerializerForSaving: false,
+    disableNpmScriptConfirmation: false,
   },
   setMultipleValues: () => {},
   setLanguage: () => {},
@@ -468,13 +476,16 @@ export const initialPreferences = {
   setShowExperimentalExtensions: () => {},
   setShowCreateSectionByDefault: (enabled: boolean) => {},
   setShowInAppTutorialDeveloperMode: (enabled: boolean) => {},
-  setShowDeprecatedInstructionWarning: (enabled: boolean) => {},
+  setShowDeprecatedInstructionWarning: (
+    value: 'no' | 'icon' | 'icon-and-deprecated-warning-text'
+  ) => {},
   getOpenDiagnosticReportAutomatically: () => true,
   setOpenDiagnosticReportAutomatically: (enabled: boolean) => {},
-  getShowDeprecatedInstructionWarning: () => false,
+  getShowDeprecatedInstructionWarning: () => 'no',
   setUse3DEditor: (enabled: boolean) => {},
   getUse3DEditor: () => false,
   setShowBasicProfilingCounters: (enabled: boolean) => {},
+  setDisableNpmScriptConfirmation: (enabled: boolean) => {},
   saveTutorialProgress: () => {},
   getTutorialProgress: () => {},
   setNewProjectsDefaultFolder: () => {},
@@ -494,7 +505,6 @@ export const initialPreferences = {
   setShowAiAskButtonInTitleBar: (enabled: boolean) => {},
   setAiState: ({ aiRequestId }: {| aiRequestId: string | null |}) => {},
   setAutomaticallyUseCreditsForAiRequests: (enabled: boolean) => {},
-  setHasSeenInGameEditorWarning: (enabled: boolean) => {},
   setUseBackgroundSerializerForSaving: (enabled: boolean) => {},
 };
 

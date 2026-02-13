@@ -67,6 +67,12 @@ export const loadPreferencesFromLocalStorage = (): ?PreferencesValues => {
       values.themeName = 'Blue Dark';
     }
 
+    if (typeof values.showDeprecatedInstructionWarning === 'boolean') {
+      values.showDeprecatedInstructionWarning = values.showDeprecatedInstructionWarning
+        ? 'icon'
+        : 'no';
+    }
+
     return values;
   } catch (e) {
     return null;
@@ -176,6 +182,9 @@ export default class PreferencesProvider extends React.Component<Props, State> {
     setShowBasicProfilingCounters: this._setShowBasicProfilingCounters.bind(
       this
     ),
+    setDisableNpmScriptConfirmation: this._setDisableNpmScriptConfirmation.bind(
+      this
+    ),
     saveTutorialProgress: this._saveTutorialProgress.bind(this),
     getTutorialProgress: this._getTutorialProgress.bind(this),
     setNewProjectsDefaultFolder: this._setNewProjectsDefaultFolder.bind(this),
@@ -205,9 +214,6 @@ export default class PreferencesProvider extends React.Component<Props, State> {
     setShowAiAskButtonInTitleBar: this._setShowAiAskButtonInTitleBar.bind(this),
     setAiState: this._setAiState.bind(this),
     setAutomaticallyUseCreditsForAiRequests: this._setAutomaticallyUseCreditsForAiRequests.bind(
-      this
-    ),
-    setHasSeenInGameEditorWarning: this._setHasSeenInGameEditorWarning.bind(
       this
     ),
     setUseBackgroundSerializerForSaving: this._setUseBackgroundSerializerForSaving.bind(
@@ -510,7 +516,10 @@ export default class PreferencesProvider extends React.Component<Props, State> {
   }
 
   _setShowDeprecatedInstructionWarning(
-    showDeprecatedInstructionWarning: boolean
+    showDeprecatedInstructionWarning:
+      | 'no'
+      | 'icon'
+      | 'icon-and-deprecated-warning-text'
   ) {
     this.setState(
       state => ({
@@ -523,7 +532,10 @@ export default class PreferencesProvider extends React.Component<Props, State> {
     );
   }
 
-  _getShowDeprecatedInstructionWarning() {
+  _getShowDeprecatedInstructionWarning():
+    | 'no'
+    | 'icon'
+    | 'icon-and-deprecated-warning-text' {
     return this.state.values.showDeprecatedInstructionWarning;
   }
 
@@ -549,6 +561,18 @@ export default class PreferencesProvider extends React.Component<Props, State> {
         values: {
           ...state.values,
           showBasicProfilingCounters,
+        },
+      }),
+      () => this._persistValuesToLocalStorage(this.state)
+    );
+  }
+
+  _setDisableNpmScriptConfirmation(disableNpmScriptConfirmation: boolean) {
+    this.setState(
+      state => ({
+        values: {
+          ...state.values,
+          disableNpmScriptConfirmation,
         },
       }),
       () => this._persistValuesToLocalStorage(this.state)
@@ -1009,18 +1033,6 @@ export default class PreferencesProvider extends React.Component<Props, State> {
         values: {
           ...state.values,
           displaySaveReminder: newValue,
-        },
-      }),
-      () => this._persistValuesToLocalStorage(this.state)
-    );
-  }
-
-  _setHasSeenInGameEditorWarning(newValue: boolean) {
-    this.setState(
-      state => ({
-        values: {
-          ...state.values,
-          hasSeenInGameEditorWarning: newValue,
         },
       }),
       () => this._persistValuesToLocalStorage(this.state)

@@ -18,6 +18,7 @@ import ProjectManager from '../ProjectManager';
 import LoaderModal from '../UI/LoaderModal';
 import CloseConfirmDialog from '../UI/CloseConfirmDialog';
 import ProfileDialog from '../Profile/ProfileDialog';
+import PurchaseClaimDialog from '../Profile/PurchaseClaimDialog';
 import Window from '../Utils/Window';
 import { showErrorBox } from '../UI/Messages/MessageBox';
 import EditorTabsPane, {
@@ -199,8 +200,12 @@ import { QuickCustomizationDialog } from '../QuickCustomization/QuickCustomizati
 import { type ObjectWithContext } from '../ObjectsList/EnumerateObjects';
 import useGamesList from '../GameDashboard/UseGamesList';
 import useCapturesManager from './UseCapturesManager';
-import { readProjectSettings } from '../Utils/ProjectSettingsReader';
-import { applyProjectSettings } from '../Utils/ApplyProjectSettings';
+import {
+  readProjectSettings,
+  getProjectDirectory,
+} from '../Utils/ProjectSettingsReader';
+import { type ToolbarButtonConfig } from './CustomToolbarButton';
+import { applyProjectPreferences } from '../Utils/ApplyProjectPreferences';
 import {
   EmbeddedGameFrame,
   setEditorHotReloadNeeded,
@@ -312,6 +317,7 @@ export type State = {|
   openFromStorageProviderDialogOpen: boolean,
   saveToStorageProviderDialogOpen: boolean,
   gdjsDevelopmentWatcherEnabled: boolean,
+  toolbarButtons: Array<ToolbarButtonConfig>,
 |};
 
 const initialPreviewState: PreviewState = {
@@ -389,6 +395,7 @@ const MainFrame = (props: Props) => {
       openFromStorageProviderDialogOpen: false,
       saveToStorageProviderDialogOpen: false,
       gdjsDevelopmentWatcherEnabled: false,
+      toolbarButtons: [],
     }: State)
   );
   const authenticatedUser = React.useContext(AuthenticatedUserContext);
@@ -996,6 +1003,7 @@ const MainFrame = (props: Props) => {
         currentProject: null,
         currentFileMetadata: null,
         editorTabs: closeProjectTabs(state.editorTabs, currentProject),
+        toolbarButtons: [],
       }));
 
       // Delete the project from memory. All references to it have been dropped previously
@@ -1104,7 +1112,11 @@ const MainFrame = (props: Props) => {
             updatedFileMetadata.fileIdentifier
           );
           if (rawSettings) {
-            applyProjectSettings(rawSettings, preferences);
+            applyProjectPreferences(rawSettings.preferences, preferences);
+            setState(currentState => ({
+              ...currentState,
+              toolbarButtons: rawSettings.toolbarButtons || [],
+            }));
           }
         } catch (error) {
           console.warn(
@@ -3949,8 +3961,10 @@ const MainFrame = (props: Props) => {
     ]
   );
 
-  const saveWithBackgroundSerializer =
-    preferences.values.useBackgroundSerializerForSaving;
+  // const saveWithBackgroundSerializer =
+  //   preferences.values.useBackgroundSerializerForSaving;
+  // Hardcode to false for now as libGD.js is not loaded properly by the worker in production (file:// protocol).
+  const saveWithBackgroundSerializer = false;
   const saveProject = React.useCallback(
     async (options?: {|
       skipNewVersionWarning: boolean,
@@ -4857,6 +4871,10 @@ const MainFrame = (props: Props) => {
     triggerHotReloadInGameEditorIfNeeded,
     onRestartInGameEditor,
     showRestartInGameEditorAfterErrorButton,
+    toolbarButtons: state.toolbarButtons,
+    projectPath: currentFileMetadata
+      ? getProjectDirectory(currentFileMetadata.fileIdentifier)
+      : null,
   };
 
   const hasEditorsInLeftPane = hasEditorsInPane(state.editorTabs, 'left');
@@ -5051,6 +5069,15 @@ const MainFrame = (props: Props) => {
           onClose={() => {
             openProfileDialog(false);
           }}
+        />
+      )}
+      {authenticatedUser.claimedProductOptions && (
+        // PurchaseClaimDialog is dependent on SubscriptionContext,
+        // which is defined after the AuthenticatedUserProvider in Providers.js.
+        // So it cannot be rendered inside the AuthenticatedUserProvider.
+        <PurchaseClaimDialog
+          claimedProductOptions={authenticatedUser.claimedProductOptions}
+          onClose={authenticatedUser.onClosePurchaseClaimDialog}
         />
       )}
       {renderNewProjectDialog()}

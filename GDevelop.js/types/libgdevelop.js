@@ -20,6 +20,7 @@ declare class libGDevelop {
   swapInVectorParameterMetadata(gdVectorParameterMetadata, oldIndex: number, newIndex: number): void;
 
   asStandardEvent(gdBaseEvent): gdStandardEvent;
+  asElseEvent(gdBaseEvent): gdStandardEvent;
   asRepeatEvent(gdBaseEvent): gdRepeatEvent;
   asWhileEvent(gdBaseEvent): gdWhileEvent;
   asForEachEvent(gdBaseEvent): gdForEachEvent;
@@ -180,6 +181,7 @@ declare class libGDevelop {
   EventsList: Class<gdEventsList>;
   BaseEvent: Class<gdBaseEvent>;
   StandardEvent: Class<gdStandardEvent>;
+  ElseEvent: Class<gdElseEvent>;
   RepeatEvent: Class<gdRepeatEvent>;
   WhileEvent: Class<gdWhileEvent>;
   ForEachEvent: Class<gdForEachEvent>;
@@ -199,6 +201,7 @@ declare class libGDevelop {
   VariablesChangeset: Class<gdVariablesChangeset>;
   WholeProjectRefactorer: Class<gdWholeProjectRefactorer>;
   BehaviorParameterFiller: Class<gdBehaviorParameterFiller>;
+  ParameterValidationResult: Class<gdParameterValidationResult>;
   InstructionValidator: Class<gdInstructionValidator>;
   ObjectTools: Class<gdObjectTools>;
   EventsBasedObjectDependencyFinder: Class<gdEventsBasedObjectDependencyFinder>;
@@ -218,6 +221,7 @@ declare class libGDevelop {
   ProjectDiagnostic: Class<gdProjectDiagnostic>;
   DiagnosticReport: Class<gdDiagnosticReport>;
   WholeProjectDiagnosticReport: Class<gdWholeProjectDiagnosticReport>;
+  ExpressionParserError_ErrorType: Class<ExpressionParserError_ErrorType>;
   ExpressionParserError: Class<gdExpressionParserError>;
   VectorExpressionParserError: Class<gdVectorExpressionParserError>;
   ExpressionParser2NodeWorker: Class<gdExpressionParser2NodeWorker>;
