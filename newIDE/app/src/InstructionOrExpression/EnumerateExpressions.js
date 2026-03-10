@@ -65,7 +65,7 @@ export const enumerateFreeExpressions = (
   return flatten(
     mapVector(allExtensions, extension => {
       const prefix = getExtensionPrefix(extension, i18n);
-      const scope = {
+      const scope: InstructionOrExpressionScope = {
         extension: { name: extension.getName() },
         objectMetadata: undefined,
         behaviorMetadata: undefined,
@@ -114,11 +114,13 @@ export const enumerateObjectExpressions = (
       : enumerateExpressionMetadataMap(
           '',
           extension.getAllStrExpressionsForObject(objectType),
+          // $FlowFixMe[incompatible-type]
           scope
         )),
     ...enumerateExpressionMetadataMap(
       '',
       extension.getAllExpressionsForObject(objectType),
+      // $FlowFixMe[incompatible-type]
       scope
     ),
   ];
@@ -138,11 +140,13 @@ export const enumerateObjectExpressions = (
         : enumerateExpressionMetadataMap(
             '',
             extension.getAllStrExpressionsForObject(baseObjectType),
+            // $FlowFixMe[incompatible-type]
             scope
           )),
       ...enumerateExpressionMetadataMap(
         '',
         extension.getAllExpressionsForObject(baseObjectType),
+        // $FlowFixMe[incompatible-type]
         scope
       ),
     ];
@@ -176,11 +180,13 @@ export const enumerateBehaviorExpressions = (
       : enumerateExpressionMetadataMap(
           '',
           extension.getAllStrExpressionsForBehavior(behaviorType),
+          // $FlowFixMe[incompatible-type]
           scope
         )),
     ...enumerateExpressionMetadataMap(
       '',
       extension.getAllExpressionsForBehavior(behaviorType),
+      // $FlowFixMe[incompatible-type]
       scope
     ),
   ];
@@ -191,8 +197,8 @@ export const enumerateAllExpressions = (
   type: string,
   i18n: I18nType
 ): Array<EnumeratedExpressionMetadata> => {
-  const objectsExpressions = [];
-  const behaviorsExpressions = [];
+  const objectsExpressions: Array<EnumeratedExpressionMetadata> = [];
+  const behaviorsExpressions: Array<EnumeratedExpressionMetadata> = [];
   const freeExpressions = enumerateFreeExpressions(type, i18n);
 
   const allExtensions = gd
@@ -204,7 +210,7 @@ export const enumerateAllExpressions = (
     //Objects expressions:
     mapVector(extension.getExtensionObjectsTypes(), objectType => {
       const objectMetadata = extension.getObjectMetadata(objectType);
-      const scope = {
+      const scope: InstructionOrExpressionScope = {
         extension: { name: extension.getName() },
         objectMetadata: {
           name: objectMetadata.getName(),
@@ -213,17 +219,15 @@ export const enumerateAllExpressions = (
       };
 
       if (!shouldOnlyBeNumberType(type))
-        objectsExpressions.push.apply(
-          objectsExpressions,
-          enumerateExpressionMetadataMap(
+        objectsExpressions.push(
+          ...enumerateExpressionMetadataMap(
             prefix,
             extension.getAllStrExpressionsForObject(objectType),
             scope
           )
         );
-      objectsExpressions.push.apply(
-        objectsExpressions,
-        enumerateExpressionMetadataMap(
+      objectsExpressions.push(
+        ...enumerateExpressionMetadataMap(
           prefix,
           extension.getAllExpressionsForObject(objectType),
           scope
@@ -234,7 +238,7 @@ export const enumerateAllExpressions = (
     //Behaviors expressions:
     mapVector(extension.getBehaviorsTypes(), behaviorType => {
       const behaviorMetadata = extension.getBehaviorMetadata(behaviorType);
-      const scope = {
+      const scope: InstructionOrExpressionScope = {
         extension: { name: extension.getName() },
         behaviorMetadata: {
           name: behaviorMetadata.getName(),
@@ -243,17 +247,15 @@ export const enumerateAllExpressions = (
       };
 
       if (!shouldOnlyBeNumberType(type))
-        behaviorsExpressions.push.apply(
-          behaviorsExpressions,
-          enumerateExpressionMetadataMap(
+        behaviorsExpressions.push(
+          ...enumerateExpressionMetadataMap(
             prefix,
             extension.getAllStrExpressionsForBehavior(behaviorType),
             scope
           )
         );
-      behaviorsExpressions.push.apply(
-        behaviorsExpressions,
-        enumerateExpressionMetadataMap(
+      behaviorsExpressions.push(
+        ...enumerateExpressionMetadataMap(
           prefix,
           extension.getAllExpressionsForBehavior(behaviorType),
           scope
@@ -283,6 +285,7 @@ export const filterExpressions = (
   const favorExactMatch = (
     list: Array<EnumeratedExpressionMetadata>
   ): Array<EnumeratedExpressionMetadata> => {
+    // $FlowFixMe[constant-condition]
     if (!searchText) {
       return list;
     }

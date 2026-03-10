@@ -9,8 +9,9 @@ import {
   type FieldFocusFunction,
 } from './ParameterFieldCommons';
 import { type ParameterInlineRendererProps } from './ParameterInlineRenderer.flow';
+import { highlightSearchText } from '../../Utils/HighlightSearchText';
 
-export default React.forwardRef<ParameterFieldProps, ParameterFieldInterface>(
+export default (React.forwardRef<ParameterFieldProps, ParameterFieldInterface>(
   function DefaultField(props: ParameterFieldProps, ref) {
     const field = React.useRef<?SemiControlledTextFieldInterface>(null);
     const focus: FieldFocusFunction = options => {
@@ -40,7 +41,10 @@ export default React.forwardRef<ParameterFieldProps, ParameterFieldInterface>(
       />
     );
   }
-);
+): React.ComponentType<{
+  ...ParameterFieldProps,
+  +ref?: React.RefSetter<ParameterFieldInterface>,
+}>);
 
 export const renderInlineDefaultField = ({
   value,
@@ -50,15 +54,31 @@ export const renderInlineDefaultField = ({
   InvalidParameterValue,
   DeprecatedParameterValue,
   MissingParameterValue,
-}: ParameterInlineRendererProps) => {
+  highlightedSearchText,
+  highlightedSearchMatchCase,
+}: ParameterInlineRendererProps): string | React.Node => {
   if (!value && !parameterMetadata.isOptional()) {
     return <MissingParameterValue />;
   }
   if (!expressionIsValid) {
-    return <InvalidParameterValue>{value}</InvalidParameterValue>;
+    return (
+      <InvalidParameterValue>
+        {highlightSearchText(value, highlightedSearchText, {
+          matchCase: highlightedSearchMatchCase,
+        })}
+      </InvalidParameterValue>
+    );
   }
   if (hasDeprecationWarning) {
-    return <DeprecatedParameterValue>{value}</DeprecatedParameterValue>;
+    return (
+      <DeprecatedParameterValue>
+        {highlightSearchText(value, highlightedSearchText, {
+          matchCase: highlightedSearchMatchCase,
+        })}
+      </DeprecatedParameterValue>
+    );
   }
-  return value;
+  return highlightSearchText(value, highlightedSearchText, {
+    matchCase: highlightedSearchMatchCase,
+  });
 };

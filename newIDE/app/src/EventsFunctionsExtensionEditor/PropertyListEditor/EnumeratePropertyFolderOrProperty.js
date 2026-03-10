@@ -2,9 +2,14 @@
 
 import { mapFor } from '../../Utils/MapFor';
 
+type EnumeratedPropertyFolderOrProperty = {|
+  path: string,
+  folder: gdPropertyFolderOrProperty,
+|};
+
 export const getPropertyFolderOrPropertyUnifiedName = (
   propertyFolderOrProperty: gdPropertyFolderOrProperty
-) =>
+): string =>
   propertyFolderOrProperty.isFolder()
     ? propertyFolderOrProperty.getFolderName()
     : propertyFolderOrProperty.getProperty().getName();
@@ -12,7 +17,7 @@ export const getPropertyFolderOrPropertyUnifiedName = (
 const recursivelyEnumerateFoldersInFolder = (
   folder: gdPropertyFolderOrProperty,
   prefix: string,
-  result: {| path: string, folder: gdPropertyFolderOrProperty |}[]
+  result: Array<EnumeratedPropertyFolderOrProperty>
 ) => {
   mapFor(0, folder.getChildrenCount(), i => {
     const child = folder.getChildAt(i);
@@ -45,27 +50,27 @@ const recursivelyEnumeratePropertiesInFolder = (
 
 export const enumeratePropertiesInFolder = (
   folder: gdPropertyFolderOrProperty
-): gdNamedPropertyDescriptor[] => {
+): Array<gdNamedPropertyDescriptor> => {
   if (!folder.isFolder()) return [];
-  const result = [];
+  const result: Array<gdNamedPropertyDescriptor> = [];
   recursivelyEnumeratePropertiesInFolder(folder, result);
   return result;
 };
 
 export const enumerateFoldersInFolder = (
   folder: gdPropertyFolderOrProperty
-): {| path: string, folder: gdPropertyFolderOrProperty |}[] => {
+): Array<EnumeratedPropertyFolderOrProperty> => {
   if (!folder.isFolder()) return [];
-  const result = [];
+  const result: Array<EnumeratedPropertyFolderOrProperty> = [];
   recursivelyEnumerateFoldersInFolder(folder, '', result);
   return result;
 };
 
 export const enumerateFoldersInContainer = (
   container: gdPropertiesContainer
-): {| path: string, folder: gdPropertyFolderOrProperty |}[] => {
+): Array<EnumeratedPropertyFolderOrProperty> => {
   const rootFolder = container.getRootFolder();
-  const result = [];
+  const result: Array<EnumeratedPropertyFolderOrProperty> = [];
   recursivelyEnumerateFoldersInFolder(rootFolder, '', result);
   return result;
 };

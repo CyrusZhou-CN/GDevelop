@@ -85,7 +85,7 @@ export const scanForNewResources = async ({
   ];
 
   try {
-    const allFiles = await new Promise((resolve, reject) => {
+    const allFiles: Array<string> = await new Promise((resolve, reject) => {
       glob(
         projectPath + '/**/*.{' + allExtensions.join(',') + '}',
         (error, files) => {

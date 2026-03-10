@@ -106,7 +106,8 @@ const createField = (
         ? (instance: gdInitialInstance) => {
             return getValueForNumber(instance) === defaultValueNumber
               ? null
-              : className => <Restore className={className} />;
+              : // $FlowFixMe[missing-local-annot]
+                className => <Restore className={className} />;
           }
         : undefined;
     const setValue = (instance: Instance, newValue: number) => {
@@ -118,6 +119,7 @@ const createField = (
             setValue(instance, defaultValueNumber);
           }
         : undefined;
+    // $FlowFixMe[incompatible-type]
     return {
       name,
       valueType,
@@ -187,7 +189,8 @@ const createField = (
       .map(value => ({ value, label: value }));
 
     return valueType === 'numberwithchoices'
-      ? {
+      ? // $FlowFixMe[incompatible-type]
+        {
           name,
           valueType: 'number',
           getChoices: () => [...choices, ...deprecatedChoices],
@@ -201,7 +204,8 @@ const createField = (
           visibility,
           isHighlighted: isHighlightedForNumber,
         }
-      : {
+      : // $FlowFixMe[incompatible-type]
+        {
           name,
           valueType: 'string',
           getChoices: () => [...choices, ...deprecatedChoices],
@@ -264,7 +268,7 @@ const createField = (
   } else if (valueType === 'resource') {
     // Resource is a "string" (with a selector in the UI)
     const extraInfos = property.getExtraInfo().toJSArray();
-    // $FlowFixMe - assume the passed resource kind is always valid.
+    // $FlowFixMe[incompatible-type] - assume the passed resource kind is always valid.
     const kind: ResourceKind = extraInfos[0] || '';
     return {
       name,
@@ -309,6 +313,7 @@ const createField = (
       isHighlighted: isHighlightedForString,
     };
   } else if (valueType === 'objectanimationname') {
+    // $FlowFixMe[incompatible-type]
     return {
       getChoices: () => {
         if (!object) {
@@ -342,6 +347,7 @@ const createField = (
       isHighlighted: isHighlightedForString,
     };
   } else if (valueType === 'keyboardkey') {
+    // $FlowFixMe[incompatible-type]
     return {
       getChoices: () => {
         const choices = keyNames.map(keyName => ({
@@ -371,8 +377,6 @@ const createField = (
 };
 
 const propertyKeywordCouples: Array<Array<string>> = [
-  ['X', 'Y', 'Z'],
-  ['Width', 'Height', 'Depth'],
   ['Top', 'Bottom'],
   ['Left', 'Right'],
   ['Front', 'Back'],
@@ -383,6 +387,7 @@ const propertyKeywordCouples: Array<Array<string>> = [
   ['Horizontal', 'Vertical'],
   ['Acceleration', 'Deceleration'],
   ['Duration', 'Easing'],
+  ['Delay', 'Duration'],
   ['EffectName', 'EffectProperty'],
   ['Gravity', 'MaxFallingSpeed'],
   ['JumpSpeed', 'JumpSustainTime'],
@@ -394,8 +399,12 @@ const propertyKeywordCouples: Array<Array<string>> = [
   ['1', '2'],
   ['3', '4'],
   ['5', '6'],
+  // Make triples low priority because side panels are tight.
+  ['X', 'Y', 'Z'],
+  ['Width', 'Height', 'Depth'],
 ];
 
+// $FlowFixMe[missing-local-annot]
 const uncapitalize = str => {
   if (!str) return str;
   return str[0].toLowerCase() + str.substr(1);
@@ -671,22 +680,23 @@ const adaptablePropertiesMapToSchema = ({
               rowPropertyNames.push(rowPropertyName);
             }
           }
-        }
-        const uncapitalizeKeyword = uncapitalize(keyword);
-        if (name.startsWith(uncapitalizeKeyword)) {
-          const rowAllPropertyNames = propertyKeywords.map(otherKeyword =>
-            name.replace(uncapitalizeKeyword, uncapitalize(otherKeyword))
-          );
-          for (const rowPropertyName of rowAllPropertyNames) {
-            if (
-              isPropertyVisible({
-                properties,
-                name: rowPropertyName,
-                visibility,
-                quickCustomizationVisibilities,
-              })
-            ) {
-              rowPropertyNames.push(rowPropertyName);
+        } else {
+          const uncapitalizeKeyword = uncapitalize(keyword);
+          if (name.startsWith(uncapitalizeKeyword)) {
+            const rowAllPropertyNames = propertyKeywords.map(otherKeyword =>
+              name.replace(uncapitalizeKeyword, uncapitalize(otherKeyword))
+            );
+            for (const rowPropertyName of rowAllPropertyNames) {
+              if (
+                isPropertyVisible({
+                  properties,
+                  name: rowPropertyName,
+                  visibility,
+                  quickCustomizationVisibilities,
+                })
+              ) {
+                rowPropertyNames.push(rowPropertyName);
+              }
             }
           }
         }
@@ -741,6 +751,8 @@ const adaptablePropertiesMapToSchema = ({
             rowPropertyNames.forEach(propertyName => {
               alreadyHandledProperties.add(propertyName);
             });
+            // Don't try to match this property with anything else.
+            break;
           }
         }
       }

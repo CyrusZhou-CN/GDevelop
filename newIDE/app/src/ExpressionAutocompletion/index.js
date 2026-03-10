@@ -92,6 +92,7 @@ const getAutocompletionsForExpressions = (
   isExact: boolean,
   completionType: string
 ): Array<ExpressionAutocompletion> => {
+  // $FlowFixMe[incompatible-type]
   return expressionMetadatas
     .filter(
       enumeratedExpressionMetadata =>
@@ -204,14 +205,12 @@ const getAutocompletionsForObjectExpressions = function(
     );
     behaviorExpressionAutocompletions.forEach(autocompletion => {
       autocompletion.completion =
+        // $FlowFixMe[unsafe-addition]
         behaviorName +
         gd.PlatformExtension.getNamespaceSeparator() +
         autocompletion.completion;
     });
-    autocompletions.push.apply(
-      autocompletions,
-      behaviorExpressionAutocompletions
-    );
+    autocompletions.push(...behaviorExpressionAutocompletions);
   });
 
   return autocompletions;

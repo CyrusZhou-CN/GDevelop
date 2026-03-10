@@ -2,8 +2,8 @@
 import {
   getLayoutedRenderedInstance,
   LayoutedInstance,
-  LayoutedParent,
-  ChildRenderedInstance,
+  type LayoutedParent,
+  type ChildRenderedInstance,
 } from './CustomObjectLayoutingModel';
 
 const gd: libGDevelop = global.gd;
@@ -175,6 +175,7 @@ describe('getLayoutedRenderedInstance', () => {
           child: { defaultWidth: 10, defaultHeight: 10 },
           instance: { x: 500, y: 500, customSize: null },
           // $FlowIgnore
+          // $FlowFixMe[incompatible-type]
           anchor: { [objectEdge]: gd.CustomObjectConfiguration.MinEdge },
         });
         const instance = layoutedRenderedInstance._instance;
@@ -202,6 +203,7 @@ describe('getLayoutedRenderedInstance', () => {
           child: { defaultWidth: 10, defaultHeight: 10 },
           instance: { x: 500, y: 500, customSize: null },
           // $FlowIgnore
+          // $FlowFixMe[incompatible-type]
           anchor: { [objectEdge]: gd.CustomObjectConfiguration.MaxEdge },
         });
         const instance = layoutedRenderedInstance._instance;
@@ -229,6 +231,7 @@ describe('getLayoutedRenderedInstance', () => {
           child: { defaultWidth: 10, defaultHeight: 10 },
           instance: { x: 500, y: 500, customSize: null },
           // $FlowIgnore
+          // $FlowFixMe[incompatible-type]
           anchor: { [objectEdge]: gd.CustomObjectConfiguration.Center },
         });
         const instance = layoutedRenderedInstance._instance;
@@ -312,6 +315,7 @@ describe('getLayoutedRenderedInstance', () => {
           child: { defaultWidth: 10, defaultHeight: 10 },
           instance: { x: 500, y: 500, customSize: null },
           // $FlowIgnore
+          // $FlowFixMe[incompatible-type]
           anchor: { [objectEdge]: gd.CustomObjectConfiguration.MinEdge },
         });
         const instance = layoutedRenderedInstance._instance;
@@ -339,6 +343,7 @@ describe('getLayoutedRenderedInstance', () => {
           child: { defaultWidth: 10, defaultHeight: 10 },
           instance: { x: 500, y: 500, customSize: null },
           // $FlowIgnore
+          // $FlowFixMe[incompatible-type]
           anchor: { [objectEdge]: gd.CustomObjectConfiguration.MaxEdge },
         });
         const instance = layoutedRenderedInstance._instance;
@@ -366,6 +371,7 @@ describe('getLayoutedRenderedInstance', () => {
           child: { defaultWidth: 10, defaultHeight: 10 },
           instance: { x: 500, y: 500, customSize: null },
           // $FlowIgnore
+          // $FlowFixMe[incompatible-type]
           anchor: { [objectEdge]: gd.CustomObjectConfiguration.Center },
         });
         const instance = layoutedRenderedInstance._instance;
@@ -552,6 +558,7 @@ const getVerticalAnchorFor = (anchor: ?CustomObjectConfiguration_EdgeAnchor) =>
     : 'None';
 
 class MockedChildRenderedInstance implements ChildRenderedInstance {
+  // $FlowFixMe[incompatible-exact]
   _instance: gdInitialInstance;
   _pixiObject: { height: number };
   defaultWidth: number;
@@ -627,8 +634,11 @@ class MockedParent implements LayoutedParent<MockedChildRenderedInstance> {
   getVariant: () => gdEventsBasedObjectVariant | null;
   width: number;
   height: number;
+  // $FlowFixMe[missing-local-annot]
   renderedInstances = new Map<number, MockedChildRenderedInstance>();
+  // $FlowFixMe[missing-local-annot]
   layoutedInstances = new Map<number, LayoutedInstance>();
+  // $FlowFixMe[missing-local-annot]
   mockedRenderedInstanceConfigurations = new Map<
     string,
     MockedRenderedInstanceConfiguration
@@ -644,14 +654,17 @@ class MockedParent implements LayoutedParent<MockedChildRenderedInstance> {
     this.height = height;
   }
 
+  // $FlowFixMe[missing-local-annot]
   getWidth() {
     return this.width;
   }
 
+  // $FlowFixMe[missing-local-annot]
   getHeight() {
     return this.height;
   }
 
+  // $FlowFixMe[missing-local-annot]
   getDepth() {
     return 0;
   }

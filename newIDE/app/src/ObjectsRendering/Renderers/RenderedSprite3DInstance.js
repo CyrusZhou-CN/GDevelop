@@ -21,7 +21,7 @@ const getTransparentMaterial = () => {
   return transparentMaterial;
 };
 
-const vertexColors = [];
+const vertexColors: Array<number> = [];
 
 /**
  * Renderer for gd.SpriteObject
@@ -42,7 +42,9 @@ export default class RenderedSprite3DInstance extends Rendered3DInstance {
     project: gdProject,
     instance: gdInitialInstance,
     associatedObjectConfiguration: gdObjectConfiguration,
+    // $FlowFixMe[value-as-type]
     pixiContainer: PIXI.Container,
+    // $FlowFixMe[value-as-type]
     threeGroup: THREE.Group,
     pixiResourcesLoader: Class<PixiResourcesLoader>
   ) {

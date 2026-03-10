@@ -3,7 +3,11 @@ import { type I18n as I18nType } from '@lingui/core';
 import { t, Trans } from '@lingui/macro';
 
 import * as React from 'react';
-import { TreeViewItemContent, type TreeItemProps, layersRootFolderId } from '.';
+import {
+  type TreeViewItemContent,
+  type TreeItemProps,
+  layersRootFolderId,
+} from '.';
 import Tooltip from '@material-ui/core/Tooltip';
 import { type HTMLDataset } from '../Utils/HTMLDataset';
 import VisibilityIcon from '../UI/CustomSvgIcons/Visibility';
@@ -58,7 +62,7 @@ export class LayerTreeViewItemContent implements TreeViewItemContent {
     return this._isBaseLayer() ? i18n._(t`Base layer`) : this.layer.getName();
   }
 
-  _isBaseLayer() {
+  _isBaseLayer(): any {
     return !this.layer.getName();
   }
 
@@ -121,7 +125,7 @@ export class LayerTreeViewItemContent implements TreeViewItemContent {
     this.props.triggerOnLayersModified();
   }
 
-  getRightButton(i18n: I18nType) {
+  getRightButton(i18n: I18nType): any {
     return [
       {
         icon: this._isVisible() ? <VisibilityIcon /> : <VisibilityOffIcon />,
@@ -144,11 +148,11 @@ export class LayerTreeViewItemContent implements TreeViewItemContent {
     ];
   }
 
-  buildMenuTemplate(i18n: I18nType, index: number) {
+  buildMenuTemplate(i18n: I18nType, index: number): any {
     return [
       {
         label: i18n._(t`Rename`),
-        click: () => this.props.editName(this.layer.getName()),
+        click: () => this.props.editName(this.getId()),
         accelerator: 'F2',
         enabled: !this._isBaseLayer(),
       },

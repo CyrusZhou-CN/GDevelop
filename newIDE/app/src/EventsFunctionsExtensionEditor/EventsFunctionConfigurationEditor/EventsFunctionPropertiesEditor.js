@@ -17,7 +17,6 @@ import { ParametersIndexOffsets } from '../../EventsFunctionsExtensionsLoader';
 import { type MessageDescriptor } from '../../Utils/i18n/MessageDescriptor.flow';
 import { ResponsiveLineStackLayout, ColumnStackLayout } from '../../UI/Layout';
 import DismissableAlertMessage from '../../UI/DismissableAlertMessage';
-import SemiControlledAutoComplete from '../../UI/SemiControlledAutoComplete';
 import ValueTypeEditor from './ValueTypeEditor';
 import AlertMessage from '../../UI/AlertMessage';
 import useForceUpdate from '../../Utils/UseForceUpdate';
@@ -50,7 +49,7 @@ export const getSentenceErrorText = (
   eventsBasedBehavior: ?gdEventsBasedBehavior,
   eventsBasedObject: ?gdEventsBasedObject,
   eventsFunction: gdEventsFunction
-) => {
+): any | string | void => {
   const sentence = eventsFunction.getSentence();
   if (!sentence)
     return i18n._(
@@ -162,7 +161,7 @@ export const EventsFunctionPropertiesEditor = ({
   eventsBasedObject,
   getFunctionGroupNames,
   eventsFunctionsContainer,
-}: Props) => {
+}: Props): React.Node => {
   const forceUpdate = useForceUpdate();
   const [containerWidth, setContainerWidth] = React.useState<?number>(null);
   const { isMobile } = useResponsiveWindowSize();
@@ -274,7 +273,7 @@ export const EventsFunctionPropertiesEditor = ({
                         fullWidth
                         disabled={!!freezeEventsFunctionType}
                         onChange={(e, i, valueString: string) => {
-                          // $FlowFixMe
+                          // $FlowFixMe[incompatible-type]
                           const value: EventsFunction_FunctionType = valueString;
                           eventsFunction.setFunctionType(value);
                           if (onConfigurationUpdated)
@@ -366,41 +365,6 @@ export const EventsFunctionPropertiesEditor = ({
                             forceUpdate();
                           }}
                           fullWidth
-                        />
-                      )}
-                    </Column>
-                    <Column expand noMargin>
-                      {type === gd.EventsFunction.ActionWithOperator ? (
-                        <SemiControlledTextField
-                          disabled
-                          floatingLabelText={<Trans>Group name</Trans>}
-                          fullWidth
-                          value={
-                            getterFunction ? getterFunction.getGroup() : ''
-                          }
-                          onChange={text => {}}
-                        />
-                      ) : (
-                        <SemiControlledAutoComplete
-                          floatingLabelText={<Trans>Group name</Trans>}
-                          hintText={t`Leave it empty to use the default group for this extension.`}
-                          fullWidth
-                          value={eventsFunction.getGroup()}
-                          onChange={text => {
-                            eventsFunction.setGroup(text);
-                            if (onConfigurationUpdated)
-                              onConfigurationUpdated();
-                            forceUpdate();
-                          }}
-                          dataSource={
-                            getFunctionGroupNames
-                              ? getFunctionGroupNames().map(name => ({
-                                  text: name,
-                                  value: name,
-                                }))
-                              : []
-                          }
-                          openOnFocus={true}
                         />
                       )}
                     </Column>

@@ -24,8 +24,11 @@ const styles = {
   },
 };
 
-export default class ElseEvent extends React.Component<EventRendererProps, *> {
-  render() {
+export default class ElseEvent extends React.Component<
+  EventRendererProps,
+  any
+> {
+  render(): any {
     const elseEvent = gd.asElseEvent(this.props.event);
     const { isValidElseEvent } = this.props;
 
@@ -121,6 +124,8 @@ export default class ElseEvent extends React.Component<EventRendererProps, *> {
                 this.props.projectScopedContainersAccessor
               }
               idPrefix={this.props.idPrefix}
+              highlightedSearchText={this.props.highlightedSearchText}
+              highlightedSearchMatchCase={this.props.highlightedSearchMatchCase}
             />
           )}
           renderActionsList={({ className }) => (
@@ -154,6 +159,8 @@ export default class ElseEvent extends React.Component<EventRendererProps, *> {
                 this.props.projectScopedContainersAccessor
               }
               idPrefix={this.props.idPrefix}
+              highlightedSearchText={this.props.highlightedSearchText}
+              highlightedSearchMatchCase={this.props.highlightedSearchMatchCase}
             />
           )}
         />

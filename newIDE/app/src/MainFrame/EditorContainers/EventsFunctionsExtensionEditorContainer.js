@@ -14,6 +14,8 @@ import {
   setEditorHotReloadNeeded,
   type HotReloadSteps,
 } from '../../EmbeddedGame/EmbeddedGameFrame';
+import type { EventPath } from '../../Utils/EventPath';
+import type { SearchFilterParams } from '../../Utils/Search';
 
 const styles = {
   container: {
@@ -45,6 +47,34 @@ export class EventsFunctionsExtensionEditorContainer extends React.Component<Ren
       // Clear the toolbar if the editor is not ready yet to avoid showing stale toolbar
       // from the previous editor (e.g., HomePage)
       this.props.setToolbar(null);
+    }
+  }
+
+  setGlobalSearchResults(
+    eventPaths: Array<EventPath>,
+    focusedEventPath: EventPath,
+    searchText: string,
+    searchFilters?: SearchFilterParams
+  ) {
+    if (this.editor) {
+      this.editor.setGlobalSearchResults(
+        eventPaths,
+        focusedEventPath,
+        searchText,
+        searchFilters
+      );
+    }
+  }
+
+  clearGlobalSearchResults() {
+    if (this.editor) {
+      this.editor.clearGlobalSearchResults();
+    }
+  }
+
+  scrollToEventPath(eventPath: EventPath) {
+    if (this.editor) {
+      this.editor.scrollToEventPath(eventPath);
     }
   }
 
@@ -88,13 +118,14 @@ export class EventsFunctionsExtensionEditorContainer extends React.Component<Ren
     // No thing to be done.
   }
 
-  shouldComponentUpdate(nextProps: RenderEditorContainerProps) {
+  shouldComponentUpdate(nextProps: RenderEditorContainerProps): any {
     // We stop updates when the component is inactive.
     // If it's active, was active or becoming active again we let update propagate.
     // Especially important to note that when becoming inactive, a "last" update is allowed.
     return this.props.isActive || nextProps.isActive;
   }
 
+  // $FlowFixMe[unsupported-syntax]
   componentDidUpdate(prevProps: *) {
     // Ensure that the editor will trigger the
     // reload/regeneration of extensions when the user
@@ -119,7 +150,7 @@ export class EventsFunctionsExtensionEditorContainer extends React.Component<Ren
     }
   }
 
-  hasAnyEventBasedObject() {
+  hasAnyEventBasedObject(): any {
     const extension = this.getEventsFunctionsExtension();
     return extension ? extension.getEventsBasedObjects().getCount() > 0 : false;
   }
@@ -188,7 +219,7 @@ export class EventsFunctionsExtensionEditorContainer extends React.Component<Ren
       this.editor.selectEventsBasedBehaviorByName(eventBasedBehaviorName);
   }
 
-  render() {
+  render(): any {
     const { project, projectItemName } = this.props;
     const eventsFunctionsExtension = this.getEventsFunctionsExtension();
 
@@ -247,4 +278,4 @@ export class EventsFunctionsExtensionEditorContainer extends React.Component<Ren
 
 export const renderEventsFunctionsExtensionEditorContainer = (
   props: RenderEditorContainerPropsWithRef
-) => <EventsFunctionsExtensionEditorContainer {...props} />;
+): React.Node => <EventsFunctionsExtensionEditorContainer {...props} />;

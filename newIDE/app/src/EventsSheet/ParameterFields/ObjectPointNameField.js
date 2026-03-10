@@ -16,7 +16,7 @@ import { mapVector } from '../../Utils/MapFor';
 
 const gd: libGDevelop = global.gd;
 
-export default React.forwardRef<ParameterFieldProps, ParameterFieldInterface>(
+export default (React.forwardRef<ParameterFieldProps, ParameterFieldInterface>(
   function ObjectPointNameField(props: ParameterFieldProps, ref) {
     const field = React.useRef<?GenericExpressionField>(null);
     const focus: FieldFocusFunction = options => {
@@ -105,7 +105,7 @@ export default React.forwardRef<ParameterFieldProps, ParameterFieldInterface>(
 
         // Flow fears that pointsNamesByObject contains null values but this
         // possibility should be handled above.
-        // $FlowExpectedError[incompatible-call]
+        // $FlowFixMe[incompatible-call]
         return intersection<string>(...pointsNamesByObject)
           .sort()
           .map(pointName => ({
@@ -130,4 +130,7 @@ export default React.forwardRef<ParameterFieldProps, ParameterFieldInterface>(
       />
     );
   }
-);
+): React.ComponentType<{
+  ...ParameterFieldProps,
+  +ref?: React.RefSetter<ParameterFieldInterface>,
+}>);

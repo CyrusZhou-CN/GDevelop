@@ -65,6 +65,7 @@ export class LogsManager {
       this._onNewGroup.forEach(f => f());
     }
     if (!this._pendingCommit) {
+      // $FlowFixMe[method-unbinding]
       setTimeout(this._commitLogs.bind(this), 200);
       this._pendingCommit = true;
     }
@@ -127,7 +128,7 @@ export const DebuggerConsole = ({
   logsManager,
 }: {
   logsManager: LogsManager,
-}) => {
+}): React.Node => {
   const forceUpdate = useForceUpdate();
 
   const { logs, groups } = logsManager;
@@ -169,7 +170,7 @@ export const DebuggerConsole = ({
   };
 
   const [editingHiddenGroups, setEditingHiddenGroups] = React.useState(false);
-  const hiddenGroups = React.useRef(new Set()).current;
+  const hiddenGroups = React.useRef(new Set<string>()).current;
   React.useEffect(
     () => {
       // Do not register for group updates to avoid rerendering when the groups are not displayed.

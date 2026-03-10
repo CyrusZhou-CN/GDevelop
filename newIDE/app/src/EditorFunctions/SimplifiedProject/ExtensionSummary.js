@@ -90,6 +90,8 @@ export type ExtensionSummary = {|
   extensionName: string,
   extensionFullName: string,
   description: string,
+  shortDescription: string,
+  dimension: string,
   freeActions: Array<InstructionSummary>,
   freeConditions: Array<InstructionSummary>,
   freeExpressions: Array<ExpressionSummary>,
@@ -323,7 +325,8 @@ export const buildExtensionSummary = ({
         fullName: objectMetadata.getFullName(),
         description: objectMetadata.getDescription(),
         properties: eventsBasedObject
-          ? getPropertiesSummary({
+          ? // $FlowFixMe[incompatible-type]
+            getPropertiesSummary({
               propertiesContainer: eventsBasedObject.getPropertyDescriptors(),
             })
           : undefined,
@@ -359,9 +362,11 @@ export const buildExtensionSummary = ({
         name: behaviorMetadata.getName(),
         fullName: behaviorMetadata.getFullName(),
         description: behaviorMetadata.getDescription(),
+        // $FlowFixMe[incompatible-type]
         properties: getPropertiesSummary({
           propertiesMetadata: behaviorMetadata.getProperties(),
         }),
+        // $FlowFixMe[incompatible-type]
         sharedProperties: getPropertiesSummary({
           propertiesMetadata: behaviorMetadata.getSharedProperties(),
         }),
@@ -403,6 +408,7 @@ export const buildExtensionSummary = ({
         onlyWorkingFor2D: effectMetadata.isMarkedAsOnlyWorkingFor2D(),
         onlyWorkingFor3D: effectMetadata.isMarkedAsOnlyWorkingFor3D(),
         unique: effectMetadata.isMarkedAsUnique(),
+        // $FlowFixMe[incompatible-type]
         properties: getPropertiesSummary({
           propertiesMetadata: effectMetadata.getProperties(),
         }),
@@ -415,6 +421,8 @@ export const buildExtensionSummary = ({
     extensionName: extension.getName(),
     extensionFullName: extension.getFullName(),
     description: extension.getDescription(),
+    shortDescription: extension.getShortDescription(),
+    dimension: extension.getDimension(),
     freeActions: generateInstructionsSummaries({
       instructionsMetadata: extension.getAllActions(),
     }),

@@ -24,9 +24,9 @@ type Props = {|
   getLastObjectParameterObjectType: () => string,
 |};
 
-const getExtraInfoArray = (type: gdValueTypeMetadata) => {
+const getExtraInfoArray = (type: gdValueTypeMetadata): Array<string> => {
   const extraInfoJson = type.getExtraInfo();
-  let array = [];
+  let array: Array<string> = [];
   try {
     if (extraInfoJson !== '') array = JSON.parse(extraInfoJson);
     if (!Array.isArray(array)) array = [];
@@ -59,7 +59,7 @@ export default function ValueTypeEditor({
   onTypeUpdated,
   getLastObjectParameterObjectType,
   isExpressionType,
-}: Props) {
+}: Props): React.Node {
   const forceUpdate = useForceUpdate();
 
   const type = convertTypeToSelectorValue(valueTypeMetadata.getName());

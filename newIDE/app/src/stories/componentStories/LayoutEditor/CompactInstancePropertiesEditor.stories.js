@@ -19,7 +19,7 @@ export default {
   decorators: [paperDecorator],
 };
 
-export const InstanceSprite2d = () => (
+export const InstanceSprite2d = (): React.Node => (
   <DragAndDropContextProvider>
     <I18n>
       {({ i18n }) => (
@@ -42,7 +42,6 @@ export const InstanceSprite2d = () => (
             )}
             tileMapTileSelection={null}
             onSelectTileMapTile={() => {}}
-            isVariableListLocked={false}
             canOverrideBehaviorProperties={true}
             resourceManagementProps={fakeResourceManagementProps}
           />
@@ -52,7 +51,7 @@ export const InstanceSprite2d = () => (
   </DragAndDropContextProvider>
 );
 
-export const InstanceCube3d = () => (
+export const InstanceCube3d = (): React.Node => (
   <DragAndDropContextProvider>
     <I18n>
       {({ i18n }) => (
@@ -75,7 +74,6 @@ export const InstanceCube3d = () => (
             )}
             tileMapTileSelection={null}
             onSelectTileMapTile={() => {}}
-            isVariableListLocked={false}
             canOverrideBehaviorProperties={true}
             resourceManagementProps={fakeResourceManagementProps}
           />
@@ -85,7 +83,7 @@ export const InstanceCube3d = () => (
   </DragAndDropContextProvider>
 );
 
-export const InstanceTextInput = () => (
+export const InstanceTextInput = (): React.Node => (
   <DragAndDropContextProvider>
     <I18n>
       {({ i18n }) => (
@@ -108,7 +106,6 @@ export const InstanceTextInput = () => (
             )}
             tileMapTileSelection={null}
             onSelectTileMapTile={() => {}}
-            isVariableListLocked={false}
             canOverrideBehaviorProperties={true}
             resourceManagementProps={fakeResourceManagementProps}
           />

@@ -10,7 +10,7 @@ import {
   serializeToJSObject,
   unserializeFromJSObject,
 } from '../Utils/Serializer';
-import { TreeViewItemContent } from '.';
+import { type TreeViewItemContent } from '.';
 import { canSwapAssetOfObject } from '../AssetStore/AssetSwapper';
 import { getInstanceCountInLayoutForObject } from '../Utils/Layout';
 import {
@@ -160,6 +160,7 @@ export const addSerializedObjectToObjectsContainer = ({
     project
   );
   newObject.setName(newName); // Unserialization has overwritten the name.
+  newObject.resetPersistentUuid();
 
   return { object: newObject, global };
 };
@@ -278,7 +279,7 @@ export class ObjectTreeViewItemContent implements TreeViewItemContent {
       isGlobalObject,
       isFolder,
     }: {| isGlobalObject: boolean, isFolder: boolean |}
-  ) {
+  ): any {
     let translation = t`Paste`;
     if (Clipboard.has(OBJECT_CLIPBOARD_KIND)) {
       const clipboardContent = Clipboard.get(OBJECT_CLIPBOARD_KIND);
@@ -291,7 +292,7 @@ export class ObjectTreeViewItemContent implements TreeViewItemContent {
     return i18n._(translation);
   }
 
-  buildMenuTemplate(i18n: I18nType, index: number) {
+  buildMenuTemplate(i18n: I18nType, index: number): any {
     const {
       project,
       globalObjectsContainer,
@@ -664,7 +665,7 @@ export class ObjectTreeViewItemContent implements TreeViewItemContent {
     selectObjectFolderOrObjectWithContext(newObjectFolderOrObjectWithContext);
   }
 
-  getRightButton(i18n: I18nType) {
+  getRightButton(i18n: I18nType): any {
     return null;
   }
 }

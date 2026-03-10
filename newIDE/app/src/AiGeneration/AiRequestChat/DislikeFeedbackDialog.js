@@ -15,7 +15,7 @@ type DislikeFeedbackDialogProps = {|
   open: boolean,
   onClose: () => void,
   onSendFeedback: (reason: string, freeFormDetails: string) => void,
-  mode: 'chat' | 'agent',
+  mode: 'chat' | 'agent' | 'orchestrator',
 |};
 
 export const DislikeFeedbackDialog = ({
@@ -23,7 +23,7 @@ export const DislikeFeedbackDialog = ({
   open,
   onClose,
   onSendFeedback,
-}: DislikeFeedbackDialogProps) => {
+}: DislikeFeedbackDialogProps): React.Node => {
   const [selectedReason, setSelectedReason] = React.useState<?string>(null);
   const [freeFormDetails, setFreeFormDetails] = React.useState<string>('');
 
@@ -43,7 +43,7 @@ export const DislikeFeedbackDialog = ({
       {({ i18n }) => (
         <Dialog
           title={
-            mode === 'agent' ? (
+            mode === 'agent' || mode === 'orchestrator' ? (
               <Trans>What went wrong?</Trans>
             ) : (
               <Trans>What could be improved?</Trans>

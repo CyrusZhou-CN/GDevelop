@@ -21,9 +21,10 @@ const styles = {
 
 export default class StandardEvent extends React.Component<
   EventRendererProps,
+  // $FlowFixMe[unsupported-syntax]
   *
 > {
-  render() {
+  render(): any {
     var standardEvent = gd.asStandardEvent(this.props.event);
 
     return (
@@ -83,6 +84,8 @@ export default class StandardEvent extends React.Component<
                 this.props.projectScopedContainersAccessor
               }
               idPrefix={this.props.idPrefix}
+              highlightedSearchText={this.props.highlightedSearchText}
+              highlightedSearchMatchCase={this.props.highlightedSearchMatchCase}
             />
           )}
           renderActionsList={({ className }) => (
@@ -120,6 +123,8 @@ export default class StandardEvent extends React.Component<
                 this.props.projectScopedContainersAccessor
               }
               idPrefix={this.props.idPrefix}
+              highlightedSearchText={this.props.highlightedSearchText}
+              highlightedSearchMatchCase={this.props.highlightedSearchMatchCase}
             />
           )}
         />

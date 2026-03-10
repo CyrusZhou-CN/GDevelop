@@ -3,16 +3,15 @@ import * as React from 'react';
 import { type SelectionState, getSelectedEvents } from './SelectionHandler';
 import { mapFor } from '../Utils/MapFor';
 import uniqBy from 'lodash/uniqBy';
+import type { SearchFilterParams } from '../Utils/Search';
 const gd: libGDevelop = global.gd;
 
 export type SearchInEventsInputs = {|
   searchInSelection: boolean,
   searchText: string,
-  matchCase: boolean,
-  searchInConditions: boolean,
-  searchInActions: boolean,
-  searchInEventStrings: boolean,
-  searchInEventSentences: boolean,
+  searchFilterParams: Required<
+    Omit<SearchFilterParams, 'includeStoreExtensions'>
+  >,
 |};
 
 export type ReplaceInEventsInputs = {|
@@ -112,6 +111,7 @@ const getSearchInitialOffset = (
  * to its children components, as well as methods to browse the results.
  */
 export default class EventsSearcher extends React.Component<Props, State> {
+  // $FlowFixMe[missing-local-annot]
   state = {
     eventsSearchResults: null, // The list of results
     searchFocusOffset: null,
@@ -185,17 +185,17 @@ export default class EventsSearcher extends React.Component<Props, State> {
   };
 
   _doSearchInEvents = (
-    {
-      searchInSelection,
-      searchText,
+    { searchInSelection, searchText, searchFilterParams }: SearchInEventsInputs,
+    cb: () => void
+  ) => {
+    const {
       matchCase,
       searchInConditions,
       searchInActions,
       searchInEventStrings,
+      searchInInstructionNames,
       searchInEventSentences,
-    }: SearchInEventsInputs,
-    cb: () => void
-  ) => {
+    } = searchFilterParams;
     const { events } = this.props;
 
     if (searchInSelection) {
@@ -213,7 +213,8 @@ export default class EventsSearcher extends React.Component<Props, State> {
       searchInConditions,
       searchInActions,
       searchInEventStrings,
-      searchInEventSentences
+      searchInEventSentences,
+      searchInInstructionNames
     );
 
     if (this.state.eventsSearchResults) {
@@ -259,8 +260,10 @@ export default class EventsSearcher extends React.Component<Props, State> {
           )
         : (searchFocusOffset + step) % this._resultEvents.length;
     if (newSearchFocusOffset < 0)
+      // $FlowFixMe[incompatible-use]
       newSearchFocusOffset += this._resultEvents.length;
 
+    // $FlowFixMe[incompatible-use]
     const event = this._resultEvents[newSearchFocusOffset];
     setTimeout(
       // Change the offset on next tick to give a chance to children to unfold events before focusing it.
@@ -278,7 +281,7 @@ export default class EventsSearcher extends React.Component<Props, State> {
     return this._goToSearchResults(+1);
   };
 
-  render() {
+  render(): any {
     return this.props.children({
       eventsSearchResultEvents: this._resultEvents,
       searchFocusOffset: this.state.searchFocusOffset,

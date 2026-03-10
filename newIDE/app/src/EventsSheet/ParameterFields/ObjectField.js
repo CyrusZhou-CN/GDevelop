@@ -13,6 +13,7 @@ import {
 import { Trans } from '@lingui/macro';
 import { nameAndIconContainer } from '../EventsTree/ClassNames';
 import InAppTutorialContext from '../../InAppTutorial/InAppTutorialContext';
+import { highlightSearchText } from '../../Utils/HighlightSearchText';
 
 const gd: libGDevelop = global.gd;
 
@@ -67,9 +68,10 @@ export const getAllRequiredBehaviorTypes = (
   platform: gdPlatform,
   functionMetadata: gdInstructionMetadata | gdExpressionMetadata,
   parameterIndex: number
-) => getRequiredBehaviorTypes(platform, functionMetadata, parameterIndex, null);
+): Array<string> =>
+  getRequiredBehaviorTypes(platform, functionMetadata, parameterIndex, null);
 
-export default React.forwardRef<ParameterFieldProps, ParameterFieldInterface>(
+export default (React.forwardRef<ParameterFieldProps, ParameterFieldInterface>(
   function ObjectField(props: ParameterFieldProps, ref) {
     const { currentlyRunningInAppTutorial } = React.useContext(
       InAppTutorialContext
@@ -108,7 +110,7 @@ export default React.forwardRef<ParameterFieldProps, ParameterFieldInterface>(
       ? parameterMetadata.getExtraInfo()
       : undefined;
 
-    const requiredCapabilitiesBehaviorTypes = React.useMemo(
+    const requiredCapabilitiesBehaviorTypes = React.useMemo<Array<string>>(
       () => {
         const functionMetadata = instructionMetadata || expressionMetadata;
         if (!project || !functionMetadata || parameterIndex === undefined) {
@@ -127,6 +129,7 @@ export default React.forwardRef<ParameterFieldProps, ParameterFieldInterface>(
       () => {
         const functionMetadata = instructionMetadata || expressionMetadata;
         if (!project || !functionMetadata || parameterIndex === undefined) {
+          // $FlowFixMe[missing-empty-array-annot]
           return [];
         }
         return getRequiredVisibleBehaviorTypes(
@@ -195,7 +198,10 @@ export default React.forwardRef<ParameterFieldProps, ParameterFieldInterface>(
       />
     );
   }
-);
+): React.ComponentType<{
+  ...ParameterFieldProps,
+  +ref?: React.RefSetter<ParameterFieldInterface>,
+}>);
 
 export const renderInlineObjectWithThumbnail = ({
   value,
@@ -204,7 +210,9 @@ export const renderInlineObjectWithThumbnail = ({
   expressionIsValid,
   InvalidParameterValue,
   MissingParameterValue,
-}: ParameterInlineRendererProps) => {
+  highlightedSearchText,
+  highlightedSearchMatchCase,
+}: ParameterInlineRendererProps): React.Node => {
   if (!value && !parameterMetadata.isOptional()) {
     return <MissingParameterValue />;
   }
@@ -218,9 +226,15 @@ export const renderInlineObjectWithThumbnail = ({
     >
       {renderObjectThumbnail(value)}
       {expressionIsValid ? (
-        value
+        highlightSearchText(value, highlightedSearchText, {
+          matchCase: highlightedSearchMatchCase,
+        })
       ) : (
-        <InvalidParameterValue>{value}</InvalidParameterValue>
+        <InvalidParameterValue>
+          {highlightSearchText(value, highlightedSearchText, {
+            matchCase: highlightedSearchMatchCase,
+          })}
+        </InvalidParameterValue>
       )}
     </span>
   );

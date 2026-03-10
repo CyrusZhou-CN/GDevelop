@@ -30,7 +30,9 @@ type PointsListBodyProps = {|
 |};
 
 const PointsListBody = (props: PointsListBodyProps) => {
-  const [nameErrors, setNameErrors] = React.useState({});
+  const [nameErrors, setNameErrors] = React.useState<{
+    [key: string]: boolean,
+  }>({});
   const { pointsContainer, onHoverPoint } = props;
   const forceUpdate = useForceUpdate();
 
@@ -39,31 +41,37 @@ const PointsListBody = (props: PointsListBodyProps) => {
     props.onPointsUpdated();
   };
 
+  // $FlowFixMe[missing-local-annot]
   const updateOriginPointX = newValue => {
     pointsContainer.getOrigin().setX(newValue);
     onPointsUpdated();
   };
 
+  // $FlowFixMe[missing-local-annot]
   const updateOriginPointY = newValue => {
     pointsContainer.getOrigin().setY(newValue);
     onPointsUpdated();
   };
 
+  // $FlowFixMe[missing-local-annot]
   const updateCenterPointX = newValue => {
     pointsContainer.getCenter().setX(newValue);
     onPointsUpdated();
   };
 
+  // $FlowFixMe[missing-local-annot]
   const updateCenterPointY = newValue => {
     pointsContainer.getCenter().setY(newValue);
     onPointsUpdated();
   };
 
+  // $FlowFixMe[missing-local-annot]
   const updatePointX = (point, newValue) => {
     point.setX(newValue);
     onPointsUpdated();
   };
 
+  // $FlowFixMe[missing-local-annot]
   const updatePointY = (point, newValue) => {
     point.setY(newValue);
     onPointsUpdated();
@@ -190,21 +198,25 @@ type PointsListProps = {|
   spriteSize: [number, number],
 |};
 
-const PointsList = (props: PointsListProps) => {
+const PointsList = (props: PointsListProps): React.Node => {
   return (
     <Column expand>
       <Table>
         <TableHeader>
           <TableRow>
+            {/* $FlowFixMe[incompatible-type] */}
             <TableHeaderColumn style={styles.nameColumn}>
               <Trans>Point name</Trans>
             </TableHeaderColumn>
+            {/* $FlowFixMe[incompatible-type] */}
             <TableHeaderColumn style={styles.coordinateColumn} padding="none">
               <Column>X</Column>
             </TableHeaderColumn>
+            {/* $FlowFixMe[incompatible-type] */}
             <TableHeaderColumn style={styles.coordinateColumn} padding="none">
               <Column>Y</Column>
             </TableHeaderColumn>
+            {/* $FlowFixMe[incompatible-type] */}
             <TableHeaderColumn style={styles.toolColumn} />
           </TableRow>
         </TableHeader>

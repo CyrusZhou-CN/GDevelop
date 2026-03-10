@@ -101,7 +101,7 @@ const searchPageState: AssetStorePageState = {
   displayAssets: true,
 };
 
-export const isHomePage = (pageState: AssetStorePageState) => {
+export const isHomePage = (pageState: AssetStorePageState): false | boolean => {
   return (
     pageState === assetStoreHomePageState ||
     (!pageState.openedAssetShortHeader &&
@@ -114,7 +114,9 @@ export const isHomePage = (pageState: AssetStorePageState) => {
   );
 };
 
-export const isSearchResultPage = (pageState: AssetStorePageState) => {
+export const isSearchResultPage = (
+  pageState: AssetStorePageState
+): false | true => {
   return (
     !isHomePage(pageState) &&
     !pageState.openedAssetShortHeader &&
@@ -128,27 +130,29 @@ type AssetStorePageHistory = {|
   previousPages: Array<AssetStorePageState>,
 |};
 
-export const AssetStoreNavigatorContext = React.createContext<NavigationState>({
-  searchText: '',
-  setSearchText: () => {},
-  getCurrentPage: () => assetStoreHomePageState,
-  isRootPage: true,
-  backToPreviousPage: () => assetStoreHomePageState,
-  openHome: () => assetStoreHomePageState,
-  openAssetSwapping: () => assetStoreHomePageState,
-  clearHistory: () => {},
-  clearPreviousPageFromHistory: () => {},
-  openSearchResultPage: () => {},
-  openTagPage: string => {},
-  openShopCategoryPage: string => {},
-  openPackPage: () => {},
-  openPrivateAssetPackInformationPage: () => {},
-  openPrivateGameTemplateInformationPage: () => {},
-  openBundleInformationPage: () => {},
-  openAssetDetailPage: () => {},
-  navigateInsideFolder: string => {},
-  goBackToFolderIndex: number => {},
-});
+export const AssetStoreNavigatorContext: React.Context<NavigationState> = React.createContext<NavigationState>(
+  {
+    searchText: '',
+    setSearchText: () => {},
+    getCurrentPage: () => assetStoreHomePageState,
+    isRootPage: true,
+    backToPreviousPage: () => assetStoreHomePageState,
+    openHome: () => assetStoreHomePageState,
+    openAssetSwapping: () => assetStoreHomePageState,
+    clearHistory: () => {},
+    clearPreviousPageFromHistory: () => {},
+    openSearchResultPage: () => {},
+    openTagPage: string => {},
+    openShopCategoryPage: string => {},
+    openPackPage: () => {},
+    openPrivateAssetPackInformationPage: () => {},
+    openPrivateGameTemplateInformationPage: () => {},
+    openBundleInformationPage: () => {},
+    openAssetDetailPage: () => {},
+    navigateInsideFolder: string => {},
+    goBackToFolderIndex: number => {},
+  }
+);
 
 type AssetStoreNavigatorStateProviderProps = {|
   children: React.Node,
@@ -156,7 +160,7 @@ type AssetStoreNavigatorStateProviderProps = {|
 
 export const AssetStoreNavigatorStateProvider = (
   props: AssetStoreNavigatorStateProviderProps
-) => {
+): React.MixedElement => {
   const [searchText, setSearchText] = React.useState<string>('');
   const [history, setHistory] = React.useState<AssetStorePageHistory>({
     previousPages: [assetStoreHomePageState],
@@ -220,6 +224,7 @@ export const AssetStoreNavigatorStateProvider = (
         });
       },
       openSearchResultPage: () => {
+        // $FlowFixMe[incompatible-type]
         setHistory(previousHistory => {
           const currentPage =
             previousHistory.previousPages[
@@ -251,6 +256,7 @@ export const AssetStoreNavigatorStateProvider = (
         });
       },
       openTagPage: (tag: string) => {
+        // $FlowFixMe[incompatible-type]
         setHistory(previousHistory => ({
           ...previousHistory,
           previousPages: [
@@ -268,7 +274,7 @@ export const AssetStoreNavigatorStateProvider = (
                   node: { name: tag, allChildrenTags: [], children: [] },
                   parentNodes: [],
                 },
-                chosenFilters: new Set(),
+                chosenFilters: new Set<string>(),
                 addFilter: () => {},
                 removeFilter: () => {},
                 setChosenCategory: () => {},
@@ -279,6 +285,7 @@ export const AssetStoreNavigatorStateProvider = (
         }));
       },
       openShopCategoryPage: (category: string) => {
+        // $FlowFixMe[incompatible-type]
         setHistory(previousHistory => ({
           ...previousHistory,
           previousPages: [
@@ -306,6 +313,7 @@ export const AssetStoreNavigatorStateProvider = (
         storeSearchText: boolean,
         clearSearchText: boolean,
       |}) => {
+        // $FlowFixMe[incompatible-type]
         setHistory(previousHistory => {
           const currentPage =
             previousHistory.previousPages[
@@ -345,7 +353,7 @@ export const AssetStoreNavigatorStateProvider = (
                     },
                     parentNodes: [],
                   },
-                  chosenFilters: new Set(),
+                  chosenFilters: new Set<string>(),
                   addFilter: () => {},
                   removeFilter: () => {},
                   setChosenCategory: () => {},
@@ -366,6 +374,7 @@ export const AssetStoreNavigatorStateProvider = (
         storeSearchText: boolean,
         clearSearchText: boolean,
       |}) => {
+        // $FlowFixMe[incompatible-type]
         setHistory(previousHistory => {
           const currentPage =
             previousHistory.previousPages[
@@ -412,6 +421,7 @@ export const AssetStoreNavigatorStateProvider = (
         storeSearchText: boolean,
         clearSearchText: boolean,
       |}) => {
+        // $FlowFixMe[incompatible-type]
         setHistory(previousHistory => {
           const currentPage =
             previousHistory.previousPages[
@@ -458,6 +468,7 @@ export const AssetStoreNavigatorStateProvider = (
         storeSearchText: boolean,
         clearSearchText: boolean,
       |}) => {
+        // $FlowFixMe[incompatible-type]
         setHistory(previousHistory => {
           const currentPage =
             previousHistory.previousPages[
@@ -504,6 +515,7 @@ export const AssetStoreNavigatorStateProvider = (
         storeSearchText: boolean,
         clearSearchText: boolean,
       |}) => {
+        // $FlowFixMe[incompatible-type]
         setHistory(previousHistory => {
           const currentPage =
             previousHistory.previousPages[
@@ -597,6 +609,7 @@ export const AssetStoreNavigatorStateProvider = (
   );
 
   return (
+    // $FlowFixMe[incompatible-type]
     <AssetStoreNavigatorContext.Provider value={state}>
       {props.children}
     </AssetStoreNavigatorContext.Provider>

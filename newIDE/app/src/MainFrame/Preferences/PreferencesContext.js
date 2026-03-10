@@ -175,6 +175,14 @@ export const allAlertMessages: Array<{
  * type and add a setter into `Preferences` type. Then, update the
  * preference dialog.
  */
+export type EditorStateForProject = {|
+  editorTabs: EditorTabsPersistedState | null,
+  propertiesPanelScroll: { [string]: { [string]: number } },
+|};
+
+// $FlowFixMe[deprecated-utility]
+export type EditorStateForProjectUpdate = $Shape<EditorStateForProject>;
+
 export type PreferencesValues = {|
   language: string,
   autoDownloadUpdates: boolean,
@@ -214,6 +222,7 @@ export type PreferencesValues = {|
     | 'icon'
     | 'icon-and-deprecated-warning-text',
   openDiagnosticReportAutomatically: boolean,
+  blockPreviewAndExportOnDiagnosticErrors: boolean,
   use3DEditor: boolean,
   showBasicProfilingCounters: boolean,
   inAppTutorialsProgress: InAppTutorialProgressDatabase,
@@ -225,7 +234,7 @@ export type PreferencesValues = {|
     [featureId: string]: {| dates: [number] |},
   },
   displaySaveReminder: {| activated: boolean |}, // Store as object in case we need to add options.
-  editorStateByProject: { [string]: { editorTabs: EditorTabsPersistedState } },
+  editorStateByProject: { [string]: EditorStateForProject },
   fetchPlayerTokenForPreviewAutomatically: boolean,
   previewCrashReportUploadLevel: string,
   gamesDashboardOrderBy: GamesDashboardOrderBy,
@@ -240,6 +249,7 @@ export type PreferencesValues = {|
 /**
  * Partial PreferencesValues that can be overridden per-project via preferences block in gdevelop-settings.yaml.
  */
+// $FlowFixMe[deprecated-utility]
 export type ProjectSpecificPreferencesValues = $Shape<PreferencesValues>;
 
 /**
@@ -312,6 +322,8 @@ export type Preferences = {|
   setShowInAppTutorialDeveloperMode: (enabled: boolean) => void,
   setOpenDiagnosticReportAutomatically: (enabled: boolean) => void,
   getOpenDiagnosticReportAutomatically: () => boolean,
+  setBlockPreviewAndExportOnDiagnosticErrors: (enabled: boolean) => void,
+  getBlockPreviewAndExportOnDiagnosticErrors: () => boolean,
   setShowDeprecatedInstructionWarning: (
     value: 'no' | 'icon' | 'icon-and-deprecated-warning-text'
   ) => void,
@@ -340,12 +352,10 @@ export type Preferences = {|
     [featureId: string]: {| dates: [number] |},
   }) => void,
   setDisplaySaveReminder: ({| activated: boolean |}) => void,
-  getEditorStateForProject: (
-    projectId: string
-  ) => ?{| editorTabs: EditorTabsPersistedState |},
+  getEditorStateForProject: (projectId: string) => ?EditorStateForProject,
   setEditorStateForProject: (
     projectId: string,
-    editorState?: {| editorTabs: EditorTabsPersistedState |}
+    editorState: EditorStateForProjectUpdate | null
   ) => void,
   setFetchPlayerTokenForPreviewAutomatically: (enabled: boolean) => void,
   setPreviewCrashReportUploadLevel: (level: string) => void,
@@ -365,12 +375,11 @@ export const initialPreferences = {
   values: {
     language: 'en',
     autoDownloadUpdates: true,
-    themeName:
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'GDevelop default Dark'
-        : // TODO: Use the light theme back when it's adapted to the modern theme.
-          'GDevelop default Dark',
+    themeName: ((typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'GDevelop default Dark'
+      : // TODO: Use the light theme back when it's adapted to the modern theme.
+        'GDevelop default Dark'): string),
     codeEditorThemeName: 'vs-dark',
     hiddenAlertMessages: {},
     hiddenTutorialHints: {},
@@ -387,11 +396,13 @@ export const initialPreferences = {
     showEffectParameterNames: false,
     projectLastUsedPaths: {},
     defaultEditorMosaicNodes: {},
-    recentProjectFiles: [],
+    recentProjectFiles: ([]: Array<empty>),
     autoOpenMostRecentProject: true,
     hasProjectOpened: false,
     userShortcutMap: {},
-    newObjectDialogDefaultTab: electron ? 'new-object' : 'asset-store',
+    newObjectDialogDefaultTab: ((electron
+      ? 'new-object'
+      : 'asset-store'): string),
     shareDialogDefaultTab: 'publish',
     isMenuBarHiddenInPreview: true,
     isAlwaysOnTopInPreview: false,
@@ -402,11 +413,12 @@ export const initialPreferences = {
     showCreateSectionByDefault: false,
     showInAppTutorialDeveloperMode: false,
     openDiagnosticReportAutomatically: true,
+    blockPreviewAndExportOnDiagnosticErrors: false,
     showDeprecatedInstructionWarning: 'no',
-    use3DEditor: isWebGLSupported(),
+    use3DEditor: (isWebGLSupported(): boolean),
     showBasicProfilingCounters: false,
     inAppTutorialsProgress: {},
-    newProjectsDefaultFolder: app ? findDefaultFolder(app) : '',
+    newProjectsDefaultFolder: ((app ? findDefaultFolder(app) : ''): string),
     newProjectsDefaultStorageProviderName: 'Cloud',
     useShortcutToClosePreviewWindow: true,
     watchProjectFolderFilesForLocalProjects: true,
@@ -438,7 +450,7 @@ export const initialPreferences = {
   showAllAnnouncements: () => {},
   showAskAiStandAloneForm: (identifier: string, show: boolean) => {},
   showAllAskAiStandAloneForms: () => {},
-  verifyIfIsNewVersion: () => false,
+  verifyIfIsNewVersion: (): boolean => false,
   setEventsSheetShowObjectThumbnails: () => {},
   setAutosaveOnPreview: () => {},
   setUseGDJSDevelopmentWatcher: (enabled: boolean) => {},
@@ -446,31 +458,31 @@ export const initialPreferences = {
   setEventsSheetIndentScale: (scale: number) => {},
   setEventsSheetZoomLevel: (zoomLevel: number) => {},
   setShowEffectParameterNames: (enabled: boolean) => {},
-  getLastUsedPath: (project: gdProject, kind: ResourceKind) => '',
+  getLastUsedPath: (project: gdProject, kind: ResourceKind): string => '',
   setLastUsedPath: (project: gdProject, kind: ResourceKind, path: string) => {},
-  getDefaultEditorMosaicNode: (name: EditorMosaicName) => null,
+  getDefaultEditorMosaicNode: (name: EditorMosaicName): null => null,
   setDefaultEditorMosaicNode: (
     name: EditorMosaicName,
     node: ?EditorMosaicNode
   ) => {},
-  getRecentProjectFiles: options => [],
+  getRecentProjectFiles: (options: any): any => [],
   insertRecentProjectFile: () => {},
   removeRecentProjectFile: () => {},
-  getAutoOpenMostRecentProject: () => true,
+  getAutoOpenMostRecentProject: (): boolean => true,
   setAutoOpenMostRecentProject: () => {},
-  hadProjectOpenedDuringLastSession: () => false,
+  hadProjectOpenedDuringLastSession: (): boolean => false,
   setHasProjectOpened: () => {},
   resetShortcutsToDefault: () => {},
   setShortcutForCommand: (commandName: CommandName, shortcut: string) => {},
-  getNewObjectDialogDefaultTab: () => 'asset-store',
+  getNewObjectDialogDefaultTab: (): string => 'asset-store',
   setNewObjectDialogDefaultTab: () => {},
-  getShareDialogDefaultTab: () => 'invite',
+  getShareDialogDefaultTab: (): string => 'invite',
   setShareDialogDefaultTab: () => {},
-  getIsMenuBarHiddenInPreview: () => true,
+  getIsMenuBarHiddenInPreview: (): boolean => true,
   setIsMenuBarHiddenInPreview: () => {},
   setBackdropClickBehavior: () => {},
   setResourcesImporationBehavior: () => {},
-  getIsAlwaysOnTopInPreview: () => true,
+  getIsAlwaysOnTopInPreview: (): boolean => true,
   setIsAlwaysOnTopInPreview: () => {},
   setEventsSheetCancelInlineParameter: () => {},
   setShowExperimentalExtensions: () => {},
@@ -479,11 +491,13 @@ export const initialPreferences = {
   setShowDeprecatedInstructionWarning: (
     value: 'no' | 'icon' | 'icon-and-deprecated-warning-text'
   ) => {},
-  getOpenDiagnosticReportAutomatically: () => true,
+  getOpenDiagnosticReportAutomatically: (): boolean => true,
   setOpenDiagnosticReportAutomatically: (enabled: boolean) => {},
-  getShowDeprecatedInstructionWarning: () => 'no',
+  getBlockPreviewAndExportOnDiagnosticErrors: (): boolean => false,
+  setBlockPreviewAndExportOnDiagnosticErrors: (enabled: boolean) => {},
+  getShowDeprecatedInstructionWarning: (): string => 'no',
   setUse3DEditor: (enabled: boolean) => {},
-  getUse3DEditor: () => false,
+  getUse3DEditor: (): boolean => false,
   setShowBasicProfilingCounters: (enabled: boolean) => {},
   setDisableNpmScriptConfirmation: (enabled: boolean) => {},
   saveTutorialProgress: () => {},
@@ -494,8 +508,8 @@ export const initialPreferences = {
   setWatchProjectFolderFilesForLocalProjects: () => {},
   setNewFeaturesAcknowledgements: () => {},
   setDisplaySaveReminder: () => {},
-  getEditorStateForProject: projectId => {},
-  setEditorStateForProject: (projectId, editorState) => {},
+  getEditorStateForProject: (projectId: any): any => {},
+  setEditorStateForProject: (projectId: any, editorState: any) => {},
   setFetchPlayerTokenForPreviewAutomatically: (enabled: boolean) => {},
   setPreviewCrashReportUploadLevel: (level: string) => {},
   setGamesDashboardOrderBy: (
@@ -508,6 +522,9 @@ export const initialPreferences = {
   setUseBackgroundSerializerForSaving: (enabled: boolean) => {},
 };
 
-const PreferencesContext = React.createContext<Preferences>(initialPreferences);
+const PreferencesContext: React.Context<Preferences> = React.createContext<Preferences>(
+  // $FlowFixMe[incompatible-type]
+  initialPreferences
+);
 
 export default PreferencesContext;

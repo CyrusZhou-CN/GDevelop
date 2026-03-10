@@ -16,7 +16,9 @@ declare class libGDevelop {
   getTypeOfBehaviorInObjectOrGroup(globalObjectsContainer: gdObjectsContainer, objectsContainer: gdObjectsContainer, objectName: string, behaviorName: string, searchInGroups: boolean): string;
   getBehaviorNamesInObjectOrGroup(globalObjectsContainer: gdObjectsContainer, objectsContainer: gdObjectsContainer, objectName: string, behaviorName: string, searchInGroups: boolean): gdVectorString;
 
+  // $FlowFixMe[cannot-resolve-name]
   removeFromVectorParameterMetadata(gdVectorParameterMetadata, index: number): void;
+  // $FlowFixMe[cannot-resolve-name]
   swapInVectorParameterMetadata(gdVectorParameterMetadata, oldIndex: number, newIndex: number): void;
 
   asStandardEvent(gdBaseEvent): gdStandardEvent;
@@ -36,6 +38,7 @@ declare class libGDevelop {
   asPanelSpriteConfiguration(gdObjectConfiguration): gdPanelSpriteObject;
   asTextObjectConfiguration(gdObjectConfiguration): gdTextObject;
   asShapePainterConfiguration(gdObjectConfiguration): gdShapePainterObject;
+  // $FlowFixMe[cannot-resolve-name]
   asAdMobConfiguration(gdObjectConfiguration): gdAdMobObject;
   asTextEntryConfiguration(gdObjectConfiguration): gdTextEntryObject;
   asParticleEmitterConfiguration(gdObjectConfiguration): gdParticleEmitterObject;
@@ -54,6 +57,7 @@ declare class libGDevelop {
   VectorVariable: Class<gdVectorVariable>;
   VectorObjectFolderOrObject: Class<gdVectorObjectFolderOrObject>;
   VectorPropertyFolderOrProperty: Class<gdVectorPropertyFolderOrProperty>;
+  VectorFunctionFolderOrFunction: Class<gdVectorFunctionFolderOrFunction>;
   VectorScreenshot: Class<gdVectorScreenshot>;
   MapStringString: Class<gdMapStringString>;
   MapStringBoolean: Class<gdMapStringBoolean>;
@@ -237,6 +241,7 @@ declare class libGDevelop {
   ExpressionParser2: Class<gdExpressionParser2>;
   EventsFunction_FunctionType: Class<EventsFunction_FunctionType>;
   EventsFunction: Class<gdEventsFunction>;
+  FunctionFolderOrFunction: Class<gdFunctionFolderOrFunction>;
   EventsFunctionsContainer_FunctionOwner: Class<EventsFunctionsContainer_FunctionOwner>;
   EventsFunctionsContainer: Class<gdEventsFunctionsContainer>;
   AbstractEventsBasedEntity: Class<gdAbstractEventsBasedEntity>;
@@ -260,6 +265,8 @@ declare class libGDevelop {
   InstructionsTypeRenamer: Class<gdInstructionsTypeRenamer>;
   EventsContext: Class<gdEventsContext>;
   EventsContextAnalyzer: Class<gdEventsContextAnalyzer>;
+  ReadOnlyArbitraryEventsWorkerWithContext: Class<gdReadOnlyArbitraryEventsWorkerWithContext>;
+  ReadOnlyArbitraryEventsWorkerWithContextJS: Class<gdReadOnlyArbitraryEventsWorkerWithContextJS>;
   ArbitraryResourceWorker: Class<gdArbitraryResourceWorker>;
   ArbitraryResourceWorkerJS: Class<gdArbitraryResourceWorkerJS>;
   ResourcesMergingHelper: Class<gdResourcesMergingHelper>;
@@ -292,11 +299,14 @@ declare class libGDevelop {
   ParticleEmitterObject: Class<gdParticleEmitterObject>;
   LayoutCodeGenerator: Class<gdLayoutCodeGenerator>;
   BehaviorCodeGenerator: Class<gdBehaviorCodeGenerator>;
+  // $FlowFixMe[cannot-resolve-name]
   ObjectCodeGenerator: Class<gdObjectCodeGenerator>;
   EventsFunctionsExtensionCodeGenerator: Class<gdEventsFunctionsExtensionCodeGenerator>;
   PreviewExportOptions: Class<gdPreviewExportOptions>;
   ExportOptions: Class<gdExportOptions>;
+  // $FlowFixMe[cannot-resolve-name]
   Exporter: Class<gdExporter>;
   JsCodeEvent: Class<gdJsCodeEvent>;
   MetadataDeclarationHelper: Class<gdMetadataDeclarationHelper>;
+  MemoryTrackedRegistry: Class<gdMemoryTrackedRegistry>;
 };

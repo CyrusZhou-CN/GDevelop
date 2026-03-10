@@ -142,7 +142,7 @@ const hasBadge = (badges: ?Array<Badge>, achievementId: string) =>
 export const hasMissingBadges = (
   badges: ?Array<Badge>,
   achievements: ?Array<Achievement>
-) =>
+): boolean =>
   // Not connected
   !badges ||
   !achievements ||
@@ -257,7 +257,7 @@ export const EarnCredits = ({
   onOpenProfile,
   showRandomItem,
   showAllItems,
-}: Props) => {
+}: Props): React.MixedElement => {
   const { isMobile, windowSize } = useResponsiveWindowSize();
   const isExtraLargeScreen = windowSize === 'xlarge';
 
@@ -296,7 +296,7 @@ export const EarnCredits = ({
     [missingBadges, showRandomItem, showAllItems, isMobile]
   );
 
-  const badgesToShow = React.useMemo(
+  const badgesToShow: Array<BadgeInfo> = React.useMemo(
     () => {
       if (!!randomItemToShow && randomItemToShow !== 'badge') {
         return [];

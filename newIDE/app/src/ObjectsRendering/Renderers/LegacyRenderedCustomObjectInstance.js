@@ -11,7 +11,7 @@ import {
   applyChildLayouts,
   ChildInstance,
   type ChildLayout,
-  LayoutedParent,
+  type LayoutedParent,
   getProportionalPositionX,
   getProportionalPositionY,
   getProportionalPositionZ,
@@ -26,7 +26,9 @@ const gd: libGDevelop = global.gd;
  */
 export default class LegacyRenderedCustomObjectInstance
   extends Rendered3DInstance
-  implements LayoutedParent<RenderedInstance | Rendered3DInstance> {
+  implements
+    // $FlowFixMe[incompatible-exact]
+    LayoutedParent<RenderedInstance | Rendered3DInstance> {
   childrenInstances: ChildInstance[];
   childrenLayouts: ChildLayout[];
   childrenRenderedInstances: Array<RenderedInstance | Rendered3DInstance>;
@@ -45,7 +47,9 @@ export default class LegacyRenderedCustomObjectInstance
     project: gdProject,
     instance: gdInitialInstance,
     associatedObjectConfiguration: gdObjectConfiguration,
+    // $FlowFixMe[value-as-type]
     pixiContainer: PIXI.Container,
+    // $FlowFixMe[value-as-type]
     threeGroup: THREE.Group,
     pixiResourcesLoader: Class<PixiResourcesLoader>
   ) {
@@ -147,7 +151,7 @@ export default class LegacyRenderedCustomObjectInstance
       const childInstance = new ChildInstance();
       const renderer = ObjectsRenderingService.createNewInstanceRenderer(
         project,
-        // $FlowFixMe Use real object instances.
+        // $FlowFixMe[incompatible-type] Use real object instances.
         childInstance,
         childObjectConfiguration,
         this._pixiObject,
@@ -165,6 +169,7 @@ export default class LegacyRenderedCustomObjectInstance
         renderer._pixiObject.style.align = 'center';
       }
       this.childrenInstances.push(childInstance);
+      // $FlowFixMe[incompatible-type]
       this.childrenLayouts.push(childLayout);
       this.childrenRenderedInstances.push(renderer);
       this.childrenRenderedInstanceByNames.set(childObject.getName(), renderer);
@@ -202,7 +207,7 @@ export default class LegacyRenderedCustomObjectInstance
     project: gdProject,
     resourcesLoader: Class<ResourcesLoader>,
     objectConfiguration: gdObjectConfiguration
-  ) {
+  ): any {
     const customObjectConfiguration = gd.asCustomObjectConfiguration(
       objectConfiguration
     );
@@ -267,6 +272,7 @@ export default class LegacyRenderedCustomObjectInstance
   }
 
   update() {
+    // $FlowFixMe[incompatible-exact]
     applyChildLayouts(this);
 
     // This allows a 3D custom object to use a 2D rendering in the editor.
@@ -324,19 +330,19 @@ export default class LegacyRenderedCustomObjectInstance
     }
   }
 
-  getDefaultWidth() {
+  getDefaultWidth(): any {
     return this.childrenRenderedInstances.length > 0
       ? this.childrenRenderedInstances[0].getDefaultWidth()
       : 48;
   }
 
-  getDefaultHeight() {
+  getDefaultHeight(): any {
     return this.childrenRenderedInstances.length > 0
       ? this.childrenRenderedInstances[0].getDefaultHeight()
       : 48;
   }
 
-  getDefaultDepth() {
+  getDefaultDepth(): any {
     const firstInstance = this.childrenRenderedInstances[0];
     return firstInstance && firstInstance instanceof Rendered3DInstance
       ? firstInstance.getDefaultDepth()
@@ -385,15 +391,15 @@ export default class LegacyRenderedCustomObjectInstance
     return this._proportionalOriginZ * this.getDepth();
   }
 
-  getCenterX() {
+  getCenterX(): any {
     return this.getWidth() / 2;
   }
 
-  getCenterY() {
+  getCenterY(): any {
     return this.getHeight() / 2;
   }
 
-  getCenterZ() {
+  getCenterZ(): any {
     return this.getDepth() / 2;
   }
 }

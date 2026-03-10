@@ -13,7 +13,14 @@ export const getCurrentElements = (
   animationIndex: number,
   directionIndex: number,
   spriteIndex: number
-) => {
+):
+  | { animation: null, direction: null, sprite: null }
+  | { animation: gdAnimation, direction: null, sprite: null }
+  | {
+      animation: gdAnimation,
+      direction: gdDirection,
+      sprite: gdSprite | null,
+    } => {
   const hasValidAnimation = animationIndex < animations.getAnimationsCount();
   const animation = hasValidAnimation
     ? animations.getAnimation(animationIndex)
@@ -48,7 +55,9 @@ export const getCurrentElements = (
   };
 };
 
-export const getTotalSpritesCount = (animations: gdSpriteAnimationList) => {
+export const getTotalSpritesCount = (
+  animations: gdSpriteAnimationList
+): number => {
   let totalSpritesCount = 0;
   for (
     let animationIndex = 0;
@@ -72,8 +81,10 @@ export const getTotalSpritesCount = (animations: gdSpriteAnimationList) => {
 /**
  * Return all the point names
  */
-export const getAllPointNames = (animations: gdSpriteAnimationList) => {
-  const allPointNames = new Set();
+export const getAllPointNames = (
+  animations: gdSpriteAnimationList
+): Array<any> => {
+  const allPointNames = new Set<string>();
   for (
     let animationIndex = 0;
     animationIndex < animations.getAnimationsCount();
@@ -145,7 +156,10 @@ export const copyAnimationsSpritePoints = (
   });
 };
 
-export const isSamePoint = (point1: gdPoint, point2: gdPoint) => {
+export const isSamePoint = (
+  point1: gdPoint,
+  point2: gdPoint
+): false | boolean => {
   return (
     point1.getX() === point2.getX() &&
     point1.getY() === point2.getY() &&
@@ -153,7 +167,10 @@ export const isSamePoint = (point1: gdPoint, point2: gdPoint) => {
   );
 };
 
-export const haveSamePoints = (sprite1: gdSprite, sprite2: gdSprite) => {
+export const haveSamePoints = (
+  sprite1: gdSprite,
+  sprite2: gdSprite
+): any | boolean => {
   if (!isSamePoint(sprite1.getCenter(), sprite2.getCenter())) return false;
   if (!isSamePoint(sprite1.getOrigin(), sprite2.getOrigin())) return false;
   if (sprite1.isDefaultCenterPoint() !== sprite2.isDefaultCenterPoint())
@@ -180,7 +197,7 @@ export const haveSamePoints = (sprite1: gdSprite, sprite2: gdSprite) => {
 export const allDirectionSpritesHaveSamePointsAs = (
   originalSprite: gdSprite,
   direction: gdDirection
-) => {
+): any => {
   return every(
     mapFor(0, direction.getSpritesCount(), j => {
       const sprite = direction.getSprite(j);
@@ -192,7 +209,7 @@ export const allDirectionSpritesHaveSamePointsAs = (
 export const allAnimationSpritesHaveSamePointsAs = (
   originalSprite: gdSprite,
   animation: gdAnimation
-) => {
+): any => {
   return every(
     mapFor(0, animation.getDirectionsCount(), i => {
       const direction = animation.getDirection(i);
@@ -204,7 +221,7 @@ export const allAnimationSpritesHaveSamePointsAs = (
 export const allObjectSpritesHaveSamePointsAs = (
   originalSprite: gdSprite,
   animations: gdSpriteAnimationList
-) => {
+): any => {
   return every(
     mapFor(0, animations.getAnimationsCount(), i => {
       const animation = animations.getAnimation(i);
@@ -243,7 +260,10 @@ export const copyAnimationsSpriteCollisionMasks = (
   });
 };
 
-export const isSamePolygon = (polygon1: gdPolygon2d, polygon2: gdPolygon2d) => {
+export const isSamePolygon = (
+  polygon1: gdPolygon2d,
+  polygon2: gdPolygon2d
+): any | boolean => {
   const polygon1Vertices = polygon1.getVertices();
   const polygon2Vertices = polygon2.getVertices();
 
@@ -262,7 +282,7 @@ export const isSamePolygon = (polygon1: gdPolygon2d, polygon2: gdPolygon2d) => {
 export const haveSameCollisionMasks = (
   sprite1: gdSprite,
   sprite2: gdSprite
-) => {
+): any | boolean => {
   if (sprite1.isFullImageCollisionMask() !== sprite2.isFullImageCollisionMask())
     return false;
 
@@ -284,7 +304,7 @@ export const haveSameCollisionMasks = (
 export const allDirectionSpritesHaveSameCollisionMasksAs = (
   originalSprite: gdSprite,
   direction: gdDirection
-) => {
+): any => {
   return every(
     mapFor(0, direction.getSpritesCount(), j => {
       const sprite = direction.getSprite(j);
@@ -296,7 +316,7 @@ export const allDirectionSpritesHaveSameCollisionMasksAs = (
 export const allAnimationSpritesHaveSameCollisionMasksAs = (
   originalSprite: gdSprite,
   animation: gdAnimation
-) => {
+): any => {
   return every(
     mapFor(0, animation.getDirectionsCount(), i => {
       const direction = animation.getDirection(i);
@@ -311,7 +331,7 @@ export const allAnimationSpritesHaveSameCollisionMasksAs = (
 export const allObjectSpritesHaveSameCollisionMaskAs = (
   originalSprite: gdSprite,
   animations: gdSpriteAnimationList
-) => {
+): any => {
   return every(
     mapFor(0, animations.getAnimationsCount(), i => {
       const animation = animations.getAnimation(i);
@@ -325,7 +345,7 @@ export const allObjectSpritesHaveSameCollisionMaskAs = (
 
 export const isFirstSpriteUsingFullImageCollisionMask = (
   animations: gdSpriteAnimationList
-) => {
+): boolean => {
   const firstSprite = getCurrentElements(animations, 0, 0, 0).sprite;
   return firstSprite ? firstSprite.isFullImageCollisionMask() : false;
 };

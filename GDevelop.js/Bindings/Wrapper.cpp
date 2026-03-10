@@ -68,6 +68,7 @@
 #include <GDCore/IDE/VariableInstructionSwitcher.h>
 #include <GDCore/IDE/WholeProjectRefactorer.h>
 #include <GDCore/Project/Behavior.h>
+#include <GDCore/Project/MemoryTrackedRegistry.h>
 #include <GDCore/Project/CustomObjectConfiguration.h>
 #include <GDCore/Project/Effect.h>
 #include <GDCore/Project/EventsBasedBehavior.h>
@@ -76,6 +77,7 @@
 #include <GDCore/Project/EventsFunctionsExtension.h>
 #include <GDCore/Project/ExternalEvents.h>
 #include <GDCore/Project/ExternalLayout.h>
+#include <GDCore/Project/FunctionFolderOrFunction.h>
 #include <GDCore/Project/InitialInstance.h>
 #include <GDCore/Project/InitialInstancesContainer.h>
 #include <GDCore/Project/Layout.h>
@@ -371,6 +373,42 @@ class AbstractFileSystemJS : public AbstractFileSystem {
   virtual ~AbstractFileSystemJS(){};
 };
 
+/**
+ * \brief Manual binding of gd::ReadOnlyArbitraryEventsWorkerWithContext to allow
+ * overriding DoVisitEvent and DoVisitInstruction from JavaScript.
+ */
+class ReadOnlyArbitraryEventsWorkerWithContextJS : public ReadOnlyArbitraryEventsWorkerWithContext {
+ public:
+  ReadOnlyArbitraryEventsWorkerWithContextJS(){};
+  virtual ~ReadOnlyArbitraryEventsWorkerWithContextJS(){};
+
+  virtual void DoVisitEvent(const gd::BaseEvent &event) {
+    EM_ASM(
+        {
+          var self = Module['getCache'](Module['ReadOnlyArbitraryEventsWorkerWithContextJS'])[$0];
+          if (!self.hasOwnProperty('doVisitEvent'))
+            throw 'a JSImplementation must implement all functions, you forgot ReadOnlyArbitraryEventsWorkerWithContextJS::doVisitEvent.';
+          self.doVisitEvent(wrapPointer($1, Module['BaseEvent']));
+        },
+        (int)this,
+        (int)&event);
+  }
+
+  virtual void DoVisitInstruction(const gd::Instruction &instruction, bool isCondition) {
+    EM_ASM(
+        {
+          var self = Module['getCache'](Module['ReadOnlyArbitraryEventsWorkerWithContextJS'])[$0];
+          if (!self.hasOwnProperty('doVisitInstruction'))
+            throw 'a JSImplementation must implement all functions, you forgot ReadOnlyArbitraryEventsWorkerWithContextJS::doVisitInstruction.';
+          self.doVisitInstruction(wrapPointer($1, Module['Instruction']), !!$2, wrapPointer($3, Module['ProjectScopedContainers']));
+        },
+        (int)this,
+        (int)&instruction,
+        isCondition,
+        (int)&GetProjectScopedContainers());
+  }
+};
+
 class InitialInstanceJSFunctorWrapper : public gd::InitialInstanceFunctor {
  public:
   InitialInstanceJSFunctorWrapper(){};
@@ -476,6 +514,7 @@ typedef std::vector<UnfilledRequiredBehaviorPropertyProblem>
     VectorUnfilledRequiredBehaviorPropertyProblem;
 typedef std::vector<const gd::ObjectFolderOrObject*> VectorObjectFolderOrObject;
 typedef std::vector<const gd::PropertyFolderOrProperty*> VectorPropertyFolderOrProperty;
+typedef std::vector<const gd::FunctionFolderOrFunction*> VectorFunctionFolderOrFunction;
 typedef std::vector<gd::Screenshot> VectorScreenshot;
 typedef QuickCustomization::Visibility
     QuickCustomization_Visibility;
@@ -867,6 +906,16 @@ typedef std::vector<gd::PropertyDescriptorChoice> VectorPropertyDescriptorChoice
 #define STATIC_GetLastBinarySnapshotSize GetLastBinarySnapshotSize
 #define STATIC_FreeBinarySnapshot FreeBinarySnapshot
 #define STATIC_DeserializeBinarySnapshot DeserializeBinarySnapshot
+
+// MemoryTrackedRegistry
+#define STATIC_add add
+#define STATIC_remove remove
+#define STATIC_isDead isDead
+#define STATIC_getDeadCount getDeadCount
+#define STATIC_pruneDead pruneDead
+#define STATIC_getAliveCount getAliveCount
+#define STATIC_getAliveCountForClass getAliveCountForClass
+#define STATIC_getDeadCountForClass getDeadCountForClass
 
 // We postfix some methods with "At" as Javascript does not support overloading
 #define GetLayoutAt GetLayout

@@ -13,6 +13,8 @@ export const cleanNonExistingObjectFolderOrObjectWithContexts = (
     mapVector(
       objectsContainer.getAllObjectFolderOrObjects(),
       objectFolderOrObject => {
+        // $FlowFixMe[incompatible-type]
+        // $FlowFixMe[incompatible-exact]
         allObjectFolderOrObjectPtrs.add(gd.getPointer(objectFolderOrObject));
       }
     );
@@ -20,6 +22,8 @@ export const cleanNonExistingObjectFolderOrObjectWithContexts = (
     mapVector(
       globalObjectsContainer.getAllObjectFolderOrObjects(),
       objectFolderOrObject => {
+        // $FlowFixMe[incompatible-type]
+        // $FlowFixMe[incompatible-exact]
         allObjectFolderOrObjectPtrs.add(gd.getPointer(objectFolderOrObject));
       }
     );
@@ -27,6 +31,7 @@ export const cleanNonExistingObjectFolderOrObjectWithContexts = (
   return objectFolderOrObjectWithContexts.filter(
     objectFolderOrObjectWithContext =>
       allObjectFolderOrObjectPtrs.has(
+        // $FlowFixMe[incompatible-exact]
         gd.getPointer(objectFolderOrObjectWithContext.objectFolderOrObject)
       )
   );
@@ -37,7 +42,7 @@ export const getObjectFolderOrObjectWithContextFromObjectName = (
   objectsContainer: gdObjectsContainer,
   objectName: string
 ): ObjectFolderOrObjectWithContext | null => {
-  let foundObjectFolderObjectWithContext = null;
+  let foundObjectFolderObjectWithContext: ObjectFolderOrObjectWithContext | null = null;
   if (globalObjectsContainer)
     mapVector(
       globalObjectsContainer.getAllObjectFolderOrObjects(),

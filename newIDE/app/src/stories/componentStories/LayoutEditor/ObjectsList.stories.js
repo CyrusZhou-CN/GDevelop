@@ -20,7 +20,7 @@ export default {
   decorators: [alertDecorator, paperDecorator],
 };
 
-export const Default = () => (
+export const Default = (): React.Node => (
   <DragAndDropContextProvider>
     <div style={{ height: 400 }}>
       <ObjectsList
@@ -39,6 +39,7 @@ export const Default = () => (
         onOpenEventBasedObjectEditor={action('On edit children')}
         onOpenEventBasedObjectVariantEditor={action('On edit variant')}
         onExportAssets={action('On export assets')}
+        onImportAssets={action('On import assets')}
         onAddObjectInstance={action('On add instance to the scene')}
         onObjectCreated={action('On object created')}
         onObjectEdited={action('On object edited')}
@@ -61,7 +62,7 @@ export const Default = () => (
   </DragAndDropContextProvider>
 );
 
-export const WithSerializedObjectView = () => (
+export const WithSerializedObjectView = (): React.Node => (
   <DragAndDropContextProvider>
     <SerializedObjectDisplay object={testProject.testLayout}>
       <div style={{ height: 250 }}>
@@ -81,6 +82,7 @@ export const WithSerializedObjectView = () => (
           onOpenEventBasedObjectEditor={action('On edit children')}
           onOpenEventBasedObjectVariantEditor={action('On edit variant')}
           onExportAssets={action('On export assets')}
+          onImportAssets={action('On import assets')}
           onAddObjectInstance={action('On add instance to the scene')}
           onObjectCreated={action('On object created')}
           onObjectEdited={action('On object edited')}
@@ -104,7 +106,7 @@ export const WithSerializedObjectView = () => (
   </DragAndDropContextProvider>
 );
 
-export const Locked = () => (
+export const Locked = (): React.Node => (
   <DragAndDropContextProvider>
     <div style={{ height: 400 }}>
       <ObjectsList
@@ -123,6 +125,7 @@ export const Locked = () => (
         onOpenEventBasedObjectEditor={action('On edit children')}
         onOpenEventBasedObjectVariantEditor={action('On edit variant')}
         onExportAssets={action('On export assets')}
+        onImportAssets={action('On import assets')}
         onAddObjectInstance={action('On add instance to the scene')}
         onObjectCreated={action('On object created')}
         onObjectEdited={action('On object edited')}

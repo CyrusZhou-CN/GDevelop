@@ -1,9 +1,9 @@
 // @flow
 import * as React from 'react';
-import CommandManager, { CommandManagerInterface } from './CommandManager';
+import CommandManager, { type CommandManagerInterface } from './CommandManager';
 import useValueWithInit from '../Utils/UseRefInitHook';
 
-const CommandsContext = React.createContext<CommandManagerInterface>(
+const CommandsContext: React.Context<any> = React.createContext<CommandManagerInterface>(
   new CommandManager()
 );
 
@@ -11,7 +11,7 @@ type Props = {
   children: React.Node,
 };
 
-export const CommandsContextProvider = (props: Props) => {
+export const CommandsContextProvider = (props: Props): React.MixedElement => {
   const commandManager = useValueWithInit<CommandManager>(
     () => new CommandManager()
   );

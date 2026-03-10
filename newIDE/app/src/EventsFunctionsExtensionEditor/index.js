@@ -48,6 +48,8 @@ import { type HotReloadPreviewButtonProps } from '../HotReload/HotReloadPreviewB
 import PropertyListEditor, {
   type PropertyListEditorInterface,
 } from './PropertyListEditor';
+import type { EventPath } from '../Utils/EventPath';
+import type { SearchFilterParams } from '../Utils/Search';
 
 const gd: libGDevelop = global.gd;
 
@@ -140,6 +142,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
   Props,
   State
 > {
+  // $FlowFixMe[missing-local-annot]
   state = {
     selectedEventsFunction: null,
     selectedEventsBasedBehavior: null,
@@ -244,6 +247,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
       eventsFunction,
     };
     this._projectScopedContainersAccessor = new ProjectScopedContainersAccessor(
+      // $FlowFixMe[incompatible-type]
       scope,
       this._objectsContainer,
       this._parameterVariablesContainer,
@@ -271,6 +275,34 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
           </IconButton>
         </ToolbarGroup>
       );
+    }
+  };
+
+  setGlobalSearchResults = (
+    eventPaths: Array<EventPath>,
+    focusedEventPath: EventPath,
+    searchText: string,
+    searchFilters?: SearchFilterParams
+  ) => {
+    if (this.editor) {
+      this.editor.setGlobalSearchResults(
+        eventPaths,
+        focusedEventPath,
+        searchText,
+        searchFilters
+      );
+    }
+  };
+
+  clearGlobalSearchResults = () => {
+    if (this.editor) {
+      this.editor.clearGlobalSearchResults();
+    }
+  };
+
+  scrollToEventPath = (eventPath: EventPath) => {
+    if (this.editor) {
+      this.editor.scrollToEventPath(eventPath);
     }
   };
 
@@ -370,8 +402,10 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
             selectedEventsFunction &&
             !selectedEventsFunction.getEvents().getEventsCount()
           ) {
+            // $FlowFixMe[incompatible-use]
             this._editorNavigator.openEditor('parameters');
           } else {
+            // $FlowFixMe[incompatible-use]
             this._editorNavigator.openEditor('events-sheet');
           }
         }
@@ -379,7 +413,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
     );
   };
 
-  _makeRenameEventsFunction = (i18n: I18nType) => (
+  _makeRenameEventsFunction = (i18n: I18nType): any => (
     eventsBasedBehavior: ?gdEventsBasedBehavior,
     eventsBasedObject: ?gdEventsBasedObject,
     eventsFunction: gdEventsFunction,
@@ -529,7 +563,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
     }
   };
 
-  _makeMoveFreeEventsParameter = (i18n: I18nType) => (
+  _makeMoveFreeEventsParameter = (i18n: I18nType): any => (
     eventsFunction: gdEventsFunction,
     oldIndex: number,
     newIndex: number,
@@ -549,7 +583,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
     done(true);
   };
 
-  _makeMoveBehaviorEventsParameter = (i18n: I18nType) => (
+  _makeMoveBehaviorEventsParameter = (i18n: I18nType): any => (
     eventsBasedBehavior: gdEventsBasedBehavior,
     eventsFunction: gdEventsFunction,
     oldIndex: number,
@@ -571,7 +605,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
     done(true);
   };
 
-  _makeMoveObjectEventsParameter = (i18n: I18nType) => (
+  _makeMoveObjectEventsParameter = (i18n: I18nType): any => (
     eventsBasedObject: gdEventsBasedObject,
     eventsFunction: gdEventsFunction,
     oldIndex: number,
@@ -599,6 +633,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
   ) => {
     if (
       this.state.selectedEventsFunction &&
+      // $FlowFixMe[incompatible-exact]
       gd.compare(eventsFunction, this.state.selectedEventsFunction)
     ) {
       this._selectEventsFunction(null, null, null);
@@ -692,7 +727,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
     );
   };
 
-  _makeRenameEventsBasedBehavior = (i18n: I18nType) => (
+  _makeRenameEventsBasedBehavior = (i18n: I18nType): any => (
     eventsBasedBehavior: gdEventsBasedBehavior,
     newName: string,
     done: boolean => void
@@ -724,7 +759,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
     done(true);
   };
 
-  _makeRenameEventsBasedObject = (i18n: I18nType) => (
+  _makeRenameEventsBasedObject = (i18n: I18nType): any => (
     eventsBasedObject: gdEventsBasedObject,
     newName: string,
     done: boolean => void
@@ -859,6 +894,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
   ) => {
     if (
       this.state.selectedEventsBasedBehavior &&
+      // $FlowFixMe[incompatible-exact]
       gd.compare(eventsBasedBehavior, this.state.selectedEventsBasedBehavior)
     ) {
       this._selectEventsBasedBehavior(null);
@@ -873,6 +909,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
   ) => {
     if (
       this.state.selectedEventsBasedObject &&
+      // $FlowFixMe[incompatible-exact]
       gd.compare(eventsBasedObject, this.state.selectedEventsBasedObject)
     ) {
       this._selectEventsBasedObject(null);
@@ -1345,7 +1382,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
     );
   };
 
-  render() {
+  render(): any {
     const { project, eventsFunctionsExtension } = this.props;
 
     const {
@@ -1532,6 +1569,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
                 key={selectedEventsFunction.ptr}
                 ref={editor => (this.editor = editor)}
                 project={project}
+                // $FlowFixMe[incompatible-type]
                 scope={scope}
                 globalObjectsContainer={
                   selectedEventsBasedObject
@@ -1540,6 +1578,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
                 }
                 objectsContainer={this._objectsContainer}
                 projectScopedContainersAccessor={
+                  // $FlowFixMe[incompatible-type]
                   this._projectScopedContainersAccessor
                 }
                 events={selectedEventsFunction.getEvents()}
@@ -1749,6 +1788,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
                 ref={editorNavigator =>
                   (this._editorNavigator = editorNavigator)
                 }
+                // $FlowFixMe[incompatible-type]
                 editors={editors}
                 initialEditorName={'functions-list'}
                 transitions={{
@@ -1818,6 +1858,7 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
                 }) => (
                   <EditorMosaic
                     ref={editorMosaic => (this._editorMosaic = editorMosaic)}
+                    // $FlowFixMe[incompatible-type]
                     editors={editors}
                     centralNodeId="events-sheet"
                     onPersistNodes={node =>
@@ -1832,13 +1873,16 @@ export default class EventsFunctionsExtensionEditor extends React.Component<
                       mosaicContainsNode(
                         getDefaultEditorMosaicNode(
                           'events-functions-extension-editor'
+                          // $FlowFixMe[incompatible-type]
                         ) || getInitialMosaicEditorNodes(),
                         'functions-list'
                       )
                         ? getDefaultEditorMosaicNode(
                             'events-functions-extension-editor'
+                            // $FlowFixMe[incompatible-type]
                           ) || getInitialMosaicEditorNodes()
                         : // Force the mosaic to reset to default.
+                          // $FlowFixMe[incompatible-type]
                           getInitialMosaicEditorNodes()
                     }
                   />

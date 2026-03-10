@@ -6,7 +6,7 @@ import { type I18n as I18nType } from '@lingui/core';
 import React from 'react';
 import { AutoSizer } from 'react-virtualized';
 import Background from '../UI/Background';
-import SearchBar from '../UI/SearchBar';
+import CompactSearchBar from '../UI/CompactSearchBar';
 import newNameGenerator from '../Utils/NewNameGenerator';
 import { enumerateGroups } from '../ObjectsList/EnumerateObjects';
 import {
@@ -27,6 +27,7 @@ import ErrorBoundary from '../UI/ErrorBoundary';
 import KeyboardShortcuts from '../UI/KeyboardShortcuts';
 import { ProjectScopedContainersAccessor } from '../InstructionOrExpression/EventsScope';
 import { getLabelsForObjectsAndGroupsLists } from '../ObjectsList';
+import { type MenuItemTemplate } from '../UI/Menu/Menu.flow';
 
 export const groupWithContextReactDndType = 'GD_GROUP_WITH_CONTEXT';
 
@@ -244,7 +245,7 @@ const ObjectGroupsList = React.forwardRef<Props, ObjectGroupsListInterface>(
     );
 
     const onDuplicate = React.useCallback(
-      (groupWithContext: GroupWithContext): ?GroupWithContext => {
+      (groupWithContext: GroupWithContext): void => {
         const { group, global } = groupWithContext;
 
         const newName = newNameGenerator(
@@ -470,7 +471,10 @@ const ObjectGroupsList = React.forwardRef<Props, ObjectGroupsListInterface>(
     );
 
     const renderGroupMenuTemplate = React.useCallback(
-      (i18n: I18nType) => (item: TreeViewItem, index: number) =>
+      (i18n: I18nType) => (
+        item: TreeViewItem,
+        index: number
+      ): Array<MenuItemTemplate> =>
         item.isRoot || item.isPlaceholder
           ? []
           : [
@@ -492,14 +496,16 @@ const ObjectGroupsList = React.forwardRef<Props, ObjectGroupsListInterface>(
                 accelerator: 'F2',
                 enabled: !isListLocked,
               },
-              globalObjectGroups
-                ? {
-                    label: i18n._(t`Set as global group`),
-                    enabled: !isGroupWithContextGlobal(item) && !isListLocked,
-                    click: () => setAsGlobalGroup(item),
-                    visible: canSetAsGlobalGroup !== false,
-                  }
-                : null,
+              ...(globalObjectGroups
+                ? [
+                    {
+                      label: i18n._(t`Set as global group`),
+                      enabled: !isGroupWithContextGlobal(item) && !isListLocked,
+                      click: () => setAsGlobalGroup(item),
+                      visible: canSetAsGlobalGroup !== false,
+                    },
+                  ]
+                : []),
               {
                 label: i18n._(t`Delete`),
                 click: () => onDelete(item),
@@ -512,7 +518,7 @@ const ObjectGroupsList = React.forwardRef<Props, ObjectGroupsListInterface>(
                 click: onCreateGroup,
                 enabled: !isListLocked,
               },
-            ].filter(Boolean),
+            ],
       [
         isListLocked,
         globalObjectGroups,
@@ -566,7 +572,7 @@ const ObjectGroupsList = React.forwardRef<Props, ObjectGroupsListInterface>(
             children:
               globalObjectGroupsList.length > 0
                 ? globalObjectGroupsList
-                : // $FlowFixMe
+                : // $FlowFixMe[incompatible-type]
                   [getGlobalGroupsEmptyPlaceholder(i18n)],
             isRoot: true,
             id: globalGroupsRootFolderId,
@@ -576,7 +582,7 @@ const ObjectGroupsList = React.forwardRef<Props, ObjectGroupsListInterface>(
             children:
               objectGroupsList.length > 0
                 ? objectGroupsList
-                : // $FlowFixMe
+                : // $FlowFixMe[incompatible-type]
                   [getSceneGroupsEmptyPlaceholder(i18n)],
             isRoot: true,
             id: sceneGroupsRootFolderId,
@@ -628,10 +634,9 @@ const ObjectGroupsList = React.forwardRef<Props, ObjectGroupsListInterface>(
     return (
       <Background>
         <Line>
-          <Column expand>
-            <SearchBar
+          <Column expand noOverflowParent>
+            <CompactSearchBar
               value={searchText}
-              onRequestSearch={() => {}}
               onChange={setSearchText}
               placeholder={t`Search object groups`}
             />
@@ -660,6 +665,7 @@ const ObjectGroupsList = React.forwardRef<Props, ObjectGroupsListInterface>(
                 <div style={{ flex: 1 }}>
                   <AutoSizer style={{ width: '100%' }} disableWidth>
                     {({ height }) => (
+                      // $FlowFixMe[incompatible-type]
                       <TreeView
                         key={listKey}
                         ref={treeViewRef}
@@ -690,6 +696,7 @@ const ObjectGroupsList = React.forwardRef<Props, ObjectGroupsListInterface>(
                         reactDndType={groupWithContextReactDndType}
                         initiallyOpenedNodeIds={initiallyOpenedNodeIds}
                         shouldSelectUponContextMenuOpening
+                        // $FlowFixMe[incompatible-type]
                         getItemRightButton={getRightButton(i18n)}
                       />
                     )}
@@ -714,19 +721,23 @@ const arePropsEqual = (prevProps: Props, nextProps: Props): boolean =>
   prevProps.globalObjectGroups === nextProps.globalObjectGroups &&
   prevProps.objectGroups === nextProps.objectGroups;
 
+// $FlowFixMe[incompatible-type]
 const MemoizedObjectGroupsList = React.memo<Props, ObjectGroupsListInterface>(
+  // $FlowFixMe[incompatible-type]
+  // $FlowFixMe[incompatible-exact]
   ObjectGroupsList,
   arePropsEqual
 );
 
-const ObjectGroupsListWithErrorBoundary = React.forwardRef<
-  Props,
-  ObjectGroupsListInterface
->((props, ref) => (
+const ObjectGroupsListWithErrorBoundary: React.ComponentType<{
+  ...Props,
+  +ref?: React.RefSetter<ObjectGroupsListInterface>,
+}> = React.forwardRef<Props, ObjectGroupsListInterface>((props, ref) => (
   <ErrorBoundary
     componentTitle={<Trans>Object groups list</Trans>}
     scope="scene-editor-object-groups-list"
   >
+    {/* $FlowFixMe[incompatible-type] */}
     <MemoizedObjectGroupsList ref={ref} {...props} />
   </ErrorBoundary>
 ));

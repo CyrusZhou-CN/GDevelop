@@ -58,7 +58,7 @@ export const getObjectOrGroupVariablesContainers = (
   return variablesContainers;
 };
 
-export default React.forwardRef<ParameterFieldProps, ParameterFieldInterface>(
+export default (React.forwardRef<ParameterFieldProps, ParameterFieldInterface>(
   function ObjectVariableField(props: ParameterFieldProps, ref) {
     const field = React.useRef<?VariableFieldInterface>(null);
     const [
@@ -163,7 +163,7 @@ export default React.forwardRef<ParameterFieldProps, ParameterFieldInterface>(
     );
 
     const onComputeAllVariableNames = React.useCallback(
-      () => {
+      (): Array<string> => {
         if (!project || !layout || !objectName) return [];
 
         return EventsRootVariablesFinder.findAllObjectVariables(
@@ -253,7 +253,10 @@ export default React.forwardRef<ParameterFieldProps, ParameterFieldInterface>(
       </React.Fragment>
     );
   }
-);
+): React.ComponentType<{
+  ...ParameterFieldProps,
+  +ref?: React.RefSetter<ParameterFieldInterface>,
+}>);
 
 const getVariableSourceFromIdentifier = (
   identifier: string,
@@ -262,7 +265,7 @@ const getVariableSourceFromIdentifier = (
 
 export const renderInlineObjectVariable = (
   props: ParameterInlineRendererProps
-) =>
+): any =>
   renderVariableWithIcon(
     props,
     'object variable',

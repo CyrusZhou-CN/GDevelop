@@ -29,6 +29,7 @@ import AnimationPreview from '../ObjectEditor/Editors/SpriteEditor/AnimationPrev
 import ScrollView, { type ScrollViewInterface } from '../UI/ScrollView';
 import AssetsList from './AssetsList';
 import { SimilarAssetStoreSearchFilter } from './AssetStoreSearchFilter';
+import { type SearchFilter } from '../UI/Search/UseSearchItem';
 import EmptyMessage from '../UI/EmptyMessage';
 import Link from '../UI/Link';
 import PrivateAssetsAuthorizationContext from './PrivateAssets/PrivateAssetsAuthorizationContext';
@@ -97,7 +98,10 @@ export type AssetDetailsInterface = {|
   scrollToPosition: (y: number) => void,
 |};
 
-export const AssetDetails = React.forwardRef<Props, AssetDetailsInterface>(
+export const AssetDetails: React.ComponentType<{
+  ...Props,
+  +ref?: React.RefSetter<AssetDetailsInterface>,
+}> = React.forwardRef<Props, AssetDetailsInterface>(
   (
     {
       onTagSelection,
@@ -269,7 +273,9 @@ export const AssetDetails = React.forwardRef<Props, AssetDetailsInterface>(
         ? direction.sprites.map(sprite => assetResources[sprite.image])
         : null;
 
-    const similarAssetFilters = React.useMemo(
+    const similarAssetFilters: Array<
+      SearchFilter<AssetShortHeader>
+    > = React.useMemo(
       () => [new SimilarAssetStoreSearchFilter(assetShortHeader)],
       [assetShortHeader]
     );
@@ -350,6 +356,7 @@ export const AssetDetails = React.forwardRef<Props, AssetDetailsInterface>(
                           ({ name }) => name
                         )}
                         getImageResourceSource={(resourceName: string) => {
+                          // $FlowFixMe[invalid-computed-prop]
                           const resource = assetResources[resourceName];
                           return resource ? resource.file : '';
                         }}

@@ -26,10 +26,11 @@ import {
 import AuthenticatedUserContext from '../../Profile/AuthenticatedUserContext';
 import { listOtherUserCloudProjects } from '../../Utils/GDevelopServices/Project';
 import { showErrorBox } from '../../UI/Messages/MessageBox';
+import { type CloudProjectWithUserAccessInfo } from '../../Utils/GDevelopServices/Project';
 
 type Props = {| children: React.Node |};
 
-const TeamProvider = ({ children }: Props) => {
+const TeamProvider = ({ children }: Props): React.Node => {
   const {
     limits,
     profile,
@@ -131,6 +132,7 @@ const TeamProvider = ({ children }: Props) => {
   );
 
   const onCreateMembers = React.useCallback(
+    // $FlowFixMe[missing-local-annot]
     async quantity => {
       if (!team || !adminUserId) return;
       try {
@@ -284,7 +286,7 @@ const TeamProvider = ({ children }: Props) => {
   );
 
   const onListUserProjects = React.useCallback(
-    async (user: User) => {
+    async (user: User): Promise<Array<CloudProjectWithUserAccessInfo>> => {
       if (!adminUserId) return [];
       return listOtherUserCloudProjects(
         getAuthorizationHeader,

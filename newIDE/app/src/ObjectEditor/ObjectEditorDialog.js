@@ -122,6 +122,20 @@ const InnerDialog = (props: InnerDialogProps) => {
   );
   const [objectName, setObjectName] = React.useState(props.objectName);
   const forceUpdate = useForceUpdate();
+
+  // Reset variable UUIDs for changeset tracking. This must happen before
+  // the cancelable editor hook serializes the object, so that both the
+  // serialized "original" state and the in-memory "new" state share
+  // the same UUIDs when changes are applied.
+  // We only reset variable UUIDs (not the object's own UUID).
+  // This can be removed once we decide to persist variable UUIDs in the project file.
+  // (and make sure they are properly reset when a variable is added/copied/pasted/etc).
+  const variableUuidsResetRef = React.useRef(false);
+  if (!variableUuidsResetRef.current) {
+    object.getVariables().resetPersistentUuid();
+    variableUuidsResetRef.current = true;
+  }
+
   const {
     onCancelChanges,
     notifyOfChange,
@@ -130,8 +144,14 @@ const InnerDialog = (props: InnerDialogProps) => {
   } = useSerializableObjectCancelableEditor({
     serializableObject: object,
     useProjectToUnserialize: project,
-    onCancel: onCancel,
-    resetThenClearPersistentUuid: true,
+    onCancel: React.useCallback(
+      () => {
+        // Clear variable UUIDs to avoid them being persisted in the project file.
+        object.getVariables().clearPersistentUuid();
+        onCancel();
+      },
+      [object, onCancel]
+    ),
   });
 
   const [hasResourceChanged, setResourceChanged] = React.useState<boolean>(
@@ -193,7 +213,9 @@ const InnerDialog = (props: InnerDialogProps) => {
         changeset
       );
     }
-    object.clearPersistentUuid();
+
+    // Clear variable UUIDs to avoid them being persisted in the project file.
+    object.getVariables().clearPersistentUuid();
 
     // Do the renaming *after* applying changes, as "withSerializableObject"
     // HOC will unserialize the object to apply modifications, which will
@@ -215,6 +237,7 @@ const InnerDialog = (props: InnerDialogProps) => {
   );
 
   const askConfirmationAndOpenBehaviorEvents = React.useCallback(
+    // $FlowFixMe[missing-local-annot]
     async (extensionName, behaviorName) => {
       if (hasUnsavedChanges()) {
         const answer = await showConfirmation({
@@ -264,7 +287,9 @@ const InnerDialog = (props: InnerDialogProps) => {
       fixedContent={
         <Tabs
           value={currentTab}
+          // $FlowFixMe[incompatible-type]
           onChange={setCurrentTab}
+          // $FlowFixMe[incompatible-type]
           options={[
             {
               label: <Trans>Properties</Trans>,
@@ -442,6 +467,7 @@ type State = {|
 |};
 
 class ObjectEditorDialog extends React.Component<Props, State> {
+  // $FlowFixMe[missing-local-annot]
   state = {
     editorComponent: null,
     castToObjectType: null,
@@ -464,6 +490,7 @@ class ObjectEditorDialog extends React.Component<Props, State> {
     }
   }
 
+  // $FlowFixMe[missing-local-annot]
   _loadFrom(object: ?gdObject) {
     if (!object) return;
 
@@ -486,6 +513,7 @@ class ObjectEditorDialog extends React.Component<Props, State> {
     });
   }
 
+  // $FlowFixMe[missing-local-annot]
   render() {
     const { object, initialTab } = this.props;
     const { editorComponent, castToObjectType, helpPagePath } = this.state;
@@ -506,7 +534,7 @@ class ObjectEditorDialog extends React.Component<Props, State> {
   }
 }
 
-const ObjectEditorWithErrorBoundary = (props: Props) => (
+const ObjectEditorWithErrorBoundary = (props: Props): React.Node => (
   <ErrorBoundary
     componentTitle={<Trans>Object editor</Trans>}
     scope="object-details"

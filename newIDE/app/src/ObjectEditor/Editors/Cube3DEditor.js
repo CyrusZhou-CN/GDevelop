@@ -83,7 +83,7 @@ const Cube3DEditor = ({
   projectScopedContainersAccessor,
   objectName,
   renderObjectNameField,
-}: EditorProps) => {
+}: EditorProps): React.Node => {
   const forceUpdate = useForceUpdate();
   const properties = objectConfiguration.getProperties();
 

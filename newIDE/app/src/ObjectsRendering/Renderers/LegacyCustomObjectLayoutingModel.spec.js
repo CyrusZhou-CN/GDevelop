@@ -4,9 +4,9 @@ import {
   applyChildLayouts,
   type ChildLayout,
   ChildInstance,
-  LayoutedParent,
-  ChildRenderedInstance,
-  PropertiesContainer,
+  type LayoutedParent,
+  type ChildRenderedInstance,
+  type PropertiesContainer,
 } from './LegacyCustomObjectLayoutingModel';
 import { mapFor } from '../../Utils/MapFor';
 
@@ -471,6 +471,7 @@ const createCustomObjectConfiguration = (
 };
 
 class MockedChildRenderedInstance implements ChildRenderedInstance {
+  // $FlowFixMe[incompatible-exact]
   _instance: ChildInstance;
   _pixiObject: { height: number };
   defaultWidth: number;
@@ -540,14 +541,17 @@ class MockedParent implements LayoutedParent<MockedChildRenderedInstance> {
     >();
   }
 
+  // $FlowFixMe[missing-local-annot]
   getWidth() {
     return this.width;
   }
 
+  // $FlowFixMe[missing-local-annot]
   getHeight() {
     return this.height;
   }
 
+  // $FlowFixMe[missing-local-annot]
   getDepth() {
     return 0;
   }
@@ -560,6 +564,7 @@ class MockedParent implements LayoutedParent<MockedChildRenderedInstance> {
       defaultHeight?: number,
       heightAfterUpdate?: number,
     |}
+    // $FlowFixMe[missing-local-annot]
   ) {
     const childInstance = new ChildInstance();
     const childRenderedInstance = new MockedChildRenderedInstance(

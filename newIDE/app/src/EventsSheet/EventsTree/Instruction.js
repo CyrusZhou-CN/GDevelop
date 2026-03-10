@@ -47,6 +47,7 @@ import { enumerateParametersUsableInExpressions } from '../ParameterFields/Enume
 import { getFunctionNameFromType } from '../../EventsFunctionsExtensionsLoader';
 import { ExtensionStoreContext } from '../../AssetStore/ExtensionStore/ExtensionStoreContext';
 import Warning from '../../UI/CustomSvgIcons/Warning';
+import { highlightSearchText } from '../../Utils/HighlightSearchText';
 
 const gd: libGDevelop = global.gd;
 
@@ -109,6 +110,8 @@ type Props = {|
   projectScopedContainersAccessor: ProjectScopedContainersAccessor,
 
   id: string,
+  highlightedSearchText?: ?string,
+  highlightedSearchMatchCase?: boolean,
 |};
 
 const shouldNotBeValidated = ({
@@ -132,6 +135,7 @@ const formatValue = ({
     ? i18n._(t`Base layer`)
     : value;
 
+// $FlowFixMe[missing-local-annot]
 const isInstructionVisible = (scope, instructionMetadata) =>
   (instructionMetadata.isRelevantForLayoutEvents() &&
     (scope.layout || scope.externalEvents)) ||
@@ -205,7 +209,7 @@ const InstructionMissing = (props: {|
   }
 };
 
-const Instruction = (props: Props) => {
+const Instruction = (props: Props): React.Node => {
   const {
     platform,
     instruction,
@@ -287,7 +291,14 @@ const Instruction = (props: Props) => {
               metadata.isHidden()
                 ? '[DEPRECATED] '
                 : '';
-            return <span key={i}>{deprecatedPrefix + value}</span>;
+            return (
+              <span key={i}>
+                {deprecatedPrefix}
+                {highlightSearchText(value, props.highlightedSearchText, {
+                  matchCase: props.highlightedSearchMatchCase,
+                })}
+              </span>
+            );
           }
 
           const parameterMetadata = metadata.getParameter(parameterIndex);
@@ -368,6 +379,7 @@ const Instruction = (props: Props) => {
               className={classNames({
                 [selectableArea]: true,
                 [instructionParameter]: true,
+                // $FlowFixMe[invalid-computed-prop]
                 [parameterType]: true,
               })}
               onClick={domEvent => {
@@ -401,6 +413,8 @@ const Instruction = (props: Props) => {
                 useAssignmentOperators,
                 projectScopedContainersAccessor:
                   props.projectScopedContainersAccessor,
+                highlightedSearchText: props.highlightedSearchText,
+                highlightedSearchMatchCase: props.highlightedSearchMatchCase,
               })}
             </span>
           );
@@ -460,7 +474,16 @@ const Instruction = (props: Props) => {
                   instruction.getType()
                 );
 
-            const smallIconFilename = metadata.getSmallIconFilename();
+            if (gd.MetadataProvider.isBadInstructionMetadata(metadata)) {
+              return (
+                <InstructionMissing
+                  instructionType={instruction.getType()}
+                  isCondition={isCondition}
+                />
+              );
+            }
+
+            const smallIconFilename = metadata.getSmallIconFilename() || '';
             // The instruction itself can be dragged and is a target for
             // another instruction to be dropped. It's IMPORTANT NOT to have
             // the subinstructions list inside the connectDropTarget/connectDragSource
@@ -632,6 +655,10 @@ const Instruction = (props: Props) => {
                       props.projectScopedContainersAccessor
                     }
                     idPrefix={props.id}
+                    highlightedSearchText={props.highlightedSearchText}
+                    highlightedSearchMatchCase={
+                      props.highlightedSearchMatchCase
+                    }
                   />
                 )}
               </React.Fragment>

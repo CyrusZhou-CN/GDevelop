@@ -19,7 +19,7 @@ const gd: libGDevelop = global.gd;
 
 const emptySearchText = '';
 
-const noExcludedTiers = new Set();
+const noExcludedTiers = new Set<string>();
 const excludedExperimentalTiers = new Set(['experimental']);
 
 type TranslatedBehaviorShortHeader = {
@@ -47,27 +47,29 @@ type BehaviorStoreState = {|
   filtersState: FiltersState,
 |};
 
-export const BehaviorStoreContext = React.createContext<BehaviorStoreState>({
-  filters: null,
-  searchResults: null,
-  fetchBehaviors: () => {},
-  error: null,
-  searchText: '',
-  setSearchText: () => {},
-  allCategories: [],
-  // '' means all categories.
-  chosenCategory: '',
-  setChosenCategory: () => {},
-  setInstalledBehaviorMetadataList: () => {},
-  translatedBehaviorShortHeadersByType: {},
-  filtersState: {
-    chosenFilters: new Set(),
-    addFilter: () => {},
-    removeFilter: () => {},
-    chosenCategory: null,
+export const BehaviorStoreContext: React.Context<BehaviorStoreState> = React.createContext<BehaviorStoreState>(
+  {
+    filters: null,
+    searchResults: null,
+    fetchBehaviors: () => {},
+    error: null,
+    searchText: '',
+    setSearchText: () => {},
+    allCategories: [],
+    // '' means all categories.
+    chosenCategory: '',
     setChosenCategory: () => {},
-  },
-});
+    setInstalledBehaviorMetadataList: () => {},
+    translatedBehaviorShortHeadersByType: {},
+    filtersState: {
+      chosenFilters: new Set(),
+      addFilter: () => {},
+      removeFilter: () => {},
+      chosenCategory: null,
+      setChosenCategory: () => {},
+    },
+  }
+);
 
 type BehaviorStoreStateProviderProps = {|
   children: React.Node,
@@ -79,7 +81,7 @@ export const BehaviorStoreStateProvider = ({
   children,
   i18n,
   defaultSearchText,
-}: BehaviorStoreStateProviderProps) => {
+}: BehaviorStoreStateProviderProps): React.MixedElement => {
   const [
     installedBehaviorMetadataList,
     setInstalledBehaviorMetadataList,
@@ -138,6 +140,7 @@ export const BehaviorStoreStateProvider = ({
               englishDescription: behaviorShortHeader.description,
             };
             translatedBehaviorShortHeadersByType[
+              // $FlowFixMe[prop-missing]
               behaviorShortHeader.type
             ] = translatedBehaviorShortHeader;
           });
@@ -278,6 +281,7 @@ export const BehaviorStoreStateProvider = ({
           : installedBehaviorMetadata;
         allTranslatedBehaviors[
           installedBehaviorMetadata.type
+          // $FlowFixMe[incompatible-type]
         ] = behaviorMetadata;
       }
       return allTranslatedBehaviors;
@@ -287,7 +291,7 @@ export const BehaviorStoreStateProvider = ({
 
   const allCategories = React.useMemo(
     () => {
-      const categoriesSet = new Set();
+      const categoriesSet = new Set<string>();
       for (const type in allTranslatedBehaviors) {
         categoriesSet.add(allTranslatedBehaviors[type].category);
       }
@@ -299,9 +303,9 @@ export const BehaviorStoreStateProvider = ({
     [allTranslatedBehaviors]
   );
 
-  const filters = React.useMemo(
+  const filters: Filters = React.useMemo(
     () => {
-      const tagsSet = new Set();
+      const tagsSet = new Set<string>();
       for (const type in allTranslatedBehaviors) {
         const behavior = allTranslatedBehaviors[type];
         behavior.tags.forEach(tag => {
@@ -388,6 +392,7 @@ export const BehaviorStoreStateProvider = ({
   );
 
   return (
+    // $FlowFixMe[incompatible-type]
     <BehaviorStoreContext.Provider value={behaviorStoreState}>
       {children}
     </BehaviorStoreContext.Provider>

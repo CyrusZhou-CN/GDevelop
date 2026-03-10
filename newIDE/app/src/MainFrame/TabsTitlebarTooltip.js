@@ -22,6 +22,7 @@ const editorKindToLabel: { [kind: EditorKind]: React.Node } = {
   'custom object': <Trans>Object</Trans>,
   debugger: <Trans>Debugger</Trans>,
   resources: <Trans>Resources</Trans>,
+  'global-search': <Trans>Global search</Trans>,
   'start page': <Trans>Homepage</Trans>,
   'ask-ai': <Trans>Ask AI</Trans>,
 };
@@ -54,7 +55,10 @@ type Props = {|
   editorTab: EditorTab,
 |};
 
-const TabsTitlebarTooltip = ({ anchorElement, editorTab }: Props) => {
+const TabsTitlebarTooltip = ({
+  anchorElement,
+  editorTab,
+}: Props): React.Node => {
   const gdevelopTheme = React.useContext(GDevelopThemeContext);
   const [tooltipStyle, setTooltipStyle] = React.useState<Object>(
     styles.tooltip

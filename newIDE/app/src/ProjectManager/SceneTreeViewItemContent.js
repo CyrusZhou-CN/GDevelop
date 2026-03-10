@@ -10,7 +10,11 @@ import {
   serializeToJSObject,
   unserializeFromJSObject,
 } from '../Utils/Serializer';
-import { TreeViewItemContent, type TreeItemProps, scenesRootFolderId } from '.';
+import {
+  type TreeViewItemContent,
+  type TreeItemProps,
+  scenesRootFolderId,
+} from '.';
 import Tooltip from '@material-ui/core/Tooltip';
 import Flag from '@material-ui/icons/Flag';
 import { type HTMLDataset } from '../Utils/HTMLDataset';
@@ -116,7 +120,7 @@ export class SceneTreeViewItemContent implements TreeViewItemContent {
     this.props.editName(this.getId());
   }
 
-  buildMenuTemplate(i18n: I18nType, index: number) {
+  buildMenuTemplate(i18n: I18nType, index: number): any {
     return [
       {
         label: i18n._(t`Open scene editor`),
@@ -310,7 +314,7 @@ export class SceneTreeViewItemContent implements TreeViewItemContent {
     this.props.forceUpdate();
   }
 
-  getRightButton(i18n: I18nType) {
+  getRightButton(i18n: I18nType): any {
     return null;
   }
 

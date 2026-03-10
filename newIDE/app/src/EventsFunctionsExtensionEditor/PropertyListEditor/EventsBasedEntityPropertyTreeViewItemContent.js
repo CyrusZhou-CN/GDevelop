@@ -12,7 +12,7 @@ import {
   unserializeFromJSObject,
 } from '../../Utils/Serializer';
 import {
-  TreeViewItemContent,
+  type TreeViewItemContent,
   type TreeItemProps,
   propertiesRootFolderId,
   sharedPropertiesRootFolderId,
@@ -284,7 +284,7 @@ export class EventsBasedEntityPropertyTreeViewItemContent
     this.props.editName(this.getId());
   }
 
-  buildMenuTemplate(i18n: I18nType, index: number) {
+  buildMenuTemplate(i18n: I18nType, index: number): any {
     const property = this.property.getProperty();
     return [
       {
@@ -458,7 +458,7 @@ export class EventsBasedEntityPropertyTreeViewItemContent
     this.props.onPropertiesUpdated();
   }
 
-  getRightButton(i18n: I18nType) {
+  getRightButton(i18n: I18nType): any {
     return null;
   }
 }

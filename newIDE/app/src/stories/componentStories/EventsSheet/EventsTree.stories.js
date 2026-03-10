@@ -31,7 +31,7 @@ const eventsTreeTutorials: Array<Tutorial> = [
   },
 ];
 
-export const DefaultMediumScreenScopeInLayout = () => (
+export const DefaultMediumScreenScopeInLayout = (): React.Node => (
   <DragAndDropContextProvider>
     <div className="gd-events-sheet">
       <FixedHeightFlexContainer height={500}>
@@ -47,6 +47,7 @@ export const DefaultMediumScreenScopeInLayout = () => (
           }
           globalObjectsContainer={testProject.project.getObjects()}
           objectsContainer={testProject.testLayout.getObjects()}
+          // $FlowFixMe[incompatible-type]
           selection={getInitialSelection()}
           onAddNewInstruction={action('add new instruction')}
           onPasteInstructions={action('paste instructions')}
@@ -75,9 +76,11 @@ export const DefaultMediumScreenScopeInLayout = () => (
           eventsSheetHeight={500}
           eventsSheetWidth={500}
           indentScale={1}
+          // $FlowFixMe[incompatible-type]
           preferences={initialPreferences}
           tutorials={eventsTreeTutorials}
           onEndEditingEvent={action('end editing event')}
+          highlightedSearchText={null}
           highlightedAiGeneratedEventIds={
             new Set(['fake-ai-generated-event-id-1'])
           }
@@ -87,7 +90,7 @@ export const DefaultMediumScreenScopeInLayout = () => (
   </DragAndDropContextProvider>
 );
 
-export const DefaultSmallScreenScopeInLayout = () => (
+export const DefaultSmallScreenScopeInLayout = (): React.Node => (
   <DragAndDropContextProvider>
     <div className="gd-events-sheet">
       <FixedHeightFlexContainer height={500}>
@@ -103,6 +106,7 @@ export const DefaultSmallScreenScopeInLayout = () => (
           }
           globalObjectsContainer={testProject.project.getObjects()}
           objectsContainer={testProject.testLayout.getObjects()}
+          // $FlowFixMe[incompatible-type]
           selection={getInitialSelection()}
           onAddNewInstruction={action('add new instruction')}
           onPasteInstructions={action('paste instructions')}
@@ -131,9 +135,11 @@ export const DefaultSmallScreenScopeInLayout = () => (
           eventsSheetHeight={500}
           eventsSheetWidth={500}
           indentScale={1}
+          // $FlowFixMe[incompatible-type]
           preferences={initialPreferences}
           tutorials={eventsTreeTutorials}
           onEndEditingEvent={action('end editing event')}
+          highlightedSearchText={null}
           highlightedAiGeneratedEventIds={
             new Set(['fake-ai-generated-event-id-1'])
           }
@@ -143,7 +149,7 @@ export const DefaultSmallScreenScopeInLayout = () => (
   </DragAndDropContextProvider>
 );
 
-export const DefaultMediumScreenScopeNotInLayout = () => (
+export const DefaultMediumScreenScopeNotInLayout = (): React.Node => (
   <DragAndDropContextProvider>
     <div className="gd-events-sheet">
       <FixedHeightFlexContainer height={500}>
@@ -156,6 +162,7 @@ export const DefaultMediumScreenScopeNotInLayout = () => (
           }
           globalObjectsContainer={testProject.project.getObjects()}
           objectsContainer={testProject.testLayout.getObjects()}
+          // $FlowFixMe[incompatible-type]
           selection={getInitialSelection()}
           onAddNewInstruction={action('add new instruction')}
           onPasteInstructions={action('paste instructions')}
@@ -184,9 +191,11 @@ export const DefaultMediumScreenScopeNotInLayout = () => (
           eventsSheetHeight={500}
           eventsSheetWidth={500}
           indentScale={1}
+          // $FlowFixMe[incompatible-type]
           preferences={initialPreferences}
           tutorials={eventsTreeTutorials}
           onEndEditingEvent={action('end editing event')}
+          highlightedSearchText={null}
           highlightedAiGeneratedEventIds={
             new Set(['fake-ai-generated-event-id-1'])
           }
@@ -196,7 +205,7 @@ export const DefaultMediumScreenScopeNotInLayout = () => (
   </DragAndDropContextProvider>
 );
 
-export const EmptySmallScreenScopeInALayout = () => (
+export const EmptySmallScreenScopeInALayout = (): React.Node => (
   <DragAndDropContextProvider>
     <div className="gd-events-sheet">
       <FixedHeightFlexContainer height={500}>
@@ -212,6 +221,7 @@ export const EmptySmallScreenScopeInALayout = () => (
           }
           globalObjectsContainer={testProject.project.getObjects()}
           objectsContainer={testProject.testLayout.getObjects()}
+          // $FlowFixMe[incompatible-type]
           selection={getInitialSelection()}
           onAddNewInstruction={action('add new instruction')}
           onPasteInstructions={action('paste instructions')}
@@ -240,9 +250,11 @@ export const EmptySmallScreenScopeInALayout = () => (
           eventsSheetHeight={500}
           eventsSheetWidth={500}
           indentScale={1}
+          // $FlowFixMe[incompatible-type]
           preferences={initialPreferences}
           tutorials={eventsTreeTutorials}
           onEndEditingEvent={action('end editing event')}
+          highlightedSearchText={null}
           highlightedAiGeneratedEventIds={
             new Set(['fake-ai-generated-event-id-1'])
           }

@@ -13,13 +13,14 @@ import {
 } from '../Utils/Serializer';
 import { type HTMLDataset } from '../Utils/HTMLDataset';
 import {
-  TreeViewItemContent,
+  type TreeViewItemContent,
   type TreeItemProps,
   extensionBehaviorsRootFolderId,
 } from '.';
 import Tooltip from '@material-ui/core/Tooltip';
 import VisibilityOff from '../UI/CustomSvgIcons/VisibilityOff';
 import Add from '../UI/CustomSvgIcons/Add';
+import { expandAllSubfolders } from './EventsFunctionFolderTreeViewItemContent';
 
 const EVENTS_BASED_BEHAVIOR_CLIPBOARD_KIND = 'Events Based Behavior';
 
@@ -65,8 +66,16 @@ export type EventsBasedBehaviorProps = {|
     itemContent: ?TreeViewItemContent,
     eventsBasedBehavior: ?gdEventsBasedBehavior,
     eventsBasedObject: ?gdEventsBasedObject,
-    index: number,
+    parentFolder: gdFunctionFolderOrFunction,
   |}) => void,
+  addFolder: (
+    items: Array<gdFunctionFolderOrFunction>,
+    eventsBasedBehavior?: ?gdEventsBasedBehavior,
+    eventsBasedObject?: ?gdEventsBasedObject
+  ) => void,
+  expandFolders: (
+    functionFolderOrFunctionList: Array<gdFunctionFolderOrFunction>
+  ) => void,
   eventsBasedBehaviorsList: gdEventsBasedBehaviorsList,
 |};
 
@@ -85,6 +94,10 @@ export class EventsBasedBehaviorTreeViewItemContent
 
   getEventsFunctionsContainer(): gdEventsFunctionsContainer {
     return this.eventsBasedBehavior.getEventsFunctions();
+  }
+
+  getFunctionFolderOrFunction(): gdFunctionFolderOrFunction | null {
+    return null;
   }
 
   getEventsFunction(): ?gdEventsFunction {
@@ -148,11 +161,20 @@ export class EventsBasedBehaviorTreeViewItemContent
     this.props.editName(this.getId());
   }
 
-  buildMenuTemplate(i18n: I18nType, index: number) {
+  buildMenuTemplate(i18n: I18nType, index: number): any {
     return [
       {
         label: i18n._(t`Add a function`),
         click: () => this.addFunctionAtSelection(),
+      },
+      {
+        label: i18n._(t`Add a new folder`),
+        click: () =>
+          this.props.addFolder(
+            [this.eventsBasedBehavior.getEventsFunctions().getRootFolder()],
+            this.eventsBasedBehavior,
+            null
+          ),
       },
       {
         type: 'separator',
@@ -191,6 +213,15 @@ export class EventsBasedBehaviorTreeViewItemContent
         enabled: Clipboard.has(EVENTS_BASED_BEHAVIOR_CLIPBOARD_KIND),
         click: () => this.paste(),
         accelerator: 'CmdOrCtrl+V',
+      },
+      { type: 'separator' },
+      {
+        label: i18n._(t`Expand all sub folders`),
+        click: () =>
+          expandAllSubfolders(
+            this.getEventsFunctionsContainer().getRootFolder(),
+            this.props.expandFolders
+          ),
       },
     ];
   }
@@ -258,8 +289,14 @@ export class EventsBasedBehaviorTreeViewItemContent
     );
   }
 
-  moveAt(destinationIndex: number): void {
+  moveAt(
+    destinationItemContent: TreeViewItemContent,
+    where: 'before' | 'inside' | 'after',
+    animateFolder: (folder: gdFunctionFolderOrFunction) => void
+  ): void {
     const originIndex = this.getIndex();
+    const destinationIndex =
+      destinationItemContent.getIndex() + (where === 'after' ? 1 : 0);
     this.props.eventsBasedBehaviorsList.move(
       originIndex,
       // When moving the item down, it must not be counted.
@@ -370,7 +407,7 @@ export class EventsBasedBehaviorTreeViewItemContent
     this.props.forceUpdate();
   }
 
-  getRightButton(i18n: I18nType) {
+  getRightButton(i18n: I18nType): any {
     return {
       icon: <Add />,
       label: i18n._(t`Add a function`),
@@ -379,22 +416,13 @@ export class EventsBasedBehaviorTreeViewItemContent
   }
 
   addFunctionAtSelection(): void {
-    const { selectedEventsFunction, selectedEventsBasedBehavior } = this.props;
-    const eventsFunctionsContainer = this.eventsBasedBehavior.getEventsFunctions();
-    // When the selected item is inside the behavior, the new function is
-    // added below it.
-    const index =
-      selectedEventsBasedBehavior === this.eventsBasedBehavior &&
-      selectedEventsFunction
-        ? eventsFunctionsContainer.getEventsFunctionPosition(
-            selectedEventsFunction
-          ) + 1
-        : eventsFunctionsContainer.getEventsFunctionsCount();
     this.props.addNewEventsFunction({
       itemContent: this,
       eventsBasedBehavior: this.eventsBasedBehavior,
       eventsBasedObject: null,
-      index,
+      parentFolder: this.eventsBasedBehavior
+        .getEventsFunctions()
+        .getRootFolder(),
     });
   }
 }

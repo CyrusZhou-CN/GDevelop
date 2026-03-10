@@ -45,6 +45,7 @@ export type MainMenuCallbacks = {|
   onOpenProjectManager: (open?: boolean) => void,
   onOpenHomePage: () => void,
   onOpenDebugger: () => void,
+  onOpenGlobalSearch: () => void,
   onOpenAbout: (open?: boolean) => void,
   onOpenPreferences: (open?: boolean) => void,
   onOpenLanguage: (open?: boolean) => void,
@@ -72,6 +73,7 @@ export type MainMenuEvent =
   | 'main-menu-open-project-manager'
   | 'main-menu-open-home-page'
   | 'main-menu-open-debugger'
+  | 'main-menu-open-global-search'
   | 'main-menu-open-about'
   | 'main-menu-open-preferences'
   | 'main-menu-open-language'
@@ -97,6 +99,7 @@ const getMainMenuEventCallback = (
     'main-menu-open-project-manager': callbacks.onOpenProjectManager,
     'main-menu-open-home-page': callbacks.onOpenHomePage,
     'main-menu-open-debugger': callbacks.onOpenDebugger,
+    'main-menu-open-global-search': callbacks.onOpenGlobalSearch,
     'main-menu-open-about': callbacks.onOpenAbout,
     'main-menu-open-preferences': callbacks.onOpenPreferences,
     'main-menu-open-language': callbacks.onOpenLanguage,
@@ -105,6 +108,7 @@ const getMainMenuEventCallback = (
     'update-status': callbacks.setElectronUpdateStatus,
   };
 
+  // $FlowFixMe[invalid-computed-prop]
   return mapping[mainMenuEvent] || (() => {});
 };
 
@@ -235,6 +239,12 @@ export const buildMainMenuDeclarativeTemplate = ({
         onClickSendEvent: 'main-menu-open-debugger',
         enabled: !!project,
       },
+      {
+        label: i18n._(t`Global search`),
+        onClickSendEvent: 'main-menu-open-global-search',
+        enabled: !!project,
+        accelerator: getElectronAccelerator(shortcutMap['OPEN_GLOBAL_SEARCH']),
+      },
       // Some Electron specific menu items, not shown in the web-app.
       ...(!!electron
         ? [
@@ -353,10 +363,15 @@ export const buildMainMenuDeclarativeTemplate = ({
 
   // Structure of the menu. Some electron specific menus are not even shown
   // on the web-app, because they would not work and make sense at all.
+  // View (with Global search, Debugger, etc.) is shown in top menu and in drawer when project is open.
   const template: Array<MenuDeclarativeItemTemplate> = [
     fileTemplate,
     ...(!!electron && isApplicationTopLevelMenu ? [editTemplate] : []),
-    ...(!!electron && isApplicationTopLevelMenu ? [viewTemplate] : []),
+    ...(!!electron && isApplicationTopLevelMenu
+      ? [viewTemplate]
+      : project
+      ? [viewTemplate]
+      : []),
     ...(!!electron && isApplicationTopLevelMenu ? [windowTemplate] : []),
     helpTemplate,
   ];
@@ -394,7 +409,8 @@ export const buildMainMenuDeclarativeTemplate = ({
       ],
     });
 
-    // $FlowFixMe - submenu is guaranteed to exist.
+    // $FlowFixMe[incompatible-type] - submenu is guaranteed to exist.
+    // $FlowFixMe[incompatible-use]
     editTemplate.submenu.push(
       { type: 'separator' },
       {
@@ -403,7 +419,8 @@ export const buildMainMenuDeclarativeTemplate = ({
       }
     );
 
-    // $FlowFixMe - submenu is guaranteed to exist.
+    // $FlowFixMe[incompatible-type] - submenu is guaranteed to exist.
+    // $FlowFixMe[prop-missing]
     windowTemplate.submenu = [
       { role: 'minimize' },
       { role: 'zoom' },
@@ -424,18 +441,18 @@ export const adaptFromDeclarativeTemplate = (
   ): Array<MenuItemTemplate> =>
     menuTemplate.map((menuItemTemplate: MenuDeclarativeItemTemplate) => {
       const {
-        // $FlowFixMe - property can be undefined.
+        // $FlowFixMe[incompatible-type] - property can be undefined.
         onClickSendEvent,
-        // $FlowFixMe - property can be undefined.
+        // $FlowFixMe[incompatible-type] - property can be undefined.
         onClickOpenLink,
-        // $FlowFixMe - property can be undefined.
+        // $FlowFixMe[incompatible-type] - property can be undefined.
         eventArgs,
         ...menuItemTemplateRest
       } = menuItemTemplate;
 
       const hasOnClick = onClickSendEvent || onClickOpenLink;
 
-      // $FlowFixMe - we're putting both a click and a submenu, so not strictly following the schema.
+      // $FlowFixMe[incompatible-type] - we're putting both a click and a submenu, so not strictly following the schema.
       return {
         ...menuItemTemplateRest,
         click: hasOnClick

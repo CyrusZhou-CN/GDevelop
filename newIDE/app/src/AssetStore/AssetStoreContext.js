@@ -17,7 +17,7 @@ import {
   listListedPrivateAssetPacks,
   type PrivateAssetPackListingData,
 } from '../Utils/GDevelopServices/Shop';
-import { useSearchItem, SearchFilter } from '../UI/Search/UseSearchItem';
+import { useSearchItem, type SearchFilter } from '../UI/Search/UseSearchItem';
 import {
   TagAssetStoreSearchFilter,
   AnimatedAssetStoreSearchFilter,
@@ -131,7 +131,7 @@ export const initialAssetStoreState: AssetStoreState = {
   getAssetShortHeaderFromId: (id: string) => null,
 };
 
-export const AssetStoreContext = React.createContext<AssetStoreState>(
+export const AssetStoreContext: React.Context<AssetStoreState> = React.createContext<AssetStoreState>(
   initialAssetStoreState
 );
 
@@ -158,7 +158,7 @@ const getPrivateAssetPackListingDataSearchTerms = (
 
 export const AssetStoreStateProvider = ({
   children,
-}: AssetStoreStateProviderProps) => {
+}: AssetStoreStateProviderProps): React.MixedElement => {
   const shopNavigationState = React.useContext(AssetStoreNavigatorContext);
   const { searchText } = shopNavigationState;
 
@@ -327,11 +327,13 @@ export const AssetStoreStateProvider = ({
       const assetShortHeadersById = {};
       if (publicAssetShortHeaders) {
         publicAssetShortHeaders.forEach(assetShortHeader => {
+          // $FlowFixMe[prop-missing]
           assetShortHeadersById[assetShortHeader.id] = assetShortHeader;
         });
       }
       if (receivedAssetShortHeaders) {
         receivedAssetShortHeaders.forEach(assetShortHeader => {
+          // $FlowFixMe[prop-missing]
           assetShortHeadersById[assetShortHeader.id] = assetShortHeader;
         });
       }
@@ -432,11 +434,13 @@ export const AssetStoreStateProvider = ({
       publicAssetPacks.starterPacks.forEach(assetPack => {
         const tag = assetPack.tag;
         if (
+          // $FlowFixMe[invalid-computed-prop]
           publicAssetPacksByTag[tag] &&
           !assetPack.externalWebLink // Don't warn for external web links, as they can be used multiple times.
         ) {
           console.warn(`Multiple public asset packs with the same tag: ${tag}`);
         }
+        // $FlowFixMe[prop-missing]
         publicAssetPacksByTag[tag] = assetPack;
       });
       return publicAssetPacksByTag;
@@ -453,9 +457,11 @@ export const AssetStoreStateProvider = ({
       if (hidePremiumProducts) return privateAssetPackListingDatasById;
       privateAssetPackListingDatas.forEach(privateAssetPackListingData => {
         const id = privateAssetPackListingData.id;
+        // $FlowFixMe[invalid-computed-prop]
         if (privateAssetPackListingDatasById[id]) {
           console.warn(`Multiple private asset packs with the same id: ${id}`);
         }
+        // $FlowFixMe[prop-missing]
         privateAssetPackListingDatasById[id] = privateAssetPackListingData;
       });
       return privateAssetPackListingDatasById;
@@ -474,23 +480,27 @@ export const AssetStoreStateProvider = ({
     assetSearchFilters
   );
 
+  // $FlowFixMe[incompatible-type] - this filter works for both public and private packs
   const publicAssetPacksSearchResults: ?Array<PublicAssetPack> = useSearchItem(
     publicAssetPacksByTag,
+    // $FlowFixMe[incompatible-type] - this filter works for both public and private packs
     getPublicAssetPackSearchTerms,
     searchText,
     chosenCategory,
     null,
-    // $FlowFixMe - this filter works for both public and private packs
+    // $FlowFixMe[incompatible-type] - this filter works for both public and private packs
     assetPackSearchFilters
   );
 
+  // $FlowFixMe[incompatible-type] - this filter works for both public and private packs
   const privateAssetPackListingDatasSearchResults: ?Array<PrivateAssetPackListingData> = useSearchItem(
     privateAssetPackListingDatasById,
+    // $FlowFixMe[incompatible-type] - this filter works for both public and private packs
     getPrivateAssetPackListingDataSearchTerms,
     searchText,
     chosenCategory,
     null,
-    // $FlowFixMe - this filter works for both public and private packs
+    // $FlowFixMe[incompatible-type] - this filter works for both public and private packs
     assetPackSearchFilters
   );
 
@@ -580,9 +590,13 @@ export const AssetStoreStateProvider = ({
       assetPackFiltersState,
       clearAllFilters,
       useSearchItem: (
+        // $FlowFixMe[missing-local-annot]
         searchText,
+        // $FlowFixMe[missing-local-annot]
         chosenCategory,
+        // $FlowFixMe[missing-local-annot]
         chosenFilters,
+        // $FlowFixMe[missing-local-annot]
         searchFilters
       ) =>
         useSearchItem(
@@ -619,6 +633,7 @@ export const AssetStoreStateProvider = ({
   );
 
   return (
+    // $FlowFixMe[incompatible-type]
     <AssetStoreContext.Provider value={assetStoreState}>
       {children}
     </AssetStoreContext.Provider>

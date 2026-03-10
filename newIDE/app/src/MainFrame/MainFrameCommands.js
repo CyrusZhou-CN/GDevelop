@@ -27,6 +27,7 @@ const generateProjectItemOptions = <T: Item>(
   project: ?gdProject,
   enumerate: (project: gdProject) => Array<T>,
   onOpen: string => void
+  // $FlowFixMe[missing-local-annot]
 ) => {
   if (!project) return [];
   return enumerate(project).map(item => ({
@@ -48,6 +49,7 @@ type CommandHandlers = {|
   onLaunchNetworkPreview: () => Promise<void>,
   onHotReloadPreview: () => Promise<void>,
   onLaunchPreviewWithDiagnosticReport: () => Promise<void>,
+  onOpenDiagnosticReport: () => void,
   allowNetworkPreview: boolean,
   onOpenHomePage: () => void,
   onCreateProject: () => void,
@@ -65,6 +67,8 @@ type CommandHandlers = {|
   onOpenCommandPalette: () => void,
   onOpenProfile: () => void,
   onRestartInGameEditor: (reason: string) => void,
+  onOpenGlobalSearch: () => void,
+  onOpenMemoryTrackerRegistry: () => void,
 |};
 
 const useMainFrameCommands = (handlers: CommandHandlers) => {
@@ -112,6 +116,10 @@ const useMainFrameCommands = (handlers: CommandHandlers) => {
     }
   );
 
+  useCommand('OPEN_DIAGNOSTIC_REPORT', !!handlers.project, {
+    handler: handlers.onOpenDiagnosticReport,
+  });
+
   useCommand('OPEN_HOME_PAGE', true, {
     handler: handlers.onOpenHomePage,
   });
@@ -154,12 +162,20 @@ const useMainFrameCommands = (handlers: CommandHandlers) => {
     handler: handlers.onOpenCommandPalette,
   });
 
+  useCommand('OPEN_GLOBAL_SEARCH', !!handlers.project, {
+    handler: handlers.onOpenGlobalSearch,
+  });
+
   const onRestartInGameEditor = handlers.onRestartInGameEditor;
   useCommand('RESTART_IN_GAME_EDITOR', true, {
     handler: React.useCallback(
       () => onRestartInGameEditor('relaunched-manually'),
       [onRestartInGameEditor]
     ),
+  });
+
+  useCommand('OPEN_MEMORY_TRACKER_REGISTRY', true, {
+    handler: handlers.onOpenMemoryTrackerRegistry,
   });
 
   useCommandWithOptions('OPEN_LAYOUT', !!handlers.project, {

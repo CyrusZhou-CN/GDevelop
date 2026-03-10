@@ -64,12 +64,15 @@ const VerticesTable = (props: VerticesTableProps) => {
       <Table>
         <TableHeader>
           <TableRow>
+            {/* $FlowFixMe[incompatible-type] */}
             <TableHeaderColumn style={styles.coordinateColumn}>
               X
             </TableHeaderColumn>
+            {/* $FlowFixMe[incompatible-type] */}
             <TableHeaderColumn style={styles.coordinateColumn}>
               Y
             </TableHeaderColumn>
+            {/* $FlowFixMe[incompatible-type] */}
             <TableRowColumn style={styles.toolColumn} />
           </TableRow>
         </TableHeader>
@@ -165,6 +168,7 @@ const PolygonSection = (props: PolygonSectionProps) => {
 
   return (
     <Accordion defaultExpanded>
+      {/* $FlowFixMe[incompatible-type] */}
       <AccordionHeader actions={polygonActions}>
         <Text displayInlineAsSpan>
           {verticesCount === 3 && <Trans>Triangle</Trans>}
@@ -204,7 +208,7 @@ type PolygonsListProps = {|
   spriteSize: [number, number],
 |};
 
-const PolygonsList = (props: PolygonsListProps) => {
+const PolygonsList = (props: PolygonsListProps): React.Node => {
   const {
     polygons,
     spriteSize,

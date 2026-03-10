@@ -27,6 +27,7 @@ const useSmallPaddingCheckboxStyles = makeStyles({
 
 type Props = {|
   id?: string,
+  name?: string,
   label?: ?React.Node,
   checked: boolean,
   onCheck?: (e: {||}, checked: boolean) => void | Promise<void>,
@@ -43,6 +44,7 @@ type Props = {|
  */
 const InlineCheckbox = ({
   id,
+  name,
   onCheck,
   disabled,
   checked,
@@ -51,7 +53,7 @@ const InlineCheckbox = ({
   checkedIcon,
   tooltipOrHelperText,
   paddingSize,
-}: Props) => {
+}: Props): React.Node => {
   const labelClasses = useLabelStyles();
   const formGroupClasses = useFormGroupStyles();
   const smallPaddingClasses = useSmallPaddingCheckboxStyles();
@@ -67,6 +69,7 @@ const InlineCheckbox = ({
       icon={uncheckedIcon}
       checkedIcon={checkedIcon}
       color="secondary"
+      name={name}
     />
   );
   return label ? (

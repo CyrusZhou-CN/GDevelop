@@ -39,6 +39,7 @@ import { type AssetShortHeader } from '../Utils/GDevelopServices/Asset';
 import { swapAsset } from '../AssetStore/AssetSwapper';
 import { type EnsureExtensionInstalledOptions } from '../AiGeneration/UseEnsureExtensionInstalled';
 import { getObjectFolderOrObjectWithContextFromObjectName } from '../SceneEditor/ObjectFolderOrObjectsSelection';
+import { getObjectSizeAndOriginInfo } from './Utils';
 
 const gd: libGDevelop = global.gd;
 
@@ -60,7 +61,7 @@ export type EditorFunctionCallResult =
       output: any,
     |}
   | {|
-      status: 'ignored',
+      status: 'aborted',
       call_id: string,
     |};
 
@@ -105,6 +106,7 @@ export type EditorFunctionGenericOutput = {|
   generatedEventsErrorDiagnostics?: string,
   aiGeneratedEventId?: string,
   warnings?: string,
+  errors?: Array<string>,
 
   initializedProject?: boolean,
   initializedFromTemplateSlug?: string,
@@ -119,6 +121,15 @@ export type EditorFunctionGenericOutput = {|
 
   // Used when new resources are added by a function call:
   newlyAddedResources?: Array<SingleResourceSearchAndInstallResult>,
+
+  // Size/origin/center info for newly created objects, keyed by object name:
+  newObjectDefaultSize?: {
+    [string]: {| size: string, origin: string, center: string |},
+  },
+
+  // Set to true when the function call was aborted mid-execution (e.g. the AI
+  // request was suspended while event generation was still polling).
+  aborted?: true,
 |};
 
 export type EventsGenerationResult =
@@ -129,6 +140,9 @@ export type EventsGenerationResult =
   | {|
       generationCompleted: false,
       errorMessage: string,
+    |}
+  | {|
+      generationAborted: true,
     |};
 
 export type EventsGenerationOptions = {|
@@ -139,6 +153,8 @@ export type EventsGenerationOptions = {|
   existingEventsAsText: string,
   existingEventsJson: string | null,
   placementHint: string,
+  relatedAiRequestId: string,
+  estimatedComplexity: number | null,
 |};
 
 export type AssetSearchAndInstallResult = {|
@@ -155,6 +171,9 @@ export type AssetSearchAndInstallOptions = {|
   searchTerms: string,
   description: string,
   twoDimensionalViewKind: string,
+  relatedAiRequestId?: string | null,
+  lastUserMessage?: string | null,
+  lastAssistantMessages?: string[],
 |};
 
 export type EditorCallbacks = {|
@@ -209,12 +228,19 @@ type RenderForEditorOptions = {|
   editorFunctionCallResultOutput: any,
 |};
 
+export type RelatedAiRequestLastMessages = {|
+  lastUserMessage: string | null,
+  lastAssistantMessages: string[],
+|};
+
 type LaunchFunctionOptionsWithoutProject = {|
   PixiResourcesLoader: any,
   args: any,
   editorCallbacks: EditorCallbacks,
   toolOptions: ToolOptions | null,
   i18n: I18nType,
+  relatedAiRequestId: string | null,
+  getRelatedAiRequestLastMessages: () => RelatedAiRequestLastMessages,
   generateEvents: (
     options: EventsGenerationOptions
   ) => Promise<EventsGenerationResult>,
@@ -375,6 +401,7 @@ const findPropertyByName = ({
       foundPropertyName: null,
     };
 
+  // $FlowFixMe[missing-local-annot]
   const normalizeName = name => name.toLowerCase().replace(/\s|_|-/g, '');
   const normalizedName = normalizeName(name);
 
@@ -594,7 +621,7 @@ const createOrReplaceObject: EditorFunction = {
     return {
       text: replaceExistingObject ? (
         <Trans>
-          Replace object <b>{object_name}</b> in scene{' '}
+          Replace <b>{object_name}</b> in scene{' '}
           <Link
             href="#"
             onClick={() =>
@@ -611,8 +638,8 @@ const createOrReplaceObject: EditorFunction = {
         </Trans>
       ) : duplicatedObjectName ? (
         <Trans>
-          Duplicate object <b>{duplicatedObjectName}</b> as <b>{object_name}</b>{' '}
-          in scene{' '}
+          Duplicate <b>{duplicatedObjectName}</b> as <b>{object_name}</b> in
+          scene{' '}
           <Link
             href="#"
             onClick={() =>
@@ -629,7 +656,7 @@ const createOrReplaceObject: EditorFunction = {
         </Trans>
       ) : (
         <Trans>
-          Create object <b>{object_name}</b> in scene{' '}
+          Add <b>{object_name}</b> to scene{' '}
           <Link
             href="#"
             onClick={() =>
@@ -650,6 +677,8 @@ const createOrReplaceObject: EditorFunction = {
   launchFunction: async ({
     project,
     args,
+    relatedAiRequestId,
+    getRelatedAiRequestLastMessages,
     ensureExtensionInstalled,
     searchAndInstallAsset,
     onObjectsModifiedOutsideEditor,
@@ -713,10 +742,9 @@ const createOrReplaceObject: EditorFunction = {
         )
         .filter(Boolean);
 
-      const propertiesText = `It has the following properties: ${propertyShortTexts.join(
+      return `It has the following properties: ${propertyShortTexts.join(
         ', '
       )}.`;
-      return propertiesText;
     };
 
     // Check if target object already exists.
@@ -774,16 +802,21 @@ const createOrReplaceObject: EditorFunction = {
 
       // First try to search and install an object from the asset store.
       try {
-        const { status, message, createdObjects } = await searchAndInstallAsset(
-          {
-            objectsContainer: targetObjectsContainer,
-            objectName: targetObjectName,
-            objectType: object_type,
-            searchTerms: search_terms || '',
-            description: description || '',
-            twoDimensionalViewKind: two_dimensional_view_kind || '',
-          }
-        );
+        const {
+          status,
+          message,
+          createdObjects,
+          assetShortHeader,
+        } = await searchAndInstallAsset({
+          objectsContainer: targetObjectsContainer,
+          objectName: targetObjectName,
+          objectType: object_type,
+          searchTerms: search_terms || '',
+          description: description || '',
+          twoDimensionalViewKind: two_dimensional_view_kind || '',
+          relatedAiRequestId,
+          ...getRelatedAiRequestLastMessages(),
+        });
 
         if (status === 'error') {
           return makeGenericFailure(
@@ -807,12 +840,24 @@ const createOrReplaceObject: EditorFunction = {
 
           if (createdObjects.length === 1) {
             const object = createdObjects[0];
-            return makeGenericSuccess(
-              [
+            const sizeAndOriginInfo = getObjectSizeAndOriginInfo(
+              object,
+              project,
+              assetShortHeader
+            );
+            const result: EditorFunctionGenericOutput = {
+              success: true,
+              message: [
                 `Created (from the asset store) object "${object.getName()}" of type "${object.getType()}" in scene "${scene_name}".`,
                 getPropertiesText(object),
-              ].join(' ')
-            );
+              ].join(' '),
+            };
+            if (sizeAndOriginInfo) {
+              result.newObjectDefaultSize = {
+                [object.getName()]: sizeAndOriginInfo,
+              };
+            }
+            return result;
           }
 
           return makeGenericSuccess(
@@ -879,18 +924,42 @@ const createOrReplaceObject: EditorFunction = {
         isNewObjectTypeUsed: isTheFirstOfItsTypeInProject,
       });
 
-      return makeGenericSuccess(
-        [
+      const sizeAndOriginInfo = getObjectSizeAndOriginInfo(
+        object,
+        project,
+        null
+      );
+      const result: EditorFunctionGenericOutput = {
+        success: true,
+        message: [
           `Created a new object (from scratch) called "${targetObjectName}" of type "${object_type}" in scene "${scene_name}".`,
           getPropertiesText(object),
-        ].join(' ')
-      );
+        ].join(' '),
+      };
+      if (sizeAndOriginInfo) {
+        result.newObjectDefaultSize = {
+          [targetObjectName]: sizeAndOriginInfo,
+        };
+      }
+      return result;
     };
 
     const replaceExistingObject = async () => {
       if (!existingTargetObject) {
         // No existing object to replace, create a new one.
         return createNewObject();
+      }
+
+      if (existingTargetObject.getType() !== object_type) {
+        return makeGenericFailure(
+          `Existing object "${existingTargetObject.getName()}" is of type "${existingTargetObject.getType()}". It can't be replaced by an object of type "${object_type}". This object was not changed/replaced.`
+        );
+      }
+
+      if (!search_terms && !description && !two_dimensional_view_kind) {
+        return makeGenericFailure(
+          `No search terms, description or information were provided to replace the object "${existingTargetObject.getName()}". This object was not changed/replaced.`
+        );
       }
 
       const objectsContainerWhereObjectWasFound = isTargetObjectGlobal
@@ -919,6 +988,8 @@ const createOrReplaceObject: EditorFunction = {
           searchTerms: search_terms || '',
           description: description || '',
           twoDimensionalViewKind: two_dimensional_view_kind || '',
+          relatedAiRequestId,
+          ...getRelatedAiRequestLastMessages(),
         });
 
         if (status === 'error') {
@@ -1020,6 +1091,7 @@ const createOrReplaceObject: EditorFunction = {
         project
       );
       newObject.setName(targetObjectName); // Unserialization has overwritten the name.
+      newObject.resetPersistentUuid();
 
       // Update behaviors shared data for the scene where the object was duplicated.
       if (target_object_scope === 'global') {
@@ -1122,7 +1194,7 @@ const inspectObjectProperties: EditorFunction = {
     return {
       text: (
         <Trans>
-          Inspecting properties of object <b>{object_name}</b> in scene{' '}
+          Read <b>{object_name}</b>'s properties in scene{' '}
           <Link
             href="#"
             onClick={() =>
@@ -1248,13 +1320,13 @@ const changeObjectProperty: EditorFunction = {
           text:
             label === 'name' ? (
               <Trans>
-                Rename object "{object_name}" to "<b>{newValue}</b>" (in scene{' '}
+                Rename <b>{object_name}</b> to <b>{newValue}</b> (in scene{' '}
                 {scene_name}).
               </Trans>
             ) : (
               <Trans>
-                Change property "<b>{label}</b>" of object <b>{object_name}</b>{' '}
-                (in scene {scene_name}) to <b>{newValue}</b>.
+                Update <b>{label}</b> of <b>{object_name}</b> (in scene{' '}
+                {scene_name}) to <b>{newValue}</b>.
               </Trans>
             ),
         };
@@ -1263,7 +1335,7 @@ const changeObjectProperty: EditorFunction = {
       return {
         text: (
           <Trans>
-            Change {changes.length} properties of object {object_name} (in scene{' '}
+            Update {changes.length} properties of <b>{object_name}</b> (in scene{' '}
             {scene_name}).
           </Trans>
         ),
@@ -1272,11 +1344,11 @@ const changeObjectProperty: EditorFunction = {
           <ColumnStackLayout noMargin>
             {changes.map(change =>
               change.label === 'name' ? (
-                <Text key={change.label} noMargin>
+                <Text key={change.label} noMargin size="body-small">
                   <Trans>Renamed object to {change.newValue}.</Trans>
                 </Text>
               ) : (
-                <Text key={change.label} noMargin>
+                <Text key={change.label} noMargin size="body-small">
                   <Trans>
                     <b>{change.label}</b> set to {change.newValue}.
                   </Trans>
@@ -1289,6 +1361,7 @@ const changeObjectProperty: EditorFunction = {
     };
 
     if (!project || !project.hasLayoutNamed(scene_name)) {
+      // $FlowFixMe[incompatible-type]
       return renderChanges(
         listLabelAndValuesFromChangedProperties(changed_properties)
       );
@@ -1307,6 +1380,7 @@ const changeObjectProperty: EditorFunction = {
     }
 
     if (!object) {
+      // $FlowFixMe[incompatible-type]
       return renderChanges(
         listLabelAndValuesFromChangedProperties(changed_properties)
       );
@@ -1348,6 +1422,7 @@ const changeObjectProperty: EditorFunction = {
       })
       .filter(Boolean);
 
+    // $FlowFixMe[incompatible-type]
     return renderChanges(changes);
   },
   launchFunction: async ({ project, args }) => {
@@ -1541,7 +1616,7 @@ const addBehavior: EditorFunction = {
       return {
         text: (
           <Trans>
-            Add behavior {behaviorName} (<b>{behaviorTypeLabel}</b>) on object{' '}
+            Add {behaviorName} (<b>{behaviorTypeLabel}</b>) behavior to{' '}
             <b>{object_name}</b> in scene{' '}
             <Link
               href="#"
@@ -1562,6 +1637,7 @@ const addBehavior: EditorFunction = {
     };
 
     if (!project) {
+      // $FlowFixMe[incompatible-type]
       return makeText(behavior_type);
     }
 
@@ -1570,6 +1646,7 @@ const addBehavior: EditorFunction = {
       behavior_type
     );
     if (gd.MetadataProvider.isBadBehaviorMetadata(behaviorMetadata)) {
+      // $FlowFixMe[incompatible-type]
       return makeText(behavior_type);
     }
 
@@ -1578,6 +1655,7 @@ const addBehavior: EditorFunction = {
     const behaviorName =
       optionalBehaviorName || behaviorMetadata.getDefaultName();
 
+    // $FlowFixMe[incompatible-type]
     return makeText(behaviorMetadata.getFullName());
   },
   launchFunction: async ({
@@ -1750,8 +1828,8 @@ const removeBehavior: EditorFunction = {
     return {
       text: (
         <Trans>
-          Remove behavior {behavior_name} from object {object_name} in scene{' '}
-          {scene_name}.
+          Remove <b>{behavior_name}</b> behavior from <b>{object_name}</b> in
+          scene {scene_name}.
         </Trans>
       ),
     };
@@ -1824,8 +1902,8 @@ const inspectBehaviorProperties: EditorFunction = {
     return {
       text: (
         <Trans>
-          Inspecting properties of behavior {behavior_name} on object{' '}
-          {object_name} in scene {scene_name}.
+          Read <b>{behavior_name}</b>'s settings on <b>{object_name}</b> in
+          scene {scene_name}.
         </Trans>
       ),
     };
@@ -1886,6 +1964,7 @@ const inspectBehaviorProperties: EditorFunction = {
       const behaviorSharedDataPropertyNames = behaviorSharedDataProperties
         .keys()
         .toJSArray();
+      // $FlowFixMe[incompatible-type]
       sharedProperties = behaviorSharedDataPropertyNames
         .map(name => {
           const propertyDescriptor = behaviorSharedDataProperties.get(name);
@@ -1924,8 +2003,8 @@ const changeBehaviorProperty: EditorFunction = {
         return {
           text: (
             <Trans>
-              Change property "<b>{label}</b>" of behavior {behavior_name} on
-              object <b>{object_name}</b> (in scene{' '}
+              Update <b>{label}</b> of behavior {behavior_name} on object{' '}
+              <b>{object_name}</b> (in scene{' '}
               <Link
                 href="#"
                 onClick={() =>
@@ -1947,7 +2026,7 @@ const changeBehaviorProperty: EditorFunction = {
       return {
         text: (
           <Trans>
-            Changed {changes.length} properties of behavior {behavior_name} on
+            Update {changes.length} settings of behavior {behavior_name} on
             object {object_name} (in scene {scene_name}).
           </Trans>
         ),
@@ -1955,7 +2034,7 @@ const changeBehaviorProperty: EditorFunction = {
         details: shouldShowDetails ? (
           <ColumnStackLayout noMargin>
             {changes.map(change => (
-              <Text key={change.label} noMargin>
+              <Text key={change.label} noMargin size="body-small">
                 <Trans>
                   <b>{change.label}</b> set to {change.newValue}.
                 </Trans>
@@ -1967,6 +2046,7 @@ const changeBehaviorProperty: EditorFunction = {
     };
 
     if (!project || !project.hasLayoutNamed(scene_name)) {
+      // $FlowFixMe[incompatible-type]
       return renderChanges(
         listLabelAndValuesFromChangedProperties(changed_properties)
       );
@@ -1985,12 +2065,14 @@ const changeBehaviorProperty: EditorFunction = {
     }
 
     if (!object) {
+      // $FlowFixMe[incompatible-type]
       return renderChanges(
         listLabelAndValuesFromChangedProperties(changed_properties)
       );
     }
 
     if (!object.hasBehaviorNamed(behavior_name)) {
+      // $FlowFixMe[incompatible-type]
       return renderChanges(
         listLabelAndValuesFromChangedProperties(changed_properties)
       );
@@ -2052,6 +2134,7 @@ const changeBehaviorProperty: EditorFunction = {
       })
       .filter(Boolean);
 
+    // $FlowFixMe[incompatible-type]
     return renderChanges(changes);
   },
   launchFunction: async ({ project, args }) => {
@@ -2104,6 +2187,7 @@ const changeBehaviorProperty: EditorFunction = {
     }
 
     const warnings = [];
+    // $FlowFixMe[missing-empty-array-annot]
     const changes = [];
 
     changedProperties.forEach(changed_property => {
@@ -2154,6 +2238,7 @@ const changeBehaviorProperty: EditorFunction = {
           requestedNewValue: sanitizedNewValue,
         });
         warnings.push(...propertyWarnings);
+        // $FlowFixMe[incompatible-type]
         changes.push(...propertyChanges);
       } else if (
         behaviorSharedData &&
@@ -2186,6 +2271,7 @@ const changeBehaviorProperty: EditorFunction = {
           requestedNewValue: sanitizedNewValue,
         });
         warnings.push(...propertyWarnings);
+        // $FlowFixMe[incompatible-type]
         changes.push(...propertyChanges);
       } else {
         warnings.push(
@@ -2194,6 +2280,7 @@ const changeBehaviorProperty: EditorFunction = {
       }
     });
 
+    // $FlowFixMe[incompatible-type]
     return makeMultipleChangesOutput(changes, warnings);
   },
 };
@@ -2208,7 +2295,7 @@ const describeInstances: EditorFunction = {
     return {
       text: (
         <Trans>
-          Inspecting instances of scene{' '}
+          Read instances in scene{' '}
           <Link
             href="#"
             onClick={() =>
@@ -2219,8 +2306,9 @@ const describeInstances: EditorFunction = {
               })
             }
           >
-            {scene_name}.
+            {scene_name}
           </Link>
+          .
         </Trans>
       ),
     };
@@ -2292,18 +2380,21 @@ const describeInstances: EditorFunction = {
   },
 };
 
-const iterateOnInstances = (initialInstances, callback) => {
+const iterateOnInstances = (
+  initialInstances: gdInitialInstancesContainer,
+  callback: gdInitialInstance => void
+) => {
   const instanceGetter = new gd.InitialInstanceJSFunctor();
-  // $FlowFixMe - invoke is not writable
+  // $FlowFixMe[cannot-write]
   instanceGetter.invoke = instancePtr => {
-    // $FlowFixMe - wrapPointer is not exposed
     const instance: gdInitialInstance = gd.wrapPointer(
+      // $FlowFixMe[incompatible-type]
       instancePtr,
       gd.InitialInstance
     );
     callback(instance);
   };
-  // $FlowFixMe - JSFunctor is incompatible with Functor
+  // $FlowFixMe[incompatible-type]
   initialInstances.iterateOverInstances(instanceGetter);
   instanceGetter.delete();
 };
@@ -2364,7 +2455,7 @@ const put2dInstances: EditorFunction = {
       return {
         text: (
           <Trans>
-            Add {newInstancesCount} instance(s) of object {object_name} at{' '}
+            Place {newInstancesCount} <b>{object_name}</b> instance(s) at{' '}
             {brushPosition ? (
               brushPosition.join(', ')
             ) : (
@@ -2378,7 +2469,7 @@ const put2dInstances: EditorFunction = {
       return {
         text: (
           <Trans>
-            Move {existingInstanceCount} instance(s) of object {object_name} to{' '}
+            Move {existingInstanceCount} <b>{object_name}</b> instance(s) to{' '}
             {brushPosition ? (
               brushPosition.join(', ')
             ) : (
@@ -2392,8 +2483,8 @@ const put2dInstances: EditorFunction = {
       return {
         text: (
           <Trans>
-            Add {newInstancesCount} instance(s) and move {existingInstanceCount}{' '}
-            instance(s) of object {object_name} to{' '}
+            Place {newInstancesCount} and move {existingInstanceCount}{' '}
+            <b>{object_name}</b> instance(s) to{' '}
             {brushPosition ? (
               brushPosition.join(', ')
             ) : (
@@ -2470,7 +2561,7 @@ const put2dInstances: EditorFunction = {
       const brushSize = brush_size || 0;
 
       // Iterate on existing instances and remove them, and/or those inside the brush radius.
-      const instancesToDelete = new Set();
+      const instancesToDelete = new Set<gdInitialInstance>();
       const notFoundExistingInstanceIds = new Set<string>(existingInstanceIds);
 
       iterateOnInstances(initialInstances, instance => {
@@ -2579,6 +2670,7 @@ const put2dInstances: EditorFunction = {
       }
 
       // Store original states of existing instances for comparison
+      // $FlowFixMe[underconstrained-implicit-instantiation]
       const existingInstanceStates = new Map();
       const notFoundExistingInstanceIds = new Set<string>(existingInstanceIds);
 
@@ -2908,7 +3000,7 @@ const put3dInstances: EditorFunction = {
       return {
         text: (
           <Trans>
-            Add {newInstancesCount} instance(s) of object {object_name} at{' '}
+            Place {newInstancesCount} <b>{object_name}</b> instance(s) at{' '}
             {brushPosition ? (
               brushPosition.join(', ')
             ) : (
@@ -2922,7 +3014,7 @@ const put3dInstances: EditorFunction = {
       return {
         text: (
           <Trans>
-            Move {existingInstanceCount} instance(s) of object {object_name} to{' '}
+            Move {existingInstanceCount} <b>{object_name}</b> instance(s) to{' '}
             {brushPosition ? (
               brushPosition.join(', ')
             ) : (
@@ -2936,8 +3028,8 @@ const put3dInstances: EditorFunction = {
       return {
         text: (
           <Trans>
-            Add {newInstancesCount} instance(s) and move {existingInstanceCount}{' '}
-            instance(s) of object {object_name} to{' '}
+            Place {newInstancesCount} and move {existingInstanceCount}{' '}
+            <b>{object_name}</b> instance(s) to{' '}
             {brushPosition ? (
               brushPosition.join(', ')
             ) : (
@@ -3014,7 +3106,7 @@ const put3dInstances: EditorFunction = {
       const brushSize = brush_size || 0;
 
       // Iterate on existing instances and remove them, and/or those inside the brush radius.
-      const instancesToDelete = new Set();
+      const instancesToDelete = new Set<gdInitialInstance>();
       const notFoundExistingInstanceIds = new Set<string>(existingInstanceIds);
 
       iterateOnInstances(initialInstances, instance => {
@@ -3118,6 +3210,7 @@ const put3dInstances: EditorFunction = {
       }
 
       // Store original states of existing instances for comparison
+      // $FlowFixMe[underconstrained-implicit-instantiation]
       const existingInstanceStates = new Map();
       const notFoundExistingInstanceIds = new Set<string>(existingInstanceIds);
 
@@ -3363,7 +3456,7 @@ const readSceneEvents: EditorFunction = {
     return {
       text: (
         <Trans>
-          Inspecting event sheet of scene{' '}
+          Read events in scene{' '}
           <Link
             href="#"
             onClick={() =>
@@ -3430,6 +3523,7 @@ const addSceneEvents: EditorFunction = {
             noMargin
             allowSelection
             color="secondary"
+            size="body-small"
             style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
           >
             <b>
@@ -3443,6 +3537,7 @@ const addSceneEvents: EditorFunction = {
             noMargin
             allowSelection
             color="secondary"
+            size="body-small"
             style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
           >
             <b>
@@ -3456,6 +3551,7 @@ const addSceneEvents: EditorFunction = {
             noMargin
             allowSelection
             color="secondary"
+            size="body-small"
             style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
           >
             <b>
@@ -3471,7 +3567,7 @@ const addSceneEvents: EditorFunction = {
       return {
         text: (
           <Trans>
-            Add or rework{' '}
+            Write events for scene{' '}
             <Link
               href="#"
               onClick={() =>
@@ -3482,7 +3578,7 @@ const addSceneEvents: EditorFunction = {
                 })
               }
             >
-              events of scene {scene_name}
+              {scene_name}
             </Link>
             .
           </Trans>
@@ -3494,7 +3590,7 @@ const addSceneEvents: EditorFunction = {
       return {
         text: (
           <Trans>
-            Adapt{' '}
+            Adapt events in scene{' '}
             <Link
               href="#"
               onClick={() =>
@@ -3505,7 +3601,7 @@ const addSceneEvents: EditorFunction = {
                 })
               }
             >
-              events of scene {scene_name}
+              {scene_name}
             </Link>{' '}
             ("{placementHint}").
           </Trans>
@@ -3517,7 +3613,7 @@ const addSceneEvents: EditorFunction = {
       return {
         text: (
           <Trans>
-            Modify{' '}
+            Update events in scene{' '}
             <Link
               href="#"
               onClick={() =>
@@ -3528,7 +3624,7 @@ const addSceneEvents: EditorFunction = {
                 })
               }
             >
-              events of scene {scene_name}
+              {scene_name}
             </Link>
             .
           </Trans>
@@ -3542,6 +3638,7 @@ const addSceneEvents: EditorFunction = {
     project,
     args,
     toolOptions,
+    relatedAiRequestId,
     generateEvents,
     onSceneEventsModifiedOutsideEditor,
     ensureExtensionInstalled,
@@ -3559,12 +3656,21 @@ const addSceneEvents: EditorFunction = {
       args,
       'objects_list'
     );
+    const estimatedComplexity = SafeExtractor.extractNumberProperty(
+      args,
+      'estimated_complexity'
+    );
     const objectsList = objectsListArgument === null ? '' : objectsListArgument;
     const placementHint =
       SafeExtractor.extractStringProperty(args, 'placement_hint') || '';
 
     if (!project.hasLayoutNamed(sceneName)) {
       return makeGenericFailure(`Scene not found: "${sceneName}".`);
+    }
+    if (!relatedAiRequestId) {
+      return makeGenericFailure(
+        'No related AI request ID found for events generation.'
+      );
     }
     const scene = project.getLayout(sceneName);
     const currentSceneEvents = scene.getEvents();
@@ -3587,8 +3693,14 @@ const addSceneEvents: EditorFunction = {
           existingEventsAsText,
           existingEventsJson,
           placementHint,
+          relatedAiRequestId,
+          estimatedComplexity,
         }
       );
+
+      if (eventsGenerationResult.generationAborted) {
+        return { success: false, aborted: true };
+      }
 
       if (!eventsGenerationResult.generationCompleted) {
         return makeGenericFailure(
@@ -3615,6 +3727,7 @@ const addSceneEvents: EditorFunction = {
       };
 
       if (aiGeneratedEvent.error) {
+        // $FlowFixMe[incompatible-type]
         return makeAiGeneratedEventFailure(
           `Infrastructure error when generating events (${
             aiGeneratedEvent.error.message
@@ -3627,6 +3740,7 @@ const addSceneEvents: EditorFunction = {
         const resultMessage =
           aiGeneratedEvent.resultMessage ||
           'No generated events found and no other information was given.';
+        // $FlowFixMe[incompatible-type]
         return makeAiGeneratedEventFailure(
           `Error when generating events: ${resultMessage}\nConsider trying again or a different approach.`
         );
@@ -3639,6 +3753,7 @@ const addSceneEvents: EditorFunction = {
         const resultMessage =
           aiGeneratedEvent.resultMessage ||
           'This probably means what you asked for is not possible or does not work like this.';
+        // $FlowFixMe[incompatible-type]
         return makeAiGeneratedEventFailure(
           `Generated events are not valid: ${resultMessage}\nRead also the attached diagnostics to try to understand what went wrong and either try again differently or consider a different approach.`,
           {
@@ -3650,7 +3765,7 @@ const addSceneEvents: EditorFunction = {
       }
 
       try {
-        const extensionNames = new Set();
+        const extensionNames = new Set<string>();
         for (const change of changes) {
           for (const extensionName of change.extensionNames || []) {
             extensionNames.add(extensionName);
@@ -3664,6 +3779,7 @@ const addSceneEvents: EditorFunction = {
           });
         }
       } catch (e) {
+        // $FlowFixMe[incompatible-type]
         return makeAiGeneratedEventFailure(
           `Error when installing extensions: ${
             e.message
@@ -3706,12 +3822,25 @@ const addSceneEvents: EditorFunction = {
           }
         }
 
-        applyEventsChanges(
+        const { applied, errors } = applyEventsChanges(
           project,
           currentSceneEvents,
           changes,
           aiGeneratedEvent.id
         );
+
+        if (applied === 0) {
+          return {
+            success: false,
+            message: `Changes were properly generated, but could not be applied. Event generation output is:
+
+${aiGeneratedEvent.resultMessage || '(no generation output was given)'}].
+
+No changes were done on the project, see attached errors.`,
+            errors,
+          };
+        }
+
         onSceneEventsModifiedOutsideEditor({
           scene,
           newOrChangedAiGeneratedEventIds: new Set([aiGeneratedEvent.id]),
@@ -3728,13 +3857,20 @@ const addSceneEvents: EditorFunction = {
         });
 
         const resultMessage =
-          aiGeneratedEvent.resultMessage ||
-          'Properly modified or added new event(s).';
+          errors.length > 0
+            ? `Changes were properly generated, but some errors happened when applying some of them in the project. Generation output is:
+
+${aiGeneratedEvent.resultMessage || '(no generation output was given)'}].
+
+See attached errors that happened when some changes were applied in the project. Verify the content of events if necessary to be sure what was done.`
+            : aiGeneratedEvent.resultMessage ||
+              'Properly modified or added new event(s).';
         return {
           success: true,
           message: resultMessage,
           aiGeneratedEventId: aiGeneratedEvent.id,
           newlyAddedResources,
+          ...(errors.length > 0 ? { errors } : undefined),
         };
       } catch (error) {
         console.error(
@@ -3743,6 +3879,7 @@ const addSceneEvents: EditorFunction = {
           }):`,
           error
         );
+        // $FlowFixMe[incompatible-type]
         return makeAiGeneratedEventFailure(
           `An unexpected error happened in the GDevelop editor while adding generated events: ${
             error.message
@@ -3773,7 +3910,7 @@ const createScene: EditorFunction = {
     return {
       text: (
         <Trans>
-          Create a new scene called <b>{scene_name}</b>.{' '}
+          Create scene <b>{scene_name}</b>.{' '}
           <Link
             href="#"
             onClick={() =>
@@ -3850,7 +3987,11 @@ const deleteScene: EditorFunction = {
     const scene_name = extractRequiredString(args, 'scene_name');
 
     return {
-      text: <Trans>Delete scene {scene_name}.</Trans>,
+      text: (
+        <Trans>
+          Remove scene <b>{scene_name}</b>.
+        </Trans>
+      ),
     };
   },
   launchFunction: async ({ project, args }) => {
@@ -3910,8 +4051,7 @@ const inspectScenePropertiesLayersEffects: EditorFunction = {
     return {
       text: (
         <Trans>
-          Inspecting scene properties, layers and effects for scene {scene_name}
-          .
+          Read <b>{scene_name}</b>'s scene settings.
         </Trans>
       ),
     };
@@ -4018,62 +4158,61 @@ const changeScenePropertiesLayersEffectsGroups: EditorFunction = {
         changedLayerEffectsCount > 0 &&
         changedGroupsCount > 0 ? (
           <Trans>
-            Changing some scene properties, layers, effects and groups for scene{' '}
+            Update some scene properties, layers, effects and groups for scene{' '}
             {scene_name}.
           </Trans>
         ) : changedPropertiesCount > 0 &&
           changedLayersCount > 0 &&
           changedGroupsCount > 0 ? (
           <Trans>
-            Changing some scene properties, layers and groups for scene{' '}
+            Update some scene properties, layers and groups for scene{' '}
             {scene_name}.
           </Trans>
         ) : changedPropertiesCount > 0 &&
           changedLayerEffectsCount > 0 &&
           changedGroupsCount > 0 ? (
           <Trans>
-            Changing some scene properties, effects and groups for scene{' '}
+            Update some scene properties, effects and groups for scene{' '}
             {scene_name}.
           </Trans>
         ) : changedLayerEffectsCount > 0 &&
           changedLayersCount > 0 &&
           changedGroupsCount > 0 ? (
           <Trans>
-            Changing some scene effects, layers and groups for scene{' '}
-            {scene_name}.
+            Update some scene effects, layers and groups for scene {scene_name}.
           </Trans>
         ) : changedPropertiesCount > 0 && changedGroupsCount > 0 ? (
           <Trans>
-            Changing some scene properties and groups for scene {scene_name}.
+            Update some scene properties and groups for scene {scene_name}.
           </Trans>
         ) : changedLayersCount > 0 && changedGroupsCount > 0 ? (
           <Trans>
-            Changing some scene layers and groups for scene {scene_name}.
+            Update some scene layers and groups for scene {scene_name}.
           </Trans>
         ) : changedLayerEffectsCount > 0 && changedGroupsCount > 0 ? (
           <Trans>
-            Changing some scene effects and groups for scene {scene_name}.
+            Update some scene effects and groups for scene {scene_name}.
           </Trans>
         ) : changedPropertiesCount > 0 && changedLayersCount > 0 ? (
           <Trans>
-            Changing some scene properties and layers for scene {scene_name}.
+            Update some scene properties and layers for scene {scene_name}.
           </Trans>
         ) : changedPropertiesCount > 0 && changedLayerEffectsCount > 0 ? (
           <Trans>
-            Changing some scene properties and effects for scene {scene_name}.
+            Update some scene properties and effects for scene {scene_name}.
           </Trans>
         ) : changedLayerEffectsCount > 0 && changedLayersCount > 0 ? (
           <Trans>
-            Changing some scene effects and layers for scene {scene_name}.
+            Update some scene effects and layers for scene {scene_name}.
           </Trans>
         ) : changedPropertiesCount > 0 ? (
-          <Trans>Changing some scene properties for scene {scene_name}.</Trans>
+          <Trans>Update some scene properties for scene {scene_name}.</Trans>
         ) : changedLayersCount > 0 ? (
-          <Trans>Changing some scene layers for scene {scene_name}.</Trans>
+          <Trans>Update some scene layers for scene {scene_name}.</Trans>
         ) : changedLayerEffectsCount > 0 ? (
-          <Trans>Changing some scene effects for scene {scene_name}.</Trans>
+          <Trans>Update some scene effects for scene {scene_name}.</Trans>
         ) : changedGroupsCount > 0 ? (
-          <Trans>Changing some scene groups for scene {scene_name}.</Trans>
+          <Trans>Update some scene groups for scene {scene_name}.</Trans>
         ) : (
           <Trans>Unknown changes attempted for scene {scene_name}.</Trans>
         ),
@@ -4602,7 +4741,7 @@ const addOrEditVariable: EditorFunction = {
 
     const details = shouldShowDetails ? (
       <ColumnStackLayout noMargin>
-        <Text noMargin allowSelection color="secondary">
+        <Text noMargin allowSelection color="secondary" size="body-small">
           <b>
             <Trans>Value</Trans>
           </b>
@@ -4615,7 +4754,7 @@ const addOrEditVariable: EditorFunction = {
       return {
         text: (
           <Trans>
-            Add or edit scene variable {variable_name_or_path} in scene{' '}
+            Set scene variable <b>{variable_name_or_path}</b> in scene{' '}
             {scene_name}.
           </Trans>
         ),
@@ -4626,8 +4765,7 @@ const addOrEditVariable: EditorFunction = {
       return {
         text: (
           <Trans>
-            Add or edit object variable {variable_name_or_path} for object{' '}
-            {object_name}.
+            Set <b>{object_name}</b>'s variable <b>{variable_name_or_path}</b>.
           </Trans>
         ),
         details,
@@ -4636,7 +4774,9 @@ const addOrEditVariable: EditorFunction = {
     } else if (variable_scope === 'global') {
       return {
         text: (
-          <Trans>Add or edit global variable {variable_name_or_path}.</Trans>
+          <Trans>
+            Set global variable <b>{variable_name_or_path}</b>.
+          </Trans>
         ),
         details,
         hasDetailsToShow: true,
@@ -4644,7 +4784,11 @@ const addOrEditVariable: EditorFunction = {
     }
 
     return {
-      text: <Trans>Add or edit variable {variable_name_or_path}.</Trans>,
+      text: (
+        <Trans>
+          Set variable <b>{variable_name_or_path}</b>.
+        </Trans>
+      ),
     };
   },
   launchFunction: async ({ project, args }) => {
@@ -4728,6 +4872,19 @@ const addOrEditVariable: EditorFunction = {
   },
 };
 
+const createOrUpdatePlan: EditorFunction = {
+  renderForEditor: ({ args }) => {
+    return {
+      text: <Trans>Update the plan.</Trans>,
+    };
+  },
+  launchFunction: async ({ args }) => {
+    return makeGenericFailure(
+      `Unable to create or update plan - this is handled server-side.`
+    );
+  },
+};
+
 const readFullDocs: EditorFunction = {
   renderForEditor: ({ args }) => {
     const extension_names = SafeExtractor.extractStringProperty(
@@ -4736,9 +4893,7 @@ const readFullDocs: EditorFunction = {
     );
 
     return {
-      text: (
-        <Trans>Inspecting {extension_names} features and capabilities.</Trans>
-      ),
+      text: <Trans>Read docs for {extension_names}.</Trans>,
     };
   },
   launchFunction: async ({ args }) => {
@@ -4755,7 +4910,7 @@ const initializeProject: EditorFunctionWithoutProject = {
     return {
       text: (
         <Trans>
-          Initializing a new game project "{<b>{project_name}</b>}".
+          Set up the base for your project <b>{project_name}</b>.
         </Trans>
       ),
     };
@@ -4797,6 +4952,7 @@ const initializeProject: EditorFunctionWithoutProject = {
           const scene = createdProject.getLayoutAt(i);
           const events = scene.getEvents();
           eventsAsTextByScene[
+            // $FlowFixMe[prop-missing]
             scene.getName()
           ] = renderNonTranslatedEventsAsText({
             eventsList: events,
@@ -4854,6 +5010,7 @@ export const editorFunctions: { [string]: EditorFunction } = {
   change_scene_properties_layers_effects_groups: changeScenePropertiesLayersEffectsGroups,
   add_or_edit_variable: addOrEditVariable,
   read_full_docs: readFullDocs,
+  create_or_update_plan: createOrUpdatePlan,
 };
 
 export const editorFunctionsWithoutProject: {

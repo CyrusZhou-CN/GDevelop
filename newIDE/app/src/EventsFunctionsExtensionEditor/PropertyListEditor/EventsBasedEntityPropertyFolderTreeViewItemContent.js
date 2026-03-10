@@ -6,7 +6,7 @@ import * as React from 'react';
 import Clipboard from '../../Utils/Clipboard';
 import { SafeExtractor } from '../../Utils/SafeExtractor';
 import {
-  TreeViewItemContent,
+  type TreeViewItemContent,
   type TreeItemProps,
   propertiesRootFolderId,
   sharedPropertiesRootFolderId,
@@ -151,16 +151,17 @@ export class EventsBasedEntityPropertyFolderTreeViewItemContent
   onClick(): void {}
 
   rename(newName: string): void {
-    if (this.getName() === newName) {
+    const safeNewName = newName.replaceAll('/', '-');
+    if (this.getName() === safeNewName) {
       return;
     }
-    this.propertyFolder.setFolderName(newName);
+    this.propertyFolder.setFolderName(safeNewName);
     this.props.onPropertiesUpdated();
   }
 
   edit(): void {}
 
-  _getPasteLabel(i18n: I18nType) {
+  _getPasteLabel(i18n: I18nType): any {
     let translation = t`Paste`;
     if (Clipboard.has(PROPERTIES_CLIPBOARD_KIND)) {
       const clipboardContent = Clipboard.get(PROPERTIES_CLIPBOARD_KIND);
@@ -171,7 +172,7 @@ export class EventsBasedEntityPropertyFolderTreeViewItemContent
     return i18n._(translation);
   }
 
-  buildMenuTemplate(i18n: I18nType, index: number) {
+  buildMenuTemplate(i18n: I18nType, index: number): any {
     const {
       properties,
       isSharedProperties,
@@ -343,7 +344,7 @@ export class EventsBasedEntityPropertyFolderTreeViewItemContent
     this.props.onPropertiesUpdated();
   }
 
-  getRightButton(i18n: I18nType) {
+  getRightButton(i18n: I18nType): any {
     return null;
   }
 }

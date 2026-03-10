@@ -15,6 +15,7 @@ import TutorialButton from './TutorialButton';
 import CircularProgress from './CircularProgress';
 import Add from './CustomSvgIcons/Add';
 import RaisedButtonWithSplitMenu from './RaisedButtonWithSplitMenu';
+import { textEllipsisStyle } from './TextEllipsis';
 
 type Props = {|
   title: React.Node,
@@ -51,19 +52,33 @@ const DefaultHelpButton = ({
  * A placeholder for when there is no content to display.
  * Also take a look at EmptyMessage for a less visible message.
  */
-export const EmptyPlaceholder = (props: Props) => (
-  <Column alignItems="center">
+export const EmptyPlaceholder = (props: Props): React.Node => (
+  <Column alignItems="center" noOverflowParent>
     <Container
       style={{
         maxWidth: '480px',
         whiteSpace: 'normal',
       }}
     >
-      <Column>
-        <Text size="block-title" align="center">
+      <Column noOverflowParent>
+        <Text
+          size="block-title"
+          align="center"
+          style={{
+            ...textEllipsisStyle,
+            flex: 1,
+          }}
+        >
           {props.title}
         </Text>
-        <Text align="center" noMargin>
+        <Text
+          align="center"
+          noMargin
+          style={{
+            ...textEllipsisStyle,
+            flex: 1,
+          }}
+        >
           {props.description}
         </Text>
         <LargeSpacer />
