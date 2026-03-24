@@ -59,6 +59,7 @@ import { renderEventsFunctionsExtensionEditorContainer } from './EditorContainer
 import { renderCustomObjectEditorContainer } from './EditorContainers/CustomObjectEditorContainer';
 import { renderHomePageContainer } from './EditorContainers/HomePage';
 import { type OpenAskAiOptions } from '../AiGeneration/Utils';
+import { exceptionallyGuardAgainstDeadObject } from '../Utils/IsNullPtr';
 import { renderAskAiEditorContainer } from '../AiGeneration/AskAiEditorContainer';
 import { renderResourcesEditorContainer } from './EditorContainers/ResourcesEditorContainer';
 import { renderGlobalEventsSearchEditorContainer } from './EditorContainers/GlobalEventsSearchEditorContainer';
@@ -130,8 +131,7 @@ import useForceUpdate from '../Utils/UseForceUpdate';
 import useStateWithCallback from '../Utils/UseSetStateWithCallback';
 import { useKeyboardShortcuts, useShortcutMap } from '../KeyboardShortcuts';
 import useMainFrameCommands from './MainFrameCommands';
-import {
-  CommandPaletteWithAlgoliaSearch,
+import CommandPalette, {
   type CommandPaletteInterface,
 } from '../CommandPalette/CommandPalette';
 import { isExtensionNameTaken } from '../ProjectManager/EventFunctionExtensionNameVerifier';
@@ -612,7 +612,10 @@ const MainFrame = (props: Props): React.MixedElement => {
   //   console.log(state);
   // });
 
-  const { currentProject, currentFileMetadata, updateStatus } = state;
+  const { currentFileMetadata, updateStatus } = state;
+  const currentProject = exceptionallyGuardAgainstDeadObject(
+    state.currentProject
+  );
   const {
     renderShareDialog,
     resourceSources,
@@ -676,11 +679,6 @@ const MainFrame = (props: Props): React.MixedElement => {
    * See `isCurrentProjectFresh`.
    */
   const currentProjectRef = useStableUpToDateRef(currentProject);
-
-  /**
-   * Similar to `currentProjectRef`, an always fresh reference to the latest `currentFileMetadata`.
-   */
-  const currentFileMetadataRef = useStableUpToDateRef(currentFileMetadata);
 
   const getEditorOpeningOptions = React.useCallback(
     ({
@@ -819,9 +817,7 @@ const MainFrame = (props: Props): React.MixedElement => {
     hasAPreviousSaveForEditorTabsState,
     openEditorTabsFromPersistedState,
   } = useEditorTabsStateSaving({
-    currentProjectId: state.currentProject
-      ? state.currentProject.getProjectUuid()
-      : null,
+    currentProjectId: currentProject ? currentProject.getProjectUuid() : null,
     editorTabs: state.editorTabs,
     setEditorTabs: setEditorTabs,
     // $FlowFixMe[incompatible-type]
@@ -1418,15 +1414,15 @@ const MainFrame = (props: Props): React.MixedElement => {
       project,
       editorTabs,
       oldProjectId,
+      fileMetadata,
       options,
     }) => {
       // Update the currentFileMetadata based on the updated project, as
       // it can have been updated in the meantime (gameId, project name, etc...).
-      // Use the ref here to be sure to have the latest file metadata.
-      if (currentFileMetadataRef.current) {
+      if (fileMetadata) {
         // $FlowFixMe[incompatible-type]
         const newFileMetadata: FileMetadata = updateFileMetadataWithOpenedProject(
-          currentFileMetadataRef.current,
+          fileMetadata,
           project
         );
         setState(state => ({
@@ -4614,6 +4610,12 @@ const MainFrame = (props: Props): React.MixedElement => {
     ]
   );
 
+  /**
+   * Similar to `currentProjectRef`, a fresh reference (fresh=value of the last render)
+   * to the latest `currentFileMetadata`. Only use this reference in fetchNewlyAddedResources.
+   * Anywhere else, pass the currentFileMetadata directly as argument.
+   */
+  const currentFileMetadataRef = useStableUpToDateRef(currentFileMetadata);
   const fetchNewlyAddedResources = React.useCallback(
     async (): Promise<void> => {
       if (!currentProjectRef.current || !currentFileMetadataRef.current) return;
@@ -5138,9 +5140,7 @@ const MainFrame = (props: Props): React.MixedElement => {
       // in what to display (ex: Loader of play section)
       gamesPlatformFrameTools.renderGamesPlatformFrame()}
       <LeaderboardProvider
-        gameId={
-          state.currentProject ? state.currentProject.getProjectUuid() : ''
-        }
+        gameId={currentProject ? currentProject.getProjectUuid() : ''}
       >
         <PanesContainer
           hasEditorsInLeftPane={hasEditorsInLeftPane}
@@ -5167,7 +5167,7 @@ const MainFrame = (props: Props): React.MixedElement => {
           )}
         />
       </LeaderboardProvider>
-      <CommandPaletteWithAlgoliaSearch ref={commandPaletteRef} />
+      <CommandPalette ref={commandPaletteRef} />
       <LoaderModal
         showImmediately={showLoaderImmediately}
         showAfterDelay={showLoaderAfterDelay}

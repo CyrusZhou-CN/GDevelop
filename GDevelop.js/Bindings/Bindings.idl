@@ -1353,6 +1353,10 @@ interface ResourcesContainer {
     boolean MoveResourceUpInList([Const] DOMString oldName);
     boolean MoveResourceDownInList([Const] DOMString oldName);
     void MoveResource(unsigned long oldIndex, unsigned long newIndex);
+
+    void STATIC_UnserializeResourceFrom(
+        [Ref] Resource resource,
+        [Const, Ref] SerializerElement resourceElement);
 };
 
 interface ResourcesContainersList {
@@ -1645,7 +1649,11 @@ interface BinarySerializer {
 interface ObjectAssetSerializer {
     void STATIC_SerializeTo([Ref] Project project, [Const, Ref] gdObject obj,
         [Const] DOMString objectFullName, [Ref] SerializerElement element,
-        [Ref] VectorString usedResourceNames);
+        [Ref] VectorString usedResourceNames, [Ref] ExtensionDependencyCache ExtensionDependencyCache);
+};
+
+interface ExtensionDependencyCache {
+    void ExtensionDependencyCache();
 };
 
 interface InstructionsList {
@@ -4358,6 +4366,13 @@ interface JsCodeEvent {
     boolean IsFolded();
     void SetFolded(boolean folded);
 
+    long GetScrollTop();
+    void SetScrollTop(long value);
+    long GetCursorColumn();
+    void SetCursorColumn(long value);
+    long GetCursorLine();
+    void SetCursorLine(long value);
+
     void SerializeTo([Ref] SerializerElement element);
     void UnserializeFrom([Ref] Project project, [Const, Ref] SerializerElement element);
 };
@@ -4424,4 +4439,7 @@ interface MemoryTrackedRegistry {
     void STATIC_pruneDead(long maxSize);
     long STATIC_getAliveCountForClass(DOMString className);
     long STATIC_getDeadCountForClass(DOMString className);
+    void STATIC_setCurrentCallContextId(long id);
+    long STATIC_getDeadContextId(long ptr, DOMString className);
+    double STATIC_getDeadContextTimeMs(long ptr, DOMString className);
 };

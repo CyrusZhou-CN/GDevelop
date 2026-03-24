@@ -105,6 +105,7 @@
 #include <GDCore/Serialization/SerializerElement.h>
 #include <GDCore/Serialization/BinarySerializer.h>
 #include <GDCore/IDE/ObjectAssetSerializer.h>
+#include <GDCore/IDE/Events/ExtensionDependencyCache.h>
 #include <GDJS/Events/Builtin/JsCodeEvent.h>
 #include <GDJS/Events/CodeGeneration/BehaviorCodeGenerator.h>
 #include <GDJS/Events/CodeGeneration/EventsFunctionsExtensionCodeGenerator.h>
@@ -872,6 +873,7 @@ typedef std::vector<gd::PropertyDescriptorChoice> VectorPropertyDescriptorChoice
 
 #define STATIC_CopyAllResourcesTo CopyAllResourcesTo
 #define STATIC_CopyObjectResourcesTo CopyObjectResourcesTo
+#define STATIC_UnserializeResourceFrom UnserializeResourceFrom
 
 #define STATIC_IsExtensionLifecycleEventsFunction \
   IsExtensionLifecycleEventsFunction
@@ -916,6 +918,9 @@ typedef std::vector<gd::PropertyDescriptorChoice> VectorPropertyDescriptorChoice
 #define STATIC_getAliveCount getAliveCount
 #define STATIC_getAliveCountForClass getAliveCountForClass
 #define STATIC_getDeadCountForClass getDeadCountForClass
+#define STATIC_setCurrentCallContextId setCurrentCallContextId
+#define STATIC_getDeadContextId getDeadContextId
+#define STATIC_getDeadContextTimeMs getDeadContextTimeMs
 
 // We postfix some methods with "At" as Javascript does not support overloading
 #define GetLayoutAt GetLayout

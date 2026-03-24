@@ -1142,6 +1142,7 @@ export class ResourcesContainer extends EmscriptenObject {
   moveResourceUpInList(oldName: string): boolean;
   moveResourceDownInList(oldName: string): boolean;
   moveResource(oldIndex: number, newIndex: number): void;
+  static unserializeResourceFrom(resource: Resource, resourceElement: SerializerElement): void;
 }
 
 export class ResourcesContainersList extends EmscriptenObject {
@@ -1373,7 +1374,11 @@ export class BinarySerializer extends EmscriptenObject {
 }
 
 export class ObjectAssetSerializer extends EmscriptenObject {
-  static serializeTo(project: Project, obj: gdObject, objectFullName: string, element: SerializerElement, usedResourceNames: VectorString): void;
+  static serializeTo(project: Project, obj: gdObject, objectFullName: string, element: SerializerElement, usedResourceNames: VectorString, ExtensionDependencyCache: ExtensionDependencyCache): void;
+}
+
+export class ExtensionDependencyCache extends EmscriptenObject {
+  constructor();
 }
 
 export class InstructionsList extends EmscriptenObject {
@@ -3237,6 +3242,12 @@ export class JsCodeEvent extends EmscriptenObject {
   setDisabled(disable: boolean): void;
   isFolded(): boolean;
   setFolded(folded: boolean): void;
+  getScrollTop(): number;
+  setScrollTop(value: number): void;
+  getCursorColumn(): number;
+  setCursorColumn(value: number): void;
+  getCursorLine(): number;
+  setCursorLine(value: number): void;
   serializeTo(element: SerializerElement): void;
   unserializeFrom(project: Project, element: SerializerElement): void;
 }
@@ -3267,6 +3278,9 @@ export class MemoryTrackedRegistry extends EmscriptenObject {
   static pruneDead(maxSize: number): void;
   static getAliveCountForClass(className: string): number;
   static getDeadCountForClass(className: string): number;
+  static setCurrentCallContextId(id: number): void;
+  static getDeadContextId(ptr: number, className: string): number;
+  static getDeadContextTimeMs(ptr: number, className: string): number;
 }
 
 export function toNewVectorString(): VectorString;
@@ -3399,6 +3413,19 @@ export function compare<T extends EmscriptenObject>(object1: T, object2: T): boo
  * The alias {@link EmscriptenObject.delete} is recommended instead, for readability.
  */
 export function destroy(object: EmscriptenObject): void;
+
+/**
+ * Check that an Emscripten object is still alive, i.e. not destroyed from
+ * JavaScript (ptr is 0) or from C++ (only for memory-tracked classes).
+ *
+ * In theory, a dead object should never be accessed. In practice this can
+ * help prevent stale references to objects (deleted by JS: ptr will be 0,
+ * or deleted in C++, only for tracked classes).
+ * This is used just to add extra protection and should usually not be useful.
+ *
+ * @throws if the object is dead.
+ */
+export function assertObjectAlive(object: EmscriptenObject): void;
 
 export function _malloc(size: number): number;
 export function _free(ptr: number): void;
