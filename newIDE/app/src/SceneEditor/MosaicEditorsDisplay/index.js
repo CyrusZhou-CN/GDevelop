@@ -34,6 +34,7 @@ import {
 import { useDoNowOrAfterRender } from '../../Utils/UseDoNowOrAfterRender';
 import { preventGameFramePointerEvents } from '../../EmbeddedGame/EmbeddedGameFrame';
 import { EmbeddedGameFrameHole } from '../../EmbeddedGame/EmbeddedGameFrameHole';
+import { exceptionallyGuardAgainstDeadObject } from '../../Utils/IsNullPtr';
 
 const initialMosaicEditorNodes = {
   direction: 'row',
@@ -179,13 +180,16 @@ const MosaicEditorsDisplay: React.ComponentType<{
       [isEditorVisible, toggleEditorView]
     );
 
-    const startSceneRendering = React.useCallback((start: boolean) => {
-      const editor = editorRef.current;
-      if (!editor) return;
+    const startSceneRendering = React.useCallback(
+      (start: boolean, reason: string) => {
+        const editor = editorRef.current;
+        if (!editor) return;
 
-      if (start) editor.restartSceneRendering();
-      else editor.pauseSceneRendering();
-    }, []);
+        if (start) editor.resumeSceneRendering(reason);
+        else editor.pauseSceneRendering(reason);
+      },
+      []
+    );
     const openNewObjectDialog = React.useCallback(
       () => {
         if (!isEditorVisible('objects-list')) {
@@ -269,7 +273,9 @@ const MosaicEditorsDisplay: React.ComponentType<{
         const { objectFolderOrObject } = objectFolderOrObjectWithContext;
         if (!objectFolderOrObject) return null; // Protect ourselves from an unexpected null value.
         if (objectFolderOrObject.isFolder()) return null;
-        return objectFolderOrObject.getObject();
+        return exceptionallyGuardAgainstDeadObject(
+          objectFolderOrObject.getObject()
+        );
       })
       .filter(Boolean);
 

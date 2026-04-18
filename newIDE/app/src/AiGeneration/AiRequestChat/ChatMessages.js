@@ -129,6 +129,60 @@ type Props = {|
   |}) => Promise<void>,
 |};
 
+type MessageFeedbackButtonsProps = {|
+  currentFeedback: 'like' | 'dislike' | void,
+  onLike: () => void,
+  onDislike: () => void,
+  textToCopy?: string,
+|};
+
+const MessageFeedbackButtons = ({
+  currentFeedback,
+  onLike,
+  onDislike,
+  textToCopy,
+}: MessageFeedbackButtonsProps): React.Node => {
+  const theme = React.useContext(GDevelopThemeContext);
+  return (
+    <div className={classes.feedbackButtonsContainer}>
+      <Text size="body-small" color="secondary" noMargin>
+        <Trans>Did it work?</Trans>
+      </Text>
+      <LineStackLayout expand noMargin justifyContent="flex-end">
+        {textToCopy != null && (
+          <IconButton
+            size="small"
+            tooltip={t`Copy`}
+            onClick={() => navigator.clipboard.writeText(textToCopy)}
+          >
+            <Copy fontSize="small" />
+          </IconButton>
+        )}
+        <IconButton size="small" tooltip={t`This was helpful`} onClick={onLike}>
+          <Like
+            fontSize="small"
+            htmlColor={
+              currentFeedback === 'like' ? theme.message.valid : undefined
+            }
+          />
+        </IconButton>
+        <IconButton
+          size="small"
+          tooltip={t`This needs improvement`}
+          onClick={onDislike}
+        >
+          <Dislike
+            fontSize="small"
+            htmlColor={
+              currentFeedback === 'dislike' ? theme.message.warning : undefined
+            }
+          />
+        </IconButton>
+      </LineStackLayout>
+    </div>
+  );
+};
+
 export const ChatMessages: React.ComponentType<Props> = React.memo<Props>(
   function ChatMessages({
     aiRequest,
@@ -235,7 +289,9 @@ export const ChatMessages: React.ComponentType<Props> = React.memo<Props>(
     const [isRestoring, setIsRestoring] = React.useState(false);
     const disabled = isWorking || isForAnotherProject || isRestoring;
 
-    const [messageFeedbacks, setMessageFeedbacks] = React.useState({});
+    const [messageFeedbacks, setMessageFeedbacks] = React.useState<{
+      [string]: 'like' | 'dislike',
+    }>({});
     const [
       dislikeFeedbackDialogOpenedFor,
       setDislikeFeedbackDialogOpenedFor,
@@ -293,8 +349,9 @@ export const ChatMessages: React.ComponentType<Props> = React.memo<Props>(
           }
         };
 
-        aiRequest.output.forEach((message, messageIndex) => {
-          const isLastMessage = messageIndex === aiRequest.output.length - 1;
+        const output = aiRequest.output || [];
+        output.forEach((message, messageIndex) => {
+          const isLastMessage = messageIndex === output.length - 1;
 
           if (message.type === 'message' && message.role === 'user') {
             flushFunctionCallGroup();
@@ -499,7 +556,7 @@ export const ChatMessages: React.ComponentType<Props> = React.memo<Props>(
         // Iterate all assistant messages directly so we capture function calls
         // that have a taskId (which are excluded from renderItems but still
         // need to appear in the status bar when running).
-        for (const message of aiRequest.output) {
+        for (const message of aiRequest.output || []) {
           if (message.type !== 'message' || message.role !== 'assistant')
             continue;
           for (const messageContent of message.content) {
@@ -661,7 +718,7 @@ export const ChatMessages: React.ComponentType<Props> = React.memo<Props>(
     > = React.useMemo(
       () => {
         const map: Map<string, Array<FunctionCallItem>> = new Map();
-        aiRequest.output.forEach(message => {
+        (aiRequest.output || []).forEach(message => {
           if (message.type === 'message' && message.role === 'assistant') {
             message.content.forEach(messageContent => {
               if (
@@ -759,6 +816,55 @@ export const ChatMessages: React.ComponentType<Props> = React.memo<Props>(
                 nextItem.messageContent.text
                   ? nextItem.messageContent.text.trim()
                   : undefined;
+              const absorbedNextItem =
+                nextItem &&
+                nextItem.type === 'message_content' &&
+                absorbedMessageContentIndices.has(itemIndex + 1)
+                  ? nextItem
+                  : null;
+              const isLastVisiblePlanItem =
+                itemIndex === filteredRenderItems.length - 1 ||
+                (absorbedNextItem !== null && absorbedNextItem.isLastMessage);
+              const feedbackMessageIndex = absorbedNextItem
+                ? // $FlowFixMe[incompatible-type]
+                  absorbedNextItem.messageIndex
+                : item.messageIndex;
+              const feedbackMessageContentIndex = absorbedNextItem
+                ? // $FlowFixMe[incompatible-type]
+                  absorbedNextItem.messageContentIndex
+                : 0;
+              const planFeedbackKey = `${feedbackMessageIndex}-${feedbackMessageContentIndex}`;
+              const planFeedbackButtons =
+                isLastVisiblePlanItem && shouldDisplayFeedbackBanner ? (
+                  <MessageFeedbackButtons
+                    currentFeedback={messageFeedbacks[planFeedbackKey]}
+                    onLike={() => {
+                      setMessageFeedbacks({
+                        ...messageFeedbacks,
+                        [planFeedbackKey]: 'like',
+                      });
+                      // $FlowFixMe[incompatible-type]
+                      onSendFeedback(
+                        aiRequest.id,
+                        feedbackMessageIndex,
+                        'like'
+                      );
+                    }}
+                    onDislike={() => {
+                      setMessageFeedbacks({
+                        ...messageFeedbacks,
+                        [planFeedbackKey]: 'dislike',
+                      });
+                      // $FlowFixMe[incompatible-type]
+                      setDislikeFeedbackDialogOpenedFor({
+                        aiRequestId: aiRequest.id,
+                        messageIndex: feedbackMessageIndex,
+                      });
+                    }}
+                  />
+                ) : (
+                  undefined
+                );
               return [
                 <Line
                   key={`orchestrator-plan-${item.messageIndex}`}
@@ -768,6 +874,7 @@ export const ChatMessages: React.ComponentType<Props> = React.memo<Props>(
                     tasks={item.plan.tasks}
                     messageId={item.messageId}
                     followingText={followingText}
+                    feedbackButtons={planFeedbackButtons}
                     functionCallItemsByTaskId={functionCallItemsByTaskId}
                     project={project}
                     onProcessFunctionCalls={onProcessFunctionCalls}
@@ -793,7 +900,9 @@ export const ChatMessages: React.ComponentType<Props> = React.memo<Props>(
               const previousMessage =
                 // $FlowFixMe[unsafe-arithmetic]
                 // $FlowFixMe[invalid-compare]
-                messageIndex > 0 ? aiRequest.output[messageIndex - 1] : null;
+                messageIndex > 0
+                  ? (aiRequest.output || [])[messageIndex - 1]
+                  : null;
               const previousMessageHasSameVersionId =
                 previousMessage &&
                 hasVersionToRestore &&
@@ -906,7 +1015,6 @@ export const ChatMessages: React.ComponentType<Props> = React.memo<Props>(
               if (messageContent.type === 'output_text') {
                 // $FlowFixMe[incompatible-type]
                 const feedbackKey = `${messageIndex}-${messageContentIndex}`;
-                // $FlowFixMe[invalid-computed-prop]
                 const currentFeedback = messageFeedbacks[feedbackKey];
 
                 // $FlowFixMe[incompatible-use]
@@ -915,111 +1023,42 @@ export const ChatMessages: React.ComponentType<Props> = React.memo<Props>(
                   return null;
                 }
 
-                // Don't show the "Did it work?" banner when this message is a
-                // plan confirmation (i.e. it immediately follows a
-                // function_call_output that returned a plan).
-                const previousOutputMessage =
-                  messageIndex > 0 ? aiRequest.output[messageIndex - 1] : null;
-                const isAfterPlanOutput =
-                  previousOutputMessage &&
-                  previousOutputMessage.type === 'function_call_output' &&
-                  (() => {
-                    try {
-                      return !!JSON.parse(previousOutputMessage.output).plan;
-                    } catch (e) {
-                      return false;
-                    }
-                  })();
-
                 return [
                   <Line key={key} justifyContent="flex-start">
                     <ChatBubble
                       role="assistant"
                       feedbackButtons={
-                        isAfterPlanOutput ? (
-                          undefined
+                        isLastMessage && shouldDisplayFeedbackBanner ? (
+                          <MessageFeedbackButtons
+                            currentFeedback={currentFeedback}
+                            // $FlowFixMe[incompatible-use]
+                            textToCopy={messageContent.text || undefined}
+                            onLike={() => {
+                              setMessageFeedbacks({
+                                ...messageFeedbacks,
+                                [feedbackKey]: 'like',
+                              });
+                              // $FlowFixMe[incompatible-type]
+                              onSendFeedback(
+                                aiRequest.id,
+                                messageIndex,
+                                'like'
+                              );
+                            }}
+                            onDislike={() => {
+                              setMessageFeedbacks({
+                                ...messageFeedbacks,
+                                [feedbackKey]: 'dislike',
+                              });
+                              // $FlowFixMe[incompatible-type]
+                              setDislikeFeedbackDialogOpenedFor({
+                                aiRequestId: aiRequest.id,
+                                messageIndex,
+                              });
+                            }}
+                          />
                         ) : (
-                          <div className={classes.feedbackButtonsContainer}>
-                            {isLastMessage && shouldDisplayFeedbackBanner && (
-                              <Text
-                                size="body-small"
-                                color="secondary"
-                                noMargin
-                              >
-                                <Trans>Did it work?</Trans>
-                              </Text>
-                            )}
-                            <LineStackLayout
-                              expand
-                              noMargin
-                              justifyContent="flex-end"
-                            >
-                              <IconButton
-                                size="small"
-                                tooltip={t`Copy`}
-                                onClick={() => {
-                                  if (messageContent.text) {
-                                    navigator.clipboard.writeText(
-                                      messageContent.text
-                                    );
-                                  }
-                                }}
-                              >
-                                <Copy fontSize="small" />
-                              </IconButton>
-                              <IconButton
-                                size="small"
-                                tooltip={t`This was helpful`}
-                                onClick={() => {
-                                  // $FlowFixMe[incompatible-type]
-                                  setMessageFeedbacks({
-                                    ...messageFeedbacks,
-                                    [feedbackKey]: 'like',
-                                  });
-                                  onSendFeedback(
-                                    aiRequest.id,
-                                    // $FlowFixMe[incompatible-type]
-                                    messageIndex,
-                                    'like'
-                                  );
-                                }}
-                              >
-                                <Like
-                                  fontSize="small"
-                                  htmlColor={
-                                    currentFeedback === 'like'
-                                      ? theme.message.valid
-                                      : undefined
-                                  }
-                                />
-                              </IconButton>
-                              <IconButton
-                                size="small"
-                                tooltip={t`This needs improvement`}
-                                onClick={() => {
-                                  // $FlowFixMe[incompatible-type]
-                                  setMessageFeedbacks({
-                                    ...messageFeedbacks,
-                                    [feedbackKey]: 'dislike',
-                                  });
-                                  // $FlowFixMe[incompatible-type]
-                                  setDislikeFeedbackDialogOpenedFor({
-                                    aiRequestId: aiRequest.id,
-                                    messageIndex,
-                                  });
-                                }}
-                              >
-                                <Dislike
-                                  fontSize="small"
-                                  htmlColor={
-                                    currentFeedback === 'dislike'
-                                      ? theme.message.warning
-                                      : undefined
-                                  }
-                                />
-                              </IconButton>
-                            </LineStackLayout>
-                          </div>
+                          undefined
                         )
                       }
                     >

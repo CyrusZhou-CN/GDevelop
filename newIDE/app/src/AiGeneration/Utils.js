@@ -16,11 +16,11 @@ import {
   updateAiRequestMessage,
 } from '../Utils/GDevelopServices/Generation';
 import AuthenticatedUserContext from '../Profile/AuthenticatedUserContext';
+import { processEditorFunctionCalls } from '../EditorFunctions/EditorFunctionCallRunner';
 import {
-  processEditorFunctionCalls,
+  type EditorCallbacks,
   type EditorFunctionCallResult,
-} from '../EditorFunctions/EditorFunctionCallRunner';
-import { type EditorCallbacks } from '../EditorFunctions';
+} from '../EditorFunctions';
 import {
   getFunctionCallNameByCallId,
   getFunctionCallOutputsFromEditorFunctionCallResults,
@@ -34,7 +34,6 @@ import { useSearchAndInstallAsset } from './UseSearchAndInstallAsset';
 import { useSearchAndInstallResource } from './UseSearchAndInstallResource';
 import { type ResourceManagementProps } from '../ResourcesList/ResourceSource';
 import { AiRequestContext } from './AiRequestContext';
-import PreferencesContext from '../MainFrame/Preferences/PreferencesContext';
 
 import { delay } from '../Utils/Delay';
 import { retryIfFailed } from '../Utils/RetryIfFailed';
@@ -225,7 +224,7 @@ export const useProcessFunctionCalls = ({
           })),
           relatedAiRequestId: selectedAiRequest.id,
           getRelatedAiRequestLastMessages: () =>
-            getLastMessagesFromAiRequestOutput(selectedAiRequest.output),
+            getLastMessagesFromAiRequestOutput(selectedAiRequest.output || []),
           generateEvents,
           onSceneEventsModifiedOutsideEditor,
           onInstancesModifiedOutsideEditor,
@@ -344,9 +343,6 @@ export const useAiRequestState = ({
 |}): {
   isFetchingSuggestions: boolean,
   savingProjectForMessageId: ?string,
-  selectedAiRequest: any,
-  selectedAiRequestId: any,
-  setAiState: any,
 } => {
   const authenticatedUser = React.useContext(AuthenticatedUserContext);
   const { profile, getAuthorizationHeader } = authenticatedUser;
@@ -355,19 +351,35 @@ export const useAiRequestState = ({
     editorFunctionCallResultsStorage,
     isFetchingSuggestions,
     setIsFetchingSuggestions,
+    selectedAiRequestId,
+    setSelectedAiRequestId,
+    selectedAiRequest,
   } = React.useContext(AiRequestContext);
-  const { aiRequests, updateAiRequest, isSendingAiRequest } = aiRequestStorage;
+  const { updateAiRequest, isSendingAiRequest } = aiRequestStorage;
   const { getEditorFunctionCallResults } = editorFunctionCallResultsStorage;
 
-  const { values, setAiState } = React.useContext(PreferencesContext);
-  const selectedAiRequestId = values.aiState.aiRequestId;
-
-  const selectedAiRequest =
-    (selectedAiRequestId && aiRequests[selectedAiRequestId]) || null;
   const [
     savingProjectForMessageId,
     setSavingProjectForMessageId,
   ] = React.useState<?string>(null);
+
+  const prevProjectRef = React.useRef(project);
+  React.useEffect(
+    () => {
+      if (prevProjectRef.current !== project) {
+        const hadPreviousProject = prevProjectRef.current !== null;
+        prevProjectRef.current = project;
+        // Only clear the selected request when switching away from an existing
+        // project (closing or switching projects). Do NOT clear when a project
+        // is first opened from scratch (null → project), e.g. when the AI
+        // creates a new project — we want to keep the in-progress request.
+        if (hadPreviousProject) {
+          setSelectedAiRequestId(null);
+        }
+      }
+    },
+    [project, setSelectedAiRequestId]
+  );
 
   const { hasUnsavedChanges } = React.useContext(UnsavedChangesContext);
   const isCloudProjectsMaximumReached = checkIfHasTooManyCloudProjects(
@@ -396,6 +408,7 @@ export const useAiRequestState = ({
           (selectedAiRequest.mode !== 'agent' &&
             selectedAiRequest.mode !== 'orchestrator') ||
           isSendingAiRequest(selectedAiRequest.id) ||
+          !selectedAiRequest.output ||
           selectedAiRequest.output.length === 0 ||
           selectedAiRequest.status !== 'ready' ||
           !profile ||
@@ -419,9 +432,10 @@ export const useAiRequestState = ({
         );
         if (hasUnfinishedResult) return;
 
+        const outputForSuggestions = selectedAiRequest.output || [];
         const lastMessage =
-          selectedAiRequest.output.length > 0
-            ? selectedAiRequest.output[selectedAiRequest.output.length - 1]
+          outputForSuggestions.length > 0
+            ? outputForSuggestions[outputForSuggestions.length - 1]
             : null;
         if (
           !lastMessage ||
@@ -586,29 +600,31 @@ export const useAiRequestState = ({
           }
           return {
             ...prevRequest,
-            output: prevRequest.output.map((message: AiRequestMessage) => {
-              if (
-                message.messageId === lastMessageId &&
-                message.role !== 'user'
-              ) {
-                // $FlowFixMe[incompatible-type] - Flow is not able to understand this is the right type.
-                return {
-                  ...message,
-                  projectVersionIdAfterMessage,
-                };
+            output: (prevRequest.output || []).map(
+              (message: AiRequestMessage) => {
+                if (
+                  message.messageId === lastMessageId &&
+                  message.role !== 'user'
+                ) {
+                  // $FlowFixMe[incompatible-type] - Flow is not able to understand this is the right type.
+                  return {
+                    ...message,
+                    projectVersionIdAfterMessage,
+                  };
+                }
+                if (
+                  message.messageId === lastMessageId &&
+                  message.role === 'user'
+                ) {
+                  // $FlowFixMe[incompatible-type] - Flow is not able to understand this is the right type.
+                  return {
+                    ...message,
+                    projectVersionIdBeforeMessage,
+                  };
+                }
+                return message;
               }
-              if (
-                message.messageId === lastMessageId &&
-                message.role === 'user'
-              ) {
-                // $FlowFixMe[incompatible-type] - Flow is not able to understand this is the right type.
-                return {
-                  ...message,
-                  projectVersionIdBeforeMessage,
-                };
-              }
-              return message;
-            }),
+            ),
           };
         });
       }
@@ -626,6 +642,7 @@ export const useAiRequestState = ({
           (selectedAiRequest.mode !== 'agent' &&
             selectedAiRequest.mode !== 'orchestrator') ||
           isSendingAiRequest(selectedAiRequest.id) ||
+          !selectedAiRequest.output ||
           selectedAiRequest.output.length === 0 ||
           !profile ||
           !project ||
@@ -637,9 +654,10 @@ export const useAiRequestState = ({
           return;
         }
 
+        const outputForSave = selectedAiRequest.output || [];
         const lastMessage =
-          selectedAiRequest.output.length > 0
-            ? selectedAiRequest.output[selectedAiRequest.output.length - 1]
+          outputForSave.length > 0
+            ? outputForSave[outputForSave.length - 1]
             : null;
         const lastMessageId = lastMessage ? lastMessage.messageId : null;
         if (!lastMessage || !lastMessageId) {
@@ -831,12 +849,10 @@ export const useAiRequestState = ({
     () => {
       // Reset selected request if user logs out.
       if (!profile) {
-        setAiState({
-          aiRequestId: null,
-        });
+        setSelectedAiRequestId(null);
       }
     },
-    [profile, setAiState]
+    [profile, setSelectedAiRequestId]
   );
 
   React.useEffect(
@@ -858,9 +874,7 @@ export const useAiRequestState = ({
               error
             );
             // If fetch fails, reset the selected request to avoid staying stuck
-            setAiState({
-              aiRequestId: null,
-            });
+            setSelectedAiRequestId(null);
           }
         })();
       }
@@ -871,14 +885,11 @@ export const useAiRequestState = ({
       profile,
       getAuthorizationHeader,
       updateAiRequest,
-      setAiState,
+      setSelectedAiRequestId,
     ]
   );
 
   return {
-    selectedAiRequest,
-    selectedAiRequestId,
-    setAiState,
     isFetchingSuggestions,
     savingProjectForMessageId,
   };
