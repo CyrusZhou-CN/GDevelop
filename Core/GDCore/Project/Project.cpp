@@ -47,37 +47,27 @@ using namespace std;
 namespace gd {
 
 Project::Project()
-    : name(_("Project")),
-      version("1.0.0"),
-      packageName("com.example.gamename"),
-      templateSlug(""),
-      orientation("landscape"),
-      folderProject(false),
-      windowWidth(800),
-      windowHeight(600),
-      maxFPS(60),
-      minFPS(20),
-      verticalSync(false),
-      scaleMode("linear"),
-      pixelsRounding(false),
-      adaptGameResolutionAtRuntime(true),
-      sizeOnStartupMode("adaptWidth"),
-      antialiasingMode("MSAA"),
-      isAntialisingEnabledOnMobile(false),
-      projectUuid(""),
-      useDeprecatedZeroAsDefaultZOrder(false),
-      isPlayableWithKeyboard(false),
-      isPlayableWithGamepad(false),
-      isPlayableWithMobile(false),
-      currentPlatform(nullptr),
+    : name(_("Project")), version("1.0.0"), packageName("com.example.gamename"),
+      templateSlug(""), orientation("landscape"), folderProject(false),
+      windowWidth(800), windowHeight(600), maxFPS(60), minFPS(20),
+      verticalSync(false), scaleMode("linear"), pixelsRounding(false),
+      adaptGameResolutionAtRuntime(true), sizeOnStartupMode("adaptWidth"),
+      antialiasingMode("MSAA"), isAntialisingEnabledOnMobile(false),
+      projectUuid(""), useDeprecatedZeroAsDefaultZOrder(false),
+      useDeprecatedZeroAsDefaultStringVariable(false),
+      isPlayableWithKeyboard(false), isPlayableWithGamepad(false),
+      isPlayableWithMobile(false), currentPlatform(nullptr),
       gdMajorVersion(gd::VersionWrapper::Major()),
       gdMinorVersion(gd::VersionWrapper::Minor()),
       gdBuildVersion(gd::VersionWrapper::Build()),
+      initialGDVersion(gd::String::From(gd::VersionWrapper::Major()) + "." +
+                       gd::String::From(gd::VersionWrapper::Minor()) + "." +
+                       gd::String::From(gd::VersionWrapper::Build())),
       variables(gd::VariablesContainer::SourceType::Global),
       objectsContainer(gd::ObjectsContainer::SourceType::Global),
       resourcesContainer(gd::ResourcesContainer::SourceType::Global),
-      sceneResourcesPreloading("at-startup"),
-      sceneResourcesUnloading("never") {}
+      sceneResourcesPreloading("at-startup"), sceneResourcesUnloading("never") {
+}
 
 Project::~Project() {}
 
@@ -703,6 +693,13 @@ void Project::UnserializeFrom(const SerializerElement& element) {
     }
   }
 
+  if (element.HasChild("initialGDVersion")) {
+    initialGDVersion =
+        element.GetChild("initialGDVersion").GetValue().GetString();
+  } else {
+    initialGDVersion = "";
+  }
+
   const SerializerElement& propElement =
       element.GetChild("properties", 0, "Info");
   SetName(propElement.GetChild("name", 0, "Nom").GetValue().GetString());
@@ -788,6 +785,17 @@ void Project::UnserializeFrom(const SerializerElement& element) {
   } else {
     useDeprecatedZeroAsDefaultZOrder =
         propElement.GetBoolAttribute("useDeprecatedZeroAsDefaultZOrder", false);
+  }
+  // end of compatibility code
+
+  // Compatibility with GD <= 5.6.266
+  if (VersionWrapper::IsOlderOrEqual(
+          gdMajorVersion, gdMinorVersion, gdBuildVersion, 0, 5, 6, 266, 0) &&
+      !propElement.HasAttribute("useDeprecatedZeroAsDefaultStringVariable")) {
+    useDeprecatedZeroAsDefaultStringVariable = true;
+  } else {
+    useDeprecatedZeroAsDefaultStringVariable = propElement.GetBoolAttribute(
+        "useDeprecatedZeroAsDefaultStringVariable", false);
   }
   // end of compatibility code
 
@@ -890,6 +898,7 @@ void Project::UnserializeFrom(const SerializerElement& element) {
     layout.UnserializeFrom(*this, layoutElement);
   }
   SetFirstLayout(element.GetChild("firstLayout").GetStringValue());
+  SetPreviewLayout(element.GetChild("previewLayout").GetStringValue());
 
   externalEvents.clear();
   const SerializerElement& externalEventsElement =
@@ -1086,6 +1095,10 @@ void Project::SerializeTo(SerializerElement& element) const {
   versionElement.SetAttribute("build", gd::VersionWrapper::Build());
   versionElement.SetAttribute("revision", gd::VersionWrapper::Revision());
 
+  if (!GetInitialGDVersion().empty()) {
+    element.AddChild("initialGDVersion").SetValue(GetInitialGDVersion());
+  }
+
   SerializerElement& propElement = element.AddChild("properties");
   propElement.AddChild("name").SetValue(GetName());
   propElement.AddChild("description").SetValue(GetDescription());
@@ -1156,6 +1169,12 @@ void Project::SerializeTo(SerializerElement& element) const {
   }
   // end of compatibility code
 
+  // Compatibility with GD <= 5.6.266
+  if (useDeprecatedZeroAsDefaultStringVariable) {
+    propElement.SetAttribute("useDeprecatedZeroAsDefaultStringVariable", true);
+  }
+  // end of compatibility code
+
   extensionProperties.SerializeTo(propElement.AddChild("extensionProperties"));
   
   SerializerElement& platformsElement = propElement.AddChild("platforms");
@@ -1189,6 +1208,9 @@ void Project::SerializeTo(SerializerElement& element) const {
   GetVariables().SerializeTo(element.AddChild("variables"));
 
   element.SetAttribute("firstLayout", firstLayout);
+  if (!previewLayout.empty()) {
+    element.SetAttribute("previewLayout", previewLayout);
+  }
   gd::SerializerElement& layoutsElement = element.AddChild("layouts");
   layoutsElement.ConsiderAsArrayOf("layout");
   for (std::size_t i = 0; i < GetLayoutsCount(); i++)
@@ -1271,6 +1293,7 @@ void Project::Init(const gd::Project& game) {
   categories = game.categories;
   description = game.description;
   firstLayout = game.firstLayout;
+  previewLayout = game.previewLayout;
   version = game.version;
   windowWidth = game.windowWidth;
   windowHeight = game.windowHeight;
@@ -1285,6 +1308,8 @@ void Project::Init(const gd::Project& game) {
   isAntialisingEnabledOnMobile = game.isAntialisingEnabledOnMobile;
   projectUuid = game.projectUuid;
   useDeprecatedZeroAsDefaultZOrder = game.useDeprecatedZeroAsDefaultZOrder;
+  useDeprecatedZeroAsDefaultStringVariable =
+      game.useDeprecatedZeroAsDefaultStringVariable;
 
   author = game.author;
   authorIds = game.authorIds;
@@ -1306,6 +1331,8 @@ void Project::Init(const gd::Project& game) {
   gdMajorVersion = game.gdMajorVersion;
   gdMinorVersion = game.gdMinorVersion;
   gdBuildVersion = game.gdBuildVersion;
+
+  initialGDVersion = game.initialGDVersion;
 
   currentPlatform = game.currentPlatform;
   platforms = game.platforms;

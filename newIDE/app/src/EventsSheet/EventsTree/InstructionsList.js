@@ -209,7 +209,7 @@ export default function InstructionsList({
       ? addButtonTooltipLabelTouch
       : addButtonTooltipLabelMouse;
 
-  const longTouchForContextMenuProps = useLongTouch(
+  const { contextMenuProps: longTouchForContextMenuProps } = useLongTouch(
     React.useCallback(
       event => {
         addButton.current &&
@@ -278,7 +278,7 @@ export default function InstructionsList({
                     }
                     title={i18n._(addButtonTooltipLabel)}
                   >
-                    {addButtonLabel || addButtonDefaultLabel}
+                    + {addButtonLabel || addButtonDefaultLabel}
                   </button>
                   {canPaste && (
                     <span style={styles.pasteButtonContainer}>

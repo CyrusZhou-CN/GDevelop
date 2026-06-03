@@ -29,7 +29,10 @@ import {
   selectLanguageOrLocale,
 } from '../../Utils/Language';
 import { type GamesDashboardOrderBy } from '../../GameDashboard/GamesList';
-import { CHECK_APP_UPDATES_TIMEOUT } from '../../Utils/GlobalFetchTimeouts';
+import {
+  CHECK_APP_UPDATES_TIMEOUT,
+  PERIODIC_APP_UPDATES_TIMEOUT,
+} from '../../Utils/GlobalFetchTimeouts';
 const electron = optionalRequire('electron');
 const ipcRenderer = electron ? electron.ipcRenderer : null;
 
@@ -133,6 +136,7 @@ export const getInitialPreferences = (): {
   use3DEditor: any,
   useBackgroundSerializerForSaving: boolean,
   showJsTypeError: boolean,
+  canonicalEventSerialization: boolean,
   useGDJSDevelopmentWatcher: boolean,
   useShortcutToClosePreviewWindow: boolean,
   userShortcutMap: {},
@@ -158,6 +162,9 @@ const getPreferences = (): PreferencesValues => {
 };
 
 export default class PreferencesProvider extends React.Component<Props, State> {
+  _periodicUpdateCheckTimeout: ?TimeoutID = null;
+  _periodicUpdateCheckInterval: ?IntervalID = null;
+
   // $FlowFixMe[missing-local-annot]
   state = {
     values: (getPreferences(): PreferencesValues),
@@ -172,7 +179,8 @@ export default class PreferencesProvider extends React.Component<Props, State> {
     // $FlowFixMe[method-unbinding]
     setAutoDownloadUpdates: (this._setAutoDownloadUpdates.bind(this): any),
     // $FlowFixMe[method-unbinding]
-    checkUpdates: (this._checkUpdates.bind(this): any),
+    checkUpdates: ((forceDownload?: boolean) =>
+      this._checkUpdates(forceDownload, true): any),
     // $FlowFixMe[method-unbinding]
     setAutoDisplayChangelog: (this._setAutoDisplayChangelog.bind(this): any),
     // $FlowFixMe[method-unbinding]
@@ -399,10 +407,26 @@ export default class PreferencesProvider extends React.Component<Props, State> {
     ): any),
     // $FlowFixMe[method-unbinding]
     setShowJsTypeError: (this._setShowJsTypeError.bind(this): any),
+    // $FlowFixMe[method-unbinding]
+    setCanonicalEventSerialization: (this._setCanonicalEventSerialization.bind(
+      this
+    ): any),
   };
 
   componentDidMount() {
-    setTimeout(() => this._checkUpdates(), CHECK_APP_UPDATES_TIMEOUT);
+    this._periodicUpdateCheckTimeout = setTimeout(
+      () => this._checkUpdates(),
+      CHECK_APP_UPDATES_TIMEOUT
+    );
+    this._periodicUpdateCheckInterval = setInterval(
+      () => this._checkUpdates(),
+      PERIODIC_APP_UPDATES_TIMEOUT
+    );
+  }
+
+  componentWillUnmount() {
+    clearTimeout(this._periodicUpdateCheckTimeout);
+    clearInterval(this._periodicUpdateCheckInterval);
   }
 
   _setMultipleValues(updates: ProjectSpecificPreferencesValues) {
@@ -778,7 +802,7 @@ export default class PreferencesProvider extends React.Component<Props, State> {
     );
   }
 
-  _checkUpdates(forceDownload?: boolean) {
+  _checkUpdates(forceDownload?: boolean, explicit?: boolean) {
     // Checking for updates is only done on Electron.
     // Note: This could be abstracted away later if other updates mechanisms
     // should be supported.
@@ -786,9 +810,9 @@ export default class PreferencesProvider extends React.Component<Props, State> {
     if (!ipcRenderer || disableCheckForUpdates) return;
 
     if (!!forceDownload || this.state.values.autoDownloadUpdates) {
-      ipcRenderer.send('updates-check-and-download');
+      ipcRenderer.send('updates-check-and-download', { explicit: !!explicit });
     } else {
-      ipcRenderer.send('updates-check');
+      ipcRenderer.send('updates-check', { explicit: !!explicit });
     }
   }
 
@@ -1253,6 +1277,15 @@ export default class PreferencesProvider extends React.Component<Props, State> {
     this.setState(
       state => ({
         values: { ...state.values, showJsTypeError: newValue },
+      }),
+      () => this._persistValuesToLocalStorage(this.state)
+    );
+  }
+
+  _setCanonicalEventSerialization(newValue: boolean) {
+    this.setState(
+      state => ({
+        values: { ...state.values, canonicalEventSerialization: newValue },
       }),
       () => this._persistValuesToLocalStorage(this.state)
     );

@@ -18,6 +18,7 @@ import {
 import ThreeDotsMenu from '../CustomSvgIcons/ThreeDotsMenu';
 import { type ItemData, type ItemBaseAttributes, navigationKeys } from '.';
 import { useLongTouch } from '../../Utils/UseLongTouch';
+import { useDragDropManager } from 'react-dnd';
 import { dataObjectToProps } from '../../Utils/HTMLDataset';
 import { type DraggedItem } from '../DragAndDrop/DragSourceAndDropTarget';
 import classNames from 'classnames';
@@ -100,6 +101,7 @@ const SemiControlledRowInput = ({
         }}
         onClick={stopPropagation}
         onDoubleClick={stopPropagation}
+        onContextMenu={stopPropagation}
         onBlur={() => {
           onEndRenaming(value);
         }}
@@ -159,9 +161,16 @@ const TreeViewRow = <Item: ItemBaseAttributes>(props: Props<Item>) => {
     'before' | 'after' | 'inside'
   >('before');
   const containerRef = React.useRef<?HTMLDivElement>(null);
+  const dragDropManager = useDragDropManager();
   const openContextMenu = React.useCallback(
     // $FlowFixMe[missing-local-annot]
     ({ clientX, clientY }) => {
+      // When the context menu opens it intercepts subsequent touch events,
+      // so the drag backend never receives touchend/touchcancel and the drag
+      // stays active indefinitely. End it explicitly before opening the menu.
+      if (dragDropManager.getMonitor().isDragging()) {
+        dragDropManager.getActions().endDrag();
+      }
       onContextMenu({
         index: index,
         item: node.item,
@@ -169,12 +178,15 @@ const TreeViewRow = <Item: ItemBaseAttributes>(props: Props<Item>) => {
         y: clientY,
       });
     },
-    [onContextMenu, index, node.item]
+    [dragDropManager, onContextMenu, index, node.item]
   );
 
-  const longTouchForContextMenuProps = useLongTouch(openContextMenu, {
-    delay: DELAY_BEFORE_OPENING_CONTEXT_MENU_ON_MOBILE,
-  });
+  const { contextMenuProps: longTouchForContextMenuProps } = useLongTouch(
+    openContextMenu,
+    {
+      delay: DELAY_BEFORE_OPENING_CONTEXT_MENU_ON_MOBILE,
+    }
+  );
 
   const onClickItem = React.useCallback(
     // $FlowFixMe[missing-local-annot]
@@ -364,6 +376,8 @@ const TreeViewRow = <Item: ItemBaseAttributes>(props: Props<Item>) => {
         }) => {
           setIsStayingOver(isOver, canDrop);
 
+          const isRenaming = renamedItemId === node.id;
+
           let itemRow = (
             <div
               className={classNames(classes.rowContentSide, {
@@ -460,11 +474,13 @@ const TreeViewRow = <Item: ItemBaseAttributes>(props: Props<Item>) => {
                   onEditItem ? () => onEditItem(node.item) : undefined
                 }
                 onContextMenu={
-                  shouldSelectUponContextMenuOpening
+                  isRenaming
+                    ? undefined
+                    : shouldSelectUponContextMenuOpening
                     ? selectAndOpenContextMenu
                     : openContextMenu
                 }
-                {...longTouchForContextMenuProps}
+                {...(isRenaming ? {} : longTouchForContextMenuProps)}
               >
                 {itemRow}
                 {(node.rightComponent ||

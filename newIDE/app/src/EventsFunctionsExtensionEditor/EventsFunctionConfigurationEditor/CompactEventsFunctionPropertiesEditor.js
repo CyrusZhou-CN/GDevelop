@@ -39,7 +39,6 @@ type Props = {|
   helpPagePath?: string,
   onConfigurationUpdated?: (?ExtensionItemConfigurationAttribute) => void,
   freezeEventsFunctionType?: boolean,
-  getFunctionGroupNames?: () => string[],
 |};
 
 const getFullNameHintText = (
@@ -80,7 +79,6 @@ export const CompactEventsFunctionPropertiesEditor = ({
   helpPagePath,
   eventsBasedBehavior,
   eventsBasedObject,
-  getFunctionGroupNames,
   eventsFunctionsContainer,
 }: Props): React.Node => {
   const forceUpdate = useForceUpdate();
@@ -375,6 +373,8 @@ export const CompactEventsFunctionPropertiesEditor = ({
                 if (onConfigurationUpdated) onConfigurationUpdated();
               }}
               getLastObjectParameterObjectType={() => ''}
+              // Expression can't return behaviors
+              onOpenBehaviorTypeDialog={() => {}}
             />
           )}
           <CompactCollapsibleAdvancedSection>

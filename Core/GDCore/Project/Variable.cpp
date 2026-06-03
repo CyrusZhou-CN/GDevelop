@@ -8,6 +8,7 @@
 
 #include <sstream>
 
+#include "GDCore/Serialization/Serializer.h"
 #include "GDCore/Serialization/SerializerElement.h"
 #include "GDCore/String.h"
 #include "GDCore/Tools/UUID/UUID.h"
@@ -255,10 +256,12 @@ bool Variable::InsertChild(const gd::String& name,
 };
 
 void Variable::SerializeTo(SerializerElement& element) const {
+  const bool canonical = gd::Serializer::IsCanonicalMode();
   element.SetStringAttribute("type", TypeAsString(GetType()));
-  if (IsFolded()) element.SetBoolAttribute("folded", true);
+  if (canonical || IsFolded())
+    element.SetBoolAttribute("folded", IsFolded());
 
-  if (!persistentUuid.empty())
+  if (canonical || !persistentUuid.empty())
     element.SetStringAttribute("persistentUuid", persistentUuid);
 
   if (type == Type::String) {
@@ -306,6 +309,9 @@ void Variable::UnserializeFrom(const SerializerElement& element) {
 
   if (IsPrimitive(type)) {
     if (type == Type::String) {
+      // Default to "0" for backward compatibility - projects saved before 5.6.267
+      // used "0" as the implicit default for string variables. The project flag
+      // useDeprecatedZeroAsDefaultStringVariable controls runtime behavior.
       SetString(element.GetStringAttribute("value", "0", "Value"));
     } else if (type == Type::Number) {
       SetValue(element.GetDoubleAttribute("value", 0.0, "Value"));

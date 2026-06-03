@@ -49,11 +49,13 @@ export const useLongTouch = (
     delay?: number,
     doNotCancelOnScroll?: boolean,
   }
-): {
-  onTouchEnd: () => void,
-  onTouchMove: (event: TouchEvent) => void,
-  onTouchStart: (event: TouchEvent) => void,
-} => {
+): {|
+  contextMenuProps: {|
+    onTouchEnd: () => void,
+    onTouchMove: (event: TouchEvent) => void,
+    onTouchStart: (event: TouchEvent) => void,
+  |},
+|} => {
   const timeout = React.useRef<?TimeoutID>(null);
   const context = options && options.context ? options.context : null;
   const delay = options && options.delay ? options.delay : defaultDelay;
@@ -141,8 +143,10 @@ export const useLongTouch = (
   );
 
   return {
-    onTouchStart: start,
-    onTouchMove: onMove,
-    onTouchEnd: clear,
+    contextMenuProps: {
+      onTouchStart: start,
+      onTouchMove: onMove,
+      onTouchEnd: clear,
+    },
   };
 };
