@@ -180,10 +180,7 @@ type Props = {|
   onOpenExternalEvents: string => void,
   onOpenLayout: string => void,
   resourceManagementProps: ResourceManagementProps,
-  openInstructionOrExpression: (
-    extension: gdPlatformExtension,
-    type: string
-  ) => void,
+  openInstructionOrExpression: (type: string) => void,
   onCreateEventsFunction: (
     extensionName: string,
     eventsFunction: gdEventsFunction
@@ -194,7 +191,13 @@ type Props = {|
   hotReloadPreviewButtonProps: HotReloadPreviewButtonProps,
   onWillInstallExtension: (extensionNames: Array<string>) => void,
   onExtensionInstalled: (extensionNames: Array<string>) => void,
-  editEventsFunctionParameter: VariableDialogOpeningProps => void,
+  onCreateNewExtensionWithBehavior:
+    | ((project: gdProject, object: gdObject) => void)
+    | null,
+  editEventsFunctionParameter: (VariableDialogOpeningProps => void) | null,
+  openEventsBasedEntityPropertyEditorDialog:
+    | (VariableDialogOpeningProps => void)
+    | null,
 |};
 
 type ComponentProps = {|
@@ -536,6 +539,24 @@ export class EventsSheetComponentWithoutHandle extends React.Component<
   updateToolbar() {
     if (!this.props.setToolbar) return;
 
+    try {
+      this._updateToolbar();
+    } catch (error) {
+      // The toolbar is rendered outside of the events sheet error boundary:
+      // an error while inspecting the selection (typically because it holds
+      // events destroyed by a change that did not clear the selection) would
+      // crash the whole app. Drop the selection and build the toolbar again.
+      console.error(
+        'Error while updating the events sheet toolbar - clearing the selection and retrying.',
+        error
+      );
+      this.setState({ selection: clearSelection() }, () =>
+        this._updateToolbar()
+      );
+    }
+  }
+
+  _updateToolbar() {
     const canAddSubEvent = this._selectionCanHaveSubEvents();
 
     this.props.setToolbar(
@@ -568,7 +589,7 @@ export class EventsSheetComponentWithoutHandle extends React.Component<
         onToggleSearchPanel={this._toggleSearchPanel}
         canMoveEventsIntoNewGroup={hasSomethingSelected(this.state.selection)}
         moveEventsIntoNewGroup={this.moveEventsIntoNewGroup}
-        onOpenSceneVariables={this.editLayoutVariables}
+        onOpenSceneVariables={this.openSceneVariables}
       />
     );
   }
@@ -897,7 +918,7 @@ export class EventsSheetComponentWithoutHandle extends React.Component<
     });
   };
 
-  editLayoutVariables = (open: boolean = true) => {
+  openSceneVariables = (open: boolean = true) => {
     this.setState({ layoutVariablesDialogOpen: open });
   };
 
@@ -2494,9 +2515,9 @@ export class EventsSheetComponentWithoutHandle extends React.Component<
               if (this._eventsTree) this._eventsTree.forceEventsUpdate();
             }}
             resourceManagementProps={this.props.resourceManagementProps}
-            openInstructionOrExpression={(extension, type) => {
+            openInstructionOrExpression={type => {
               this.closeInstructionEditor();
-              this.props.openInstructionOrExpression(extension, type);
+              this.props.openInstructionOrExpression(type);
             }}
             canPasteInstructions={
               this.state.editedInstruction.isCondition
@@ -2519,7 +2540,13 @@ export class EventsSheetComponentWithoutHandle extends React.Component<
             }}
             onWillInstallExtension={this.props.onWillInstallExtension}
             onExtensionInstalled={this.props.onExtensionInstalled}
+            onCreateNewExtensionWithBehavior={
+              this.props.onCreateNewExtensionWithBehavior
+            }
             editEventsFunctionParameter={this.props.editEventsFunctionParameter}
+            openEventsBasedEntityPropertyEditorDialog={
+              this.props.openEventsBasedEntityPropertyEditorDialog
+            }
           />
         )}
       </I18n>
@@ -2603,6 +2630,7 @@ export class EventsSheetComponentWithoutHandle extends React.Component<
       screenType,
       highlightedAiGeneratedEventIds,
       editEventsFunctionParameter,
+      openEventsBasedEntityPropertyEditorDialog,
     } = this.props;
     if (!project) return null;
 
@@ -2937,6 +2965,9 @@ export class EventsSheetComponentWithoutHandle extends React.Component<
                   }}
                   resourceManagementProps={resourceManagementProps}
                   editEventsFunctionParameter={editEventsFunctionParameter}
+                  openEventsBasedEntityPropertyEditorDialog={
+                    openEventsBasedEntityPropertyEditorDialog
+                  }
                 />
                 <ContextMenu
                   ref={eventContextMenu =>
@@ -3044,8 +3075,8 @@ export class EventsSheetComponentWithoutHandle extends React.Component<
           <GlobalAndSceneVariablesDialog
             projectScopedContainersAccessor={projectScopedContainersAccessor}
             open
-            onCancel={() => this.editLayoutVariables(false)}
-            onApply={() => this.editLayoutVariables(false)}
+            onCancel={() => this.openSceneVariables(false)}
+            onApply={() => this.openSceneVariables(false)}
             hotReloadPreviewButtonProps={hotReloadPreviewButtonProps}
             isListLocked={false}
             initiallySelectedVariable={null}

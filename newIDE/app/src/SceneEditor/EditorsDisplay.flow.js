@@ -20,6 +20,9 @@ import { type ObjectFolderOrObjectWithContext } from '../ObjectsList/EnumerateOb
 import { ProjectScopedContainersAccessor } from '../InstructionOrExpression/EventsScope';
 import { type TileMapTileSelection } from '../InstancesEditor/TileSetVisualizer';
 import { type EditorViewPosition2D } from '../InstancesEditor';
+import { type ObjectGroupEditorTab } from '../ObjectGroupEditor/EditedObjectGroupEditorDialog';
+
+export type LastSelectionType = 'instance' | 'object' | 'layer' | 'objectGroup';
 
 export type SceneEditorsDisplayProps = {|
   gameEditorMode: 'embedded-game' | 'instances-editor',
@@ -33,7 +36,7 @@ export type SceneEditorsDisplayProps = {|
   objectsContainer: gdObjectsContainer,
   projectScopedContainersAccessor: ProjectScopedContainersAccessor,
   initialInstances: gdInitialInstancesContainer,
-  lastSelectionType: 'instance' | 'object' | 'layer',
+  lastSelectionType: LastSelectionType,
   instancesSelection: InstancesSelection,
   onSelectInstances: (
     instances: Array<gdInitialInstance>,
@@ -76,6 +79,9 @@ export type SceneEditorsDisplayProps = {|
   onLayersModified: () => void,
   onLayersVisibilityInEditorChanged: () => void,
   onBackgroundColorChanged: () => void,
+  selectedObjectGroup: gdObjectGroup | null,
+  onSelectObjectGroup: (objectGroup: gdObjectGroup | null) => void,
+  openSceneVariables: () => void,
   onObjectCreated: (
     objects: Array<gdObject>,
     isTheFirstOfItsTypeInProject: boolean
@@ -85,8 +91,8 @@ export type SceneEditorsDisplayProps = {|
     objectWithContext: ObjectWithContext,
     hasResourceChanged: boolean
   ) => void,
-  onObjectFolderOrObjectWithContextSelected: (
-    ?ObjectFolderOrObjectWithContext
+  onObjectFolderOrObjectsWithContextSelected: (
+    Array<ObjectFolderOrObjectWithContext>
   ) => void,
   onSetAsGlobalObject: (object: gdObject) => void,
   onExportAssets: () => void,
@@ -106,7 +112,10 @@ export type SceneEditorsDisplayProps = {|
     done: (boolean) => void
   ) => void,
   onCreateObjectGroup: () => void,
-  onEditObjectGroup: (?gdObjectGroup) => void,
+  onEditObjectGroup: (
+    objectGroup: gdObjectGroup,
+    initialTab: ?ObjectGroupEditorTab
+  ) => void,
   onDeleteObjectGroup: (
     groupWithContext: GroupWithContext,
     done: (boolean) => void
@@ -127,6 +136,9 @@ export type SceneEditorsDisplayProps = {|
   ) => boolean,
   onWillInstallExtension: (extensionNames: Array<string>) => void,
   onExtensionInstalled: (extensionNames: Array<string>) => void,
+  onCreateNewExtensionWithBehavior:
+    | ((project: gdProject, object: gdObject) => void)
+    | null,
 
   updateBehaviorsSharedData: () => void,
   onInstancesAdded: (Array<gdInitialInstance>) => void,
@@ -203,6 +215,7 @@ export type SceneEditorsDisplayInterface = {|
       layer: string
     ) => Array<gdInitialInstance>,
     clearHighlightedInstance: () => void,
+    cancelClickInterception: () => boolean,
     resetInstanceRenderersFor: (objectName: string) => void,
     forceRemountInstancesRenderers: () => void,
     addSerializedInstances: ({|

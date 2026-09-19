@@ -4,7 +4,7 @@ import TabsTitlebar from './TabsTitlebar';
 import Toolbar, { type ToolbarInterface } from './Toolbar';
 import { TabContentContainer } from '../UI/ClosableTabs';
 import { DraggableEditorTabs } from './EditorTabs/DraggableEditorTabs';
-import CommandsContextScopedProvider from '../CommandPalette/CommandsScopedContext';
+import ActiveTabCommandsProvider from '../CommandPalette/ActiveTabCommandsProvider';
 import ErrorBoundary, {
   getEditorErrorBoundaryProps,
 } from '../UI/ErrorBoundary';
@@ -29,7 +29,13 @@ import {
   type InstancesOutsideEditorChanges,
   type ObjectsOutsideEditorChanges,
   type ObjectGroupsOutsideEditorChanges,
-} from './EditorContainers/BaseEditor';
+  type ProjectItemRenamedOutsideEditorChanges,
+  type WillDeleteSceneChanges,
+  type WillDeleteGameplayTestChanges,
+  type WillDeleteObjectChanges,
+  type ExtensionsOutsideEditorChanges,
+  type WillDeleteExtensionItemChanges,
+} from '../EditorFunctions/OutsideEditorChanges';
 import { type NavigateToEventFromGlobalSearchParams } from '../Utils/Search';
 import { type ResourceManagementProps } from '../ResourcesList/ResourceSource';
 import { type HotReloadPreviewButtonProps } from '../HotReload/HotReloadPreviewButton';
@@ -61,6 +67,7 @@ import DrawerTopBar from '../UI/DrawerTopBar';
 import { type FloatingPaneState } from './PanesContainer';
 import { type CreateProjectResult } from '../Utils/UseCreateProject';
 import { type OpenAskAiOptions } from '../AiGeneration/Utils';
+import { type GameplayTestsCallbacks } from '../GameplayTests/GameplayTestRunner';
 import { type ToolbarButtonConfig } from './CustomToolbarButton';
 import { type TriggerNpmScript } from './NpmScriptRunner/useNpmScriptRunner';
 
@@ -142,6 +149,7 @@ export type EditorTabsPaneCommonProps = {|
   onQuitVersionHistory: () => Promise<void>,
   onOpenAskAi: (?OpenAskAiOptions) => void,
   onCloseAskAi: () => void,
+  gameplayTestsCallbacks: GameplayTestsCallbacks,
   getStorageProvider: () => StorageProvider,
   setPreviewedLayout: ({|
     layoutName: string | null,
@@ -178,10 +186,7 @@ export type EditorTabsPaneCommonProps = {|
       | 'extension-events-editor'
       | 'external-events-editor'
   ) => Promise<void>,
-  openInstructionOrExpression: (
-    extension: gdPlatformExtension,
-    type: string
-  ) => void,
+  openInstructionOrExpression: (type: string) => void,
   onOpenCustomObjectEditor: (
     eventsFunctionsExtension: gdEventsFunctionsExtension,
     eventsBasedObject: gdEventsBasedObject,
@@ -201,6 +206,24 @@ export type EditorTabsPaneCommonProps = {|
   onDeletedEventsBasedObject: (
     eventsFunctionsExtension: gdEventsFunctionsExtension,
     name: string
+  ) => void,
+  onEventsBasedObjectMoved: (
+    oldExtensionName: string,
+    newExtensionName: string,
+    oldObjectName: string,
+    newObjectName: string
+  ) => void,
+  onEventsBasedBehaviorMoved: (
+    oldExtensionName: string,
+    newExtensionName: string,
+    oldBehaviorName: string,
+    newBehaviorName: string
+  ) => void,
+  onEventsFunctionMoved: (
+    oldExtensionName: string,
+    newExtensionName: string,
+    oldFunctionName: string,
+    newFunctionName: string
   ) => void,
   openObjectEvents: (extensionName: string, objectName: string) => void,
   onNavigateToEventFromGlobalSearch: (
@@ -284,8 +307,25 @@ export type EditorTabsPaneCommonProps = {|
   onObjectGroupsModifiedOutsideEditor: (
     changes: ObjectGroupsOutsideEditorChanges
   ) => void,
+  onProjectItemRenamedOutsideEditor: (
+    changes: ProjectItemRenamedOutsideEditorChanges
+  ) => void,
+  onWillDeleteScene: (changes: WillDeleteSceneChanges) => Promise<void>,
+  onWillDeleteGameplayTest: (
+    changes: WillDeleteGameplayTestChanges
+  ) => Promise<void>,
+  onWillDeleteObject: (changes: WillDeleteObjectChanges) => void,
+  onExtensionsModifiedOutsideEditor: (
+    changes: ExtensionsOutsideEditorChanges
+  ) => void,
+  onWillDeleteExtensionItem: (
+    changes: WillDeleteExtensionItemChanges
+  ) => Promise<void>,
   onWillInstallExtension: (extensionNames: Array<string>) => void,
   onExtensionInstalled: (extensionNames: Array<string>) => void,
+  onCreateNewExtensionWithBehavior:
+    | ((project: gdProject, object: gdObject) => void)
+    | null,
   onLoadEventsFunctionsExtensions: ({|
     shouldHotReloadEditor: boolean,
   |}) => Promise<void>,
@@ -348,6 +388,7 @@ const EditorTabsPane: React.ComponentType<{
     onQuitVersionHistory,
     onOpenAskAi,
     onCloseAskAi,
+    gameplayTestsCallbacks,
     getStorageProvider,
     setPreviewedLayout,
     openExternalEvents,
@@ -363,6 +404,9 @@ const EditorTabsPane: React.ComponentType<{
     onOpenEventsFunctionsExtension,
     onRenamedEventsBasedObject,
     onDeletedEventsBasedObject,
+    onEventsBasedObjectMoved,
+    onEventsBasedBehaviorMoved,
+    onEventsFunctionMoved,
     openObjectEvents,
     onNavigateToEventFromGlobalSearch,
     onEditorTabClosing,
@@ -400,8 +444,15 @@ const EditorTabsPane: React.ComponentType<{
     onInstancesModifiedOutsideEditor,
     onObjectsModifiedOutsideEditor,
     onObjectGroupsModifiedOutsideEditor,
+    onProjectItemRenamedOutsideEditor,
+    onWillDeleteScene,
+    onWillDeleteGameplayTest,
+    onWillDeleteObject,
+    onExtensionsModifiedOutsideEditor,
+    onWillDeleteExtensionItem,
     onWillInstallExtension,
     onExtensionInstalled,
+    onCreateNewExtensionWithBehavior,
     onEffectAdded,
     onObjectListsModified,
     onExternalLayoutAssociationChanged,
@@ -423,7 +474,6 @@ const EditorTabsPane: React.ComponentType<{
     projectPath,
     triggerNpmScript,
     onRequestPaneClose,
-    drawerState,
     rightPaneDrawerOpen,
   } = props;
 
@@ -525,6 +575,25 @@ const EditorTabsPane: React.ComponentType<{
     [editorTabs, setEditorTabs]
   );
 
+  // When the Ask AI tab is among the tabs about to be closed and a request is
+  // running, let the AI editor ask the user whether it should keep working,
+  // stop, or cancel the close. Returns false only if the close should be
+  // aborted (the user picked "Cancel").
+  const shouldProceedClosingTabs = React.useCallback(
+    (tabsBeingClosed: Array<EditorTab>): Promise<boolean> => {
+      const askAiTab = tabsBeingClosed.find(tab => tab.key === 'ask-ai');
+      if (askAiTab && askAiTab.editorRef) {
+        // $FlowFixMe[incompatible-use] - the key ensures an AskAiEditorInterface.
+        const ref = (askAiTab.editorRef: any);
+        if (ref.requestClose) {
+          return ref.requestClose();
+        }
+      }
+      return Promise.resolve(true);
+    },
+    []
+  );
+
   const onDropEditorTab = React.useCallback(
     (fromIndex: number, toHoveredIndex: number) => {
       setEditorTabs(
@@ -541,32 +610,6 @@ const EditorTabsPane: React.ComponentType<{
 
   const paneEditorTabs = getEditorsForPane(editorTabs, paneIdentifier);
   const currentTab = getCurrentTabForPane(editorTabs, paneIdentifier);
-
-  // On mobile, the Ask AI drawer is never unmounted when closed — the component
-  // stays mounted and is hidden via CSS transform. The unmount cleanup in
-  // AskAiEditorContainer therefore never fires. Detect the open→closed transition
-  // here and call suspendOnDrawerClose() explicitly so the AI request is stopped.
-  const prevDrawerStateRef = React.useRef(drawerState);
-  React.useEffect(
-    () => {
-      if (
-        isDrawer &&
-        drawerState === 'closed' &&
-        prevDrawerStateRef.current === 'open'
-      ) {
-        const askAiTab = paneEditorTabs.find(tab => tab.key === 'ask-ai');
-        if (askAiTab && askAiTab.editorRef) {
-          // $FlowFixMe[incompatible-use]
-          const ref = (askAiTab.editorRef: any);
-          if (ref.suspendOnDrawerClose) {
-            ref.suspendOnDrawerClose();
-          }
-        }
-      }
-      prevDrawerStateRef.current = drawerState;
-    },
-    [drawerState, isDrawer, paneEditorTabs]
-  );
 
   // Use a layout effect to read the pane width and height, which is then used
   // to communicate to children editors the dimensions of their "window" (the pane).
@@ -612,7 +655,14 @@ const EditorTabsPane: React.ComponentType<{
           drawerAnchor={isRightMostPane ? 'right' : 'left'}
           title={'Ask AI'}
           id={paneIdentifier + '-top-bar'}
-          onClose={() => onSetPaneDrawerState(paneIdentifier, 'closed')}
+          onClose={() => {
+            // Closing the drawer hides the editor but does not unmount it, so
+            // the AI keeps running. Still ask (via the AI editor's requestClose)
+            // whether it should be stopped; only hide the drawer if confirmed.
+            shouldProceedClosingTabs(paneEditorTabs).then(shouldClose => {
+              if (shouldClose) onSetPaneDrawerState(paneIdentifier, 'closed');
+            });
+          }}
           disableSafeAreaTopMargin
         />
       ) : (
@@ -630,34 +680,46 @@ const EditorTabsPane: React.ComponentType<{
               onClickTab={onChangeEditorTab}
               onCloseTab={(editorTab: EditorTab) => {
                 clearTooltipOnTabClose();
-                onEditorTabClosing(editorTab);
-                if (
-                  onRequestPaneClose &&
-                  paneEditorTabs.length === 1 &&
-                  !areSidePanesDrawers
-                ) {
-                  onRequestPaneClose(() => onCloseEditorTab(editorTab));
-                } else {
-                  onCloseEditorTab(editorTab);
-                }
+                shouldProceedClosingTabs([editorTab]).then(shouldClose => {
+                  if (!shouldClose) return;
+                  onEditorTabClosing(editorTab);
+                  if (
+                    onRequestPaneClose &&
+                    paneEditorTabs.length === 1 &&
+                    !areSidePanesDrawers
+                  ) {
+                    onRequestPaneClose(() => onCloseEditorTab(editorTab));
+                  } else {
+                    onCloseEditorTab(editorTab);
+                  }
+                });
               }}
               onCloseOtherTabs={(editorTab: EditorTab) => {
                 clearTooltipOnTabClose();
-                paneEditorTabs.forEach(paneEditorTab => {
-                  if (paneEditorTab !== editorTab && paneEditorTab.closable) {
+                const tabsBeingClosed = paneEditorTabs.filter(
+                  paneEditorTab =>
+                    paneEditorTab !== editorTab && paneEditorTab.closable
+                );
+                shouldProceedClosingTabs(tabsBeingClosed).then(shouldClose => {
+                  if (!shouldClose) return;
+                  tabsBeingClosed.forEach(paneEditorTab => {
                     onEditorTabClosing(paneEditorTab);
-                  }
+                  });
+                  onCloseOtherEditorTabs(editorTab);
                 });
-                onCloseOtherEditorTabs(editorTab);
               }}
               onCloseAll={() => {
                 clearTooltipOnTabClose();
-                paneEditorTabs.forEach(paneEditorTab => {
-                  if (paneEditorTab.closable) {
+                const tabsBeingClosed = paneEditorTabs.filter(
+                  paneEditorTab => paneEditorTab.closable
+                );
+                shouldProceedClosingTabs(tabsBeingClosed).then(shouldClose => {
+                  if (!shouldClose) return;
+                  tabsBeingClosed.forEach(paneEditorTab => {
                     onEditorTabClosing(paneEditorTab);
-                  }
+                  });
+                  onCloseAllEditorTabs();
                 });
-                onCloseAllEditorTabs();
               }}
               onPopOutTab={props.onPopOutTab}
               onTabActivated={onEditorTabActivated}
@@ -685,6 +747,10 @@ const EditorTabsPane: React.ComponentType<{
           !['start page', 'debugger', 'ask-ai', 'global-search', null].includes(
             currentTab ? currentTab.key : null
           )
+        }
+        showPreviewAndShareButtons={
+          // A gameplay test is run with its own button: no preview or share.
+          !currentTab || currentTab.kind !== 'gameplay-test'
         }
         canSave={canSave}
         onSave={saveProject}
@@ -725,13 +791,14 @@ const EditorTabsPane: React.ComponentType<{
             );
 
             const editorContent = (
-              <CommandsContextScopedProvider active={isCurrentTab}>
+              <ActiveTabCommandsProvider active={isCurrentTab}>
                 <ErrorBoundary
                   componentTitle={errorBoundaryProps.componentTitle}
                   scope={errorBoundaryProps.scope}
                 >
                   {editorTab.renderEditorContainer({
-                    editorId: editorTab.key,
+                    editorId: editorTab.id,
+                    paneIdentifier,
                     gameEditorMode,
                     setGameEditorMode,
                     isActive: isCurrentTab,
@@ -748,6 +815,7 @@ const EditorTabsPane: React.ComponentType<{
                     setPreviewedLayout,
                     onOpenAskAi,
                     onCloseAskAi,
+                    gameplayTestsCallbacks,
                     onOpenExternalEvents: openExternalEvents,
                     onOpenEvents: (sceneName: string) => {
                       openLayout(sceneName, {
@@ -775,6 +843,9 @@ const EditorTabsPane: React.ComponentType<{
                     onOpenEventsFunctionsExtension,
                     onRenamedEventsBasedObject: onRenamedEventsBasedObject,
                     onDeletedEventsBasedObject: onDeletedEventsBasedObject,
+                    onEventsBasedObjectMoved: onEventsBasedObjectMoved,
+                    onEventsBasedBehaviorMoved: onEventsBasedBehaviorMoved,
+                    onEventsFunctionMoved: onEventsFunctionMoved,
                     openObjectEvents,
                     onNavigateToEventFromGlobalSearch,
                     unsavedChanges: unsavedChanges,
@@ -854,8 +925,15 @@ const EditorTabsPane: React.ComponentType<{
                     onInstancesModifiedOutsideEditor: onInstancesModifiedOutsideEditor,
                     onObjectsModifiedOutsideEditor: onObjectsModifiedOutsideEditor,
                     onObjectGroupsModifiedOutsideEditor: onObjectGroupsModifiedOutsideEditor,
+                    onProjectItemRenamedOutsideEditor: onProjectItemRenamedOutsideEditor,
+                    onWillDeleteScene: onWillDeleteScene,
+                    onWillDeleteGameplayTest: onWillDeleteGameplayTest,
+                    onWillDeleteObject: onWillDeleteObject,
+                    onExtensionsModifiedOutsideEditor: onExtensionsModifiedOutsideEditor,
+                    onWillDeleteExtensionItem: onWillDeleteExtensionItem,
                     onWillInstallExtension: onWillInstallExtension,
                     onExtensionInstalled: onExtensionInstalled,
+                    onCreateNewExtensionWithBehavior: onCreateNewExtensionWithBehavior,
                     onEffectAdded: onEffectAdded,
                     onObjectListsModified: onObjectListsModified,
                     onExternalLayoutAssociationChanged,
@@ -864,12 +942,12 @@ const EditorTabsPane: React.ComponentType<{
                     gamesPlatformFrameTools,
                   })}
                 </ErrorBoundary>
-              </CommandsContextScopedProvider>
+              </ActiveTabCommandsProvider>
             );
 
             return (
               <TabContentContainer
-                key={editorTab.key}
+                key={editorTab.id}
                 active={isCurrentTab}
                 removePointerEvents={
                   // Deactivate pointer events when the play tab is active, so the iframe

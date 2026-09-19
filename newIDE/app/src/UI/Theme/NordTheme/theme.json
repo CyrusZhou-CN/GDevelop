@@ -93,6 +93,10 @@
       "text-contrast-color": {
         "value": "#1D1D26",
         "comment": "Palette/Grey/100"
+      },
+      "accent-text-color": {
+        "value": "#FFA929",
+        "comment": "Readable on this theme's surfaces, for the text of a premium/upsell accent."
       }
     },
     "hover": {
@@ -578,6 +582,28 @@
         "slider-aura-color": {
           "value": "rgba(217, 217, 222, 0.30)",
           "comment": "Palette/Grey/20 and alpha"
+        }
+      }
+    },
+    "auto-edit": {
+      "off": {
+        "background-color": {
+          "value": "#494952",
+          "comment": "Palette/Grey/70"
+        },
+        "text-color": {
+          "value": "#7F7F85",
+          "comment": "Palette/Grey/50"
+        }
+      },
+      "on": {
+        "background-color": {
+          "value": "#45D9A1",
+          "comment": "Palette/Green/40"
+        },
+        "text-color": {
+          "value": "#1D1D26",
+          "comment": "Palette/Grey/100"
         }
       }
     }

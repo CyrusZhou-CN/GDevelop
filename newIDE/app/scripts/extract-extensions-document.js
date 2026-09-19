@@ -250,7 +250,9 @@ const generateExtensionHeaderText = (
       '\n' +
       `${extensionShortHeader.shortDescription}\n` +
       '\n' +
-      `**Authors and contributors** to this experimental extension: ${authorNamesWithLinks}.\n` +
+      `**Authors and contributors** to this ${
+        isExperimental ? 'experimental ' : ''
+      }extension: ${authorNamesWithLinks}.\n` +
       '\n' +
       (isExperimental
         ? `!!! warning
@@ -666,7 +668,7 @@ const generateObjectsListPage = async (
   reviewedExtensions,
   experimentalExtensions
 ) => {
-  let content = '# Objects\n\n';
+  let content = '# All objects\n\n';
   content += `This page lists all the [objects](/gdevelop5/objects/) that are 
 provided in GDevelop.\n\n`;
   content += '## Core objects\n\n';

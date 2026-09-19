@@ -183,6 +183,11 @@ public:
 
   gd::FunctionFolderOrFunction &GetRootFolder() { return *rootFolder; }
 
+  /**
+   * \brief Rebuild the folder structure from the function groups.
+   */
+  void ReinitializeFolderStructure();
+
   void AddMissingFunctionsInRootFolder();
 
   /**
@@ -220,7 +225,7 @@ public:
    * Don't forget to update me if members were changed!
    */
   void Init(const gd::EventsFunctionsContainer& other) {
-    // The properties folders are not copied.
+    // The function folders are not copied.
     // It's not an issue because the UI uses the serialization for duplication.
     rootFolder = gd::make_unique<gd::FunctionFolderOrFunction>("__ROOT");
     SerializableWithNameList<gd::EventsFunction>::Init(other);

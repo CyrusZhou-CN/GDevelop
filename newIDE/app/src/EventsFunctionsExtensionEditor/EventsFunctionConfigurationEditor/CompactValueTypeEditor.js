@@ -32,6 +32,7 @@ const renderOptionIcon = (type: string, className: string): React.Node => {
       return <VariableNumberIcon className={className} />;
     case 'string':
     case 'stringWithSelector':
+    case 'easing':
     case 'identifier':
     case 'keyboardKey':
     case 'mouseButton':
@@ -165,6 +166,10 @@ export default function CompactValueTypeEditor({
                     label={t`Number from a list of options (number)`}
                   />
                   <SelectOption
+                    value="easing"
+                    label={t`Easing, for tweens (text)`}
+                  />
+                  <SelectOption
                     value="keyboardKey"
                     label={t`Keyboard Key (text)`}
                   />
@@ -234,11 +239,15 @@ export default function CompactValueTypeEditor({
                     value="identifier"
                     label={t`Identifier (text)`}
                   />
-                  <SelectOption value="variable" label={t`Variable`} />
-                  <SelectOption
-                    value="scenevar"
-                    label={t`Scene variable (deprecated)`}
-                  />
+                  {!isExpressionType && (
+                    <SelectOption value="variable" label={t`Variable`} />
+                  )}
+                  {!isExpressionType && (
+                    <SelectOption
+                      value="scenevar"
+                      label={t`Scene variable (deprecated)`}
+                    />
+                  )}
                   {!isExpressionType && (
                     <SelectOption
                       value="objectListOrEmptyIfJustDeclared"

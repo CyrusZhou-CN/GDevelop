@@ -2,10 +2,9 @@
 import * as React from 'react';
 import { type I18n as I18nType } from '@lingui/core';
 import Paper from '../UI/Paper';
-import EmptyMessage from '../UI/EmptyMessage';
 import useForceUpdate from '../Utils/UseForceUpdate';
 import { CompactInstancePropertiesEditor } from '../InstancesEditor/CompactInstancePropertiesEditor';
-import { Trans } from '@lingui/macro';
+import { Trans, Plural } from '@lingui/macro';
 import { ProjectScopedContainersAccessor } from '../InstructionOrExpression/EventsScope';
 import { type UnsavedChanges } from '../MainFrame/UnsavedChangesContext';
 import { type HistoryHandler } from '../VariablesList/VariablesList';
@@ -15,7 +14,15 @@ import { type ObjectEditorTab } from '../ObjectEditor/ObjectEditorDialog';
 import { type ResourceManagementProps } from '../ResourcesList/ResourceSource';
 import { CompactLayerPropertiesEditor } from '../LayersList/CompactLayerPropertiesEditor';
 import { CompactEventsBasedObjectVariantPropertiesEditor } from '../SceneEditor/CompactEventsBasedObjectVariantPropertiesEditor';
+import { CompactScenePropertiesEditor } from './CompactScenePropertiesEditor';
 import Rectangle from '../Utils/Rectangle';
+import { type LastSelectionType } from './EditorsDisplay.flow';
+import {
+  CompactObjectGroupPropertiesEditor,
+  type CompactObjectGroupPropertiesEditorInterface,
+} from '../ObjectGroupEditor/CompactObjectGroupPropertiesEditor';
+import { type ObjectGroupEditorTab } from '../ObjectGroupEditor/EditedObjectGroupEditorDialog';
+import EmptyMessage from '../UI/EmptyMessage';
 
 export const styles = {
   paper: {
@@ -29,11 +36,12 @@ export const styles = {
 type Props = {|
   project: gdProject,
   resourceManagementProps: ResourceManagementProps,
+  initialInstances: gdInitialInstancesContainer,
   layersContainer: gdLayersContainer,
   projectScopedContainersAccessor: ProjectScopedContainersAccessor,
   unsavedChanges?: ?UnsavedChanges,
   i18n: I18nType,
-  lastSelectionType: 'instance' | 'object' | 'layer',
+  lastSelectionType: LastSelectionType,
   historyHandler?: HistoryHandler,
   isVariableListLocked: boolean,
   layout?: ?gdLayout,
@@ -41,6 +49,7 @@ type Props = {|
   globalObjectsContainer: gdObjectsContainer | null,
 
   // For objects:
+  selectedObjectFolderOrObjectsCount: number,
   objects: Array<gdObject>,
   onEditObject: (object: gdObject, initialTab: ?ObjectEditorTab) => void,
   onObjectsModified: (objects: Array<gdObject>) => void,
@@ -48,6 +57,9 @@ type Props = {|
   onUpdateBehaviorsSharedData: () => void,
   onWillInstallExtension: (extensionNames: Array<string>) => void,
   onExtensionInstalled: (extensionNames: Array<string>) => void,
+  onCreateNewExtensionWithBehavior:
+    | ((project: gdProject, object: gdObject) => void)
+    | null,
   onOpenEventBasedObjectVariantEditor: (
     extensionName: string,
     eventsBasedObjectName: string,
@@ -83,6 +95,18 @@ type Props = {|
   onEventsBasedObjectChildrenEdited: (
     eventsBasedObject: gdEventsBasedObject
   ) => void,
+
+  // For scenes
+  onBackgroundColorChanged: () => void,
+  openSceneVariables: () => void,
+
+  // For object groups
+  objectGroup: gdObjectGroup | null,
+  isObjectGroupObjectListLocked: boolean,
+  onEditObjectGroup: (
+    objectGroup: gdObjectGroup,
+    initialTab: ?ObjectGroupEditorTab
+  ) => void,
 |};
 
 export type InstanceOrObjectPropertiesEditorInterface = {|
@@ -96,26 +120,55 @@ export const InstanceOrObjectPropertiesEditorContainer: React.ComponentType<{
 }> = React.forwardRef<Props, InstanceOrObjectPropertiesEditorInterface>(
   (props, ref) => {
     const forceUpdate = useForceUpdate();
-    // $FlowFixMe[incompatible-type]
-    React.useImperativeHandle(ref, () => ({
-      forceUpdate,
-      getEditorTitle: () =>
-        lastSelectionType === 'instance' ? (
-          <Trans>Instance properties</Trans>
-        ) : (
-          <Trans>Object properties</Trans>
-        ),
-    }));
+    const compactObjectGroupPropertiesEditorRef = React.useRef<?CompactObjectGroupPropertiesEditorInterface>(
+      null
+    );
+    React.useImperativeHandle<InstanceOrObjectPropertiesEditorInterface>(
+      ref,
+      () => ({
+        forceUpdate: () => {
+          // The variables of an object group are derived from its objects
+          // (they are the ones common to all of them): make the group
+          // properties editor re-read them, so changes made elsewhere (in the
+          // object group editor dialog, by an undo/redo...) are displayed.
+          if (compactObjectGroupPropertiesEditorRef.current)
+            compactObjectGroupPropertiesEditorRef.current.refreshVariables();
+          forceUpdate();
+        },
+        getEditorTitle: () =>
+          lastSelectionType === 'instance' ? (
+            <Trans>Instance properties</Trans>
+          ) : lastSelectionType === 'object' ? (
+            objects.length > 1 ? (
+              <Plural
+                value={objects.length}
+                one="# object selected"
+                other="# objects selected"
+              />
+            ) : (
+              <Trans>Object properties</Trans>
+            )
+          ) : lastSelectionType === 'layer' ? (
+            <Trans>Layer properties</Trans>
+          ) : lastSelectionType === 'objectGroup' ? (
+            <Trans>Object group properties</Trans>
+          ) : (
+            <Trans>Scene properties</Trans>
+          ),
+      })
+    );
 
     const {
       project,
       layersContainer,
+      initialInstances,
       projectScopedContainersAccessor,
       unsavedChanges,
       i18n,
       lastSelectionType,
 
       // For objects:
+      selectedObjectFolderOrObjectsCount,
       objects,
       onEditObject,
       onObjectsModified,
@@ -125,6 +178,7 @@ export const InstanceOrObjectPropertiesEditorContainer: React.ComponentType<{
       onUpdateBehaviorsSharedData,
       onWillInstallExtension,
       onExtensionInstalled,
+      onCreateNewExtensionWithBehavior,
       onOpenEventBasedObjectVariantEditor,
       onDeleteEventsBasedObjectVariant,
       isBehaviorListLocked,
@@ -156,6 +210,15 @@ export const InstanceOrObjectPropertiesEditorContainer: React.ComponentType<{
       layout,
       objectsContainer,
       globalObjectsContainer,
+
+      // For scenes
+      onBackgroundColorChanged,
+      openSceneVariables,
+
+      // For object groups
+      objectGroup,
+      isObjectGroupObjectListLocked,
+      onEditObjectGroup,
     } = props;
 
     return (
@@ -179,9 +242,10 @@ export const InstanceOrObjectPropertiesEditorContainer: React.ComponentType<{
             resourceManagementProps={resourceManagementProps}
             unsavedChanges={unsavedChanges}
             i18n={i18n}
-            canOverrideBehaviorProperties={!!eventsFunctionsExtension}
           />
-        ) : !!objects.length && lastSelectionType === 'object' ? (
+        ) : lastSelectionType === 'object' &&
+          objects.length === 1 &&
+          selectedObjectFolderOrObjectsCount === 1 ? (
           <CompactObjectPropertiesEditor
             objects={objects}
             onEditObject={onEditObject}
@@ -189,9 +253,18 @@ export const InstanceOrObjectPropertiesEditorContainer: React.ComponentType<{
             onEffectAdded={onEffectAdded}
             resourceManagementProps={resourceManagementProps}
             eventsFunctionsExtension={eventsFunctionsExtension}
+            // This EventsBasedObject is used to refactor variables in all
+            // variants when editing the default variant.
+            eventsBasedObject={
+              eventsBasedObject &&
+              eventsBasedObject.getDefaultVariant() === eventsBasedObjectVariant
+                ? eventsBasedObject
+                : null
+            }
             onUpdateBehaviorsSharedData={onUpdateBehaviorsSharedData}
             onWillInstallExtension={onWillInstallExtension}
             onExtensionInstalled={onExtensionInstalled}
+            onCreateNewExtensionWithBehavior={onCreateNewExtensionWithBehavior}
             isBehaviorListLocked={isBehaviorListLocked}
             onOpenEventBasedObjectVariantEditor={
               onOpenEventBasedObjectVariantEditor
@@ -202,11 +275,52 @@ export const InstanceOrObjectPropertiesEditorContainer: React.ComponentType<{
             layout={layout}
             objectsContainer={objectsContainer}
             globalObjectsContainer={globalObjectsContainer}
+            initialInstances={initialInstances}
             layersContainer={layersContainer}
             project={project}
             projectScopedContainersAccessor={projectScopedContainersAccessor}
             unsavedChanges={unsavedChanges}
             i18n={i18n}
+          />
+        ) : lastSelectionType === 'object' &&
+          selectedObjectFolderOrObjectsCount > 0 &&
+          objects.length === 0 ? (
+          <EmptyMessage>
+            <Trans>Folder selected. No properties to display.</Trans>
+          </EmptyMessage>
+        ) : lastSelectionType === 'object' &&
+          selectedObjectFolderOrObjectsCount > 0 ? (
+          <EmptyMessage>
+            <Plural
+              value={objects.length}
+              one="# object selected."
+              other="# objects selected."
+            />
+          </EmptyMessage>
+        ) : objectGroup && lastSelectionType === 'objectGroup' ? (
+          <CompactObjectGroupPropertiesEditor
+            ref={compactObjectGroupPropertiesEditorRef}
+            project={project}
+            resourceManagementProps={resourceManagementProps}
+            layout={layout}
+            eventsFunctionsExtension={eventsFunctionsExtension}
+            eventsBasedObject={eventsBasedObject}
+            objectsContainer={objectsContainer}
+            globalObjectsContainer={globalObjectsContainer}
+            initialInstances={initialInstances}
+            layersContainer={layersContainer}
+            projectScopedContainersAccessor={projectScopedContainersAccessor}
+            unsavedChanges={unsavedChanges}
+            historyHandler={historyHandler}
+            objectGroup={objectGroup}
+            isObjectListLocked={isObjectGroupObjectListLocked}
+            isBehaviorListLocked={isBehaviorListLocked}
+            isVariableListLocked={isVariableListLocked}
+            onEditObjectGroup={onEditObjectGroup}
+            onUpdateBehaviorsSharedData={onUpdateBehaviorsSharedData}
+            onWillInstallExtension={onWillInstallExtension}
+            onExtensionInstalled={onExtensionInstalled}
+            onCreateNewExtensionWithBehavior={onCreateNewExtensionWithBehavior}
           />
         ) : layer && lastSelectionType === 'layer' ? (
           <CompactLayerPropertiesEditor
@@ -233,14 +347,18 @@ export const InstanceOrObjectPropertiesEditorContainer: React.ComponentType<{
             unsavedChanges={unsavedChanges}
             i18n={i18n}
           />
-        ) : (
-          <EmptyMessage>
-            <Trans>
-              Click on an instance on the canvas or an object in the list to
-              display their properties.
-            </Trans>
-          </EmptyMessage>
-        )}
+        ) : layout ? (
+          <CompactScenePropertiesEditor
+            scene={layout}
+            resourceManagementProps={resourceManagementProps}
+            project={project}
+            projectScopedContainersAccessor={projectScopedContainersAccessor}
+            unsavedChanges={unsavedChanges}
+            i18n={i18n}
+            onBackgroundColorChanged={onBackgroundColorChanged}
+            openSceneVariables={openSceneVariables}
+          />
+        ) : null}
       </Paper>
     );
   }

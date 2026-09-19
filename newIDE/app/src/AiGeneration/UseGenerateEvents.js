@@ -3,6 +3,7 @@ import * as React from 'react';
 import AuthenticatedUserContext from '../Profile/AuthenticatedUserContext';
 import { retryIfFailed } from '../Utils/RetryIfFailed';
 import { delay } from '../Utils/Delay';
+import { getBackedOffIntervalInMs } from '../Utils/UseAdaptivePollingInterval';
 import {
   getAiGeneratedEvent,
   createAiGeneratedEvent,
@@ -12,7 +13,9 @@ import {
   type EventsGenerationResult,
   type EventBatch,
 } from '../EditorFunctions';
+import { type ToolScope } from '../EditorFunctions/Scope';
 import { makeSimplifiedProjectBuilder } from '../EditorFunctions/SimplifiedProject/SimplifiedProject';
+import { type FunctionAuthoringScope } from '../InstructionOrExpression/EnumeratedInstructionOrExpressionMetadata';
 import { prepareAiUserContent } from './PrepareAiUserContent';
 
 const gd: libGDevelop = global.gd;
@@ -21,12 +24,13 @@ type UseGenerateEventsReturnType = {
   generateEvents: ({
     eventsDescription: string | null,
     eventBatches: Array<EventBatch> | null,
-    existingEventsAsText: string,
     existingEventsJson: string | null,
     extensionNamesList: string,
     objectsList: string,
     placementHint: string | null,
     relatedAiRequestId: string,
+    scope: ToolScope,
+    functionName: string | null,
     sceneName: string,
     estimatedComplexity: number | null,
   }) => Promise<EventsGenerationResult>,
@@ -42,23 +46,25 @@ export const useGenerateEvents = ({
 
   const generateEvents = React.useCallback(
     async ({
+      scope,
+      functionName,
       sceneName,
       eventsDescription,
       eventBatches,
       extensionNamesList,
       objectsList,
-      existingEventsAsText,
       existingEventsJson,
       placementHint,
       relatedAiRequestId,
       estimatedComplexity,
     }: {|
+      scope: ToolScope,
+      functionName: string | null,
       sceneName: string,
       eventsDescription: string | null,
       eventBatches: Array<EventBatch> | null,
       extensionNamesList: string,
       objectsList: string,
-      existingEventsAsText: string,
       existingEventsJson: string | null,
       placementHint: string | null,
       relatedAiRequestId: string,
@@ -71,8 +77,20 @@ export const useGenerateEvents = ({
       const simplifiedProjectJson = JSON.stringify(
         simplifiedProjectBuilder.getSimplifiedProject(project, {})
       );
+      // Events written inside a function of an extension can call the private
+      // members reachable from where this function is authored: describe them.
+      const authoringScope: FunctionAuthoringScope | null =
+        functionName && scope.extension_name
+          ? {
+              extensionName: scope.extension_name,
+              customBehaviorName: scope.custom_behavior_name || null,
+              customObjectName: scope.custom_object_name || null,
+            }
+          : null;
       const projectSpecificExtensionsSummaryJson = JSON.stringify(
-        simplifiedProjectBuilder.getProjectSpecificExtensionsSummary(project)
+        simplifiedProjectBuilder.getProjectSpecificExtensionsSummary(project, {
+          authoringScope,
+        })
       );
 
       try {
@@ -99,12 +117,13 @@ export const useGenerateEvents = ({
               existingEventsJsonUserRelativeKey:
                 preparedAiUserContent.eventsJsonUserRelativeKey,
               existingEventsJson: preparedAiUserContent.eventsJson,
+              scope,
+              functionName,
               sceneName,
               eventsDescription,
               eventBatches,
               extensionNamesList,
               objectsList,
-              existingEventsAsText,
               placementHint,
               relatedAiRequestId,
               estimatedComplexity,
@@ -118,11 +137,15 @@ export const useGenerateEvents = ({
           };
         }
 
-        let remainingAttempts = 50;
+        // Poll with exponential backoff (fast initially, capped), bounded by a
+        // total time budget rather than a fixed attempt count.
+        const maxTotalWaitMs = 180000;
+        const maxPollIntervalMs = 5000;
+        const startTime = Date.now();
+        let pollIntervalMs = 1000;
         let aiGeneratedEvent = createResult.aiGeneratedEvent;
         while (aiGeneratedEvent.status === 'working') {
-          remainingAttempts--;
-          await delay(1000);
+          await delay(pollIntervalMs);
 
           try {
             aiGeneratedEvent = await getAiGeneratedEvent(
@@ -138,7 +161,11 @@ export const useGenerateEvents = ({
               error
             );
           }
-          if (remainingAttempts <= 0) {
+          pollIntervalMs = getBackedOffIntervalInMs(
+            pollIntervalMs,
+            maxPollIntervalMs
+          );
+          if (Date.now() - startTime >= maxTotalWaitMs) {
             return {
               generationCompleted: false,
               errorMessage:

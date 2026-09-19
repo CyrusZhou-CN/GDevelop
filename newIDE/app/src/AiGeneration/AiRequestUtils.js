@@ -5,9 +5,49 @@ import {
   type AiRequestMessageAssistantFunctionCall,
   type AiRequestFunctionCallOutput,
   type AiRequestPlan,
+  type AiRequestSummary,
+  type AiRequestUserMessage,
 } from '../Utils/GDevelopServices/Generation';
 import { type EditorFunctionCallResult } from '../EditorFunctions';
 import { type RelatedAiRequestLastMessages } from '../EditorFunctions';
+
+/** The text typed by the user in one of their messages. */
+export const getUserRequestText = (message: AiRequestUserMessage): string =>
+  message.content
+    .filter(content => content.type === 'user_request')
+    .map(content => content.text)
+    .join(' ');
+
+/**
+ * The name of a chat: the title the user gave to it, or its first message
+ * otherwise. Empty when the chat has neither.
+ */
+export const getAiRequestSummaryTitle = (
+  aiRequestSummary: AiRequestSummary
+): string =>
+  aiRequestSummary.title ||
+  (aiRequestSummary.firstUserMessage
+    ? getUserRequestText(aiRequestSummary.firstUserMessage)
+    : '');
+
+/**
+ * Maximum number of times a failed AI request can be continued without making
+ * any progress in between - kept in sync with the API, which is what really
+ * enforces it.
+ */
+export const MAX_AI_REQUEST_RETRIES_IN_A_ROW = 3;
+
+/**
+ * Whether the API would still accept to continue this failed request, so that
+ * a retry is only offered when it can work. Like the API, the retries only
+ * count while nothing was written to the conversation in between.
+ */
+export const canRetryAiRequest = (aiRequest: AiRequest): boolean =>
+  aiRequest.status === 'error' &&
+  !(
+    aiRequest.retriedAfterMessagesCount === (aiRequest.output || []).length &&
+    (aiRequest.retriesInARowCount || 0) >= MAX_AI_REQUEST_RETRIES_IN_A_ROW
+  );
 
 export const getFunctionCallToFunctionCallOutputMap = ({
   aiRequest,
@@ -149,6 +189,35 @@ export const getAllSubAgentFunctionCalls = ({
 };
 
 /**
+ * Determine which kind of sub-agent an AI request is, by looking at the call
+ * that launched it in its parent request (`run_edit_agent` vs
+ * `run_explorer_agent`). Returns null for a top-level request (no parent) or
+ * when the parent/launching call cannot be resolved.
+ *
+ * Used to gate script behavior by mode: an explorer sub-agent's `run_script`
+ * is read-only, so it is neither exposed mutating functions nor gated behind
+ * the edit approval.
+ */
+export const getSubAgentKind = ({
+  aiRequest,
+  aiRequests,
+}: {|
+  aiRequest: AiRequest,
+  aiRequests: { [string]: AiRequest },
+|}): 'edit' | 'explorer' | null => {
+  if (!aiRequest.parentAiRequestId) return null;
+  const parentRequest = aiRequests[aiRequest.parentAiRequestId] || null;
+  if (!parentRequest) return null;
+  const launchingCall = getAllSubAgentFunctionCalls({
+    aiRequest: parentRequest,
+  }).find(functionCall => functionCall.subAgentAiRequestId === aiRequest.id);
+  if (!launchingCall) return null;
+  if (launchingCall.name === 'run_explorer_agent') return 'explorer';
+  if (launchingCall.name === 'run_edit_agent') return 'edit';
+  return null;
+};
+
+/**
  * Returns sub-agent function calls (those with a subAgentAiRequestId)
  * that don't yet have a corresponding function_call_output in the AI request output.
  */
@@ -240,6 +309,37 @@ export const aiRequestShouldBeWatched = (aiRequest: AiRequest): boolean => {
     return getPendingSubAgentFunctionCalls({ aiRequest }).length > 0;
   }
   return false;
+};
+
+/**
+ * Whether a poll observed activity (a status change or new messages) for an AI
+ * request, used to drive adaptive polling.
+ *
+ * A full fetch is incremental from the last already-known message, which is
+ * echoed back: so when there was a known message, a returned count > 1 means at
+ * least one new message; when there was no known message yet, every returned
+ * message is new.
+ */
+export const aiRequestPollSawActivity = (
+  previousAiRequest: ?AiRequest,
+  fetchedAiRequest: AiRequest
+): boolean => {
+  const previousOutput = (previousAiRequest && previousAiRequest.output) || [];
+  const lastKnownMessage =
+    previousOutput.length > 0
+      ? previousOutput[previousOutput.length - 1]
+      : null;
+  const wasIncrementalFetch = !!(
+    lastKnownMessage && lastKnownMessage.messageId
+  );
+  const fetchedMessageCount =
+    (fetchedAiRequest.output && fetchedAiRequest.output.length) || 0;
+  const newMessageCount = wasIncrementalFetch
+    ? Math.max(0, fetchedMessageCount - 1)
+    : fetchedMessageCount;
+
+  const previousStatus = previousAiRequest ? previousAiRequest.status : null;
+  return fetchedAiRequest.status !== previousStatus || newMessageCount > 0;
 };
 
 // TODO: can we merge these two functions?

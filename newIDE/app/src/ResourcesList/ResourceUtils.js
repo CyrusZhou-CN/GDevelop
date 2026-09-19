@@ -1,5 +1,4 @@
 // @flow
-import ResourcesLoader from '../ResourcesLoader';
 import optionalRequire from '../Utils/OptionalRequire';
 import newNameGenerator from '../Utils/NewNameGenerator';
 import { toNewGdMapStringString } from '../Utils/MapStringString';
@@ -31,24 +30,24 @@ export const createOrUpdateResource = (
  * Get the local path of a resource. This works by asking the ResourcesLoader
  * for the resource URL, then stripping anything that is specific to a URL.
  */
+/**
+ * Get the absolute path on disk of a local resource. This is computed from
+ * the resource file (not from the URL given by `ResourcesLoader`, which is
+ * percent-encoded to be usable by the browser).
+ */
 export const getLocalResourceFullPath = (
   project: gdProject,
   resourceName: string
-): any => {
-  let resourcePath = ResourcesLoader.getResourceFullUrl(
-    project,
-    resourceName,
-    {}
-  ).substring(7 /* Remove "file://" from the URL to get a local path */);
+): string => {
+  const resourcesManager = project.getResourcesManager();
+  if (!resourcesManager.hasResource(resourceName)) return '';
 
-  if (resourcePath.indexOf('?cache=') !== -1) {
-    // Remove, if needed, the cache bursting argument from the URL.
-    resourcePath = resourcePath.substring(
-      0,
-      resourcePath.lastIndexOf('?cache=')
-    );
-  }
-  return resourcePath;
+  const resourceFile = resourcesManager.getResource(resourceName).getFile();
+  if (!path || isURL(resourceFile)) return resourceFile;
+
+  return path
+    .resolve(path.dirname(project.getProjectFile()), resourceFile)
+    .replace(/\\/g, '/');
 };
 
 export const isPathInProjectFolder = (
@@ -237,6 +236,74 @@ export const updateResourceJsonMetadata = (
   }
 
   resource.setMetadata(JSON.stringify(newMetadata));
+};
+
+// Key under which the project-configurable custom resource properties
+// (defined in gdevelop-settings.yaml) are stored inside the resource metadata
+// JSON. Kept separate from other metadata keys (e.g. localFilePath) to avoid
+// collisions.
+export const RESOURCE_CUSTOM_PROPERTIES_METADATA_KEY =
+  'resourceCustomProperties';
+
+export type ResourceCustomPropertyValue = string | number | boolean;
+
+/**
+ * Returns the map of custom property values stored on a resource, or an empty
+ * object if none are set or the metadata is malformed.
+ */
+export const getResourceCustomProperties = (
+  resource: gdResource
+): { [string]: ResourceCustomPropertyValue } => {
+  const metadataAsString = resource.getMetadata();
+  if (!metadataAsString) return {};
+  try {
+    const metadata = JSON.parse(metadataAsString);
+    if (
+      metadata &&
+      typeof metadata === 'object' &&
+      metadata[RESOURCE_CUSTOM_PROPERTIES_METADATA_KEY] &&
+      typeof metadata[RESOURCE_CUSTOM_PROPERTIES_METADATA_KEY] === 'object'
+    ) {
+      return metadata[RESOURCE_CUSTOM_PROPERTIES_METADATA_KEY];
+    }
+  } catch (error) {
+    // Malformed metadata: treat as if no custom properties were set.
+  }
+  return {};
+};
+
+/**
+ * Returns the stored value for a single custom property, falling back to the
+ * provided default value (typically from the YAML schema) if it is not set.
+ */
+export const getResourceCustomPropertyValue = (
+  resource: gdResource,
+  name: string,
+  defaultValue: ?ResourceCustomPropertyValue
+): ?ResourceCustomPropertyValue => {
+  const resourceCustomProperties = getResourceCustomProperties(resource);
+  if (resourceCustomProperties[name] !== undefined) {
+    return resourceCustomProperties[name];
+  }
+  return defaultValue == null ? null : defaultValue;
+};
+
+/**
+ * Sets (or merges) a single custom property value on a resource, storing it in
+ * the resource metadata JSON under RESOURCE_CUSTOM_PROPERTIES_METADATA_KEY.
+ */
+export const setResourceCustomPropertyValue = (
+  resource: gdResource,
+  name: string,
+  value: ResourceCustomPropertyValue
+) => {
+  const resourceCustomProperties = {
+    ...getResourceCustomProperties(resource),
+    [name]: value,
+  };
+  updateResourceJsonMetadata(resource, {
+    [RESOURCE_CUSTOM_PROPERTIES_METADATA_KEY]: resourceCustomProperties,
+  });
 };
 
 export const isFetchableUrl = (url: string): boolean => {

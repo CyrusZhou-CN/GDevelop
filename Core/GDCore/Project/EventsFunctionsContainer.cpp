@@ -38,6 +38,12 @@ EventsFunctionsContainer::GetAllFunctionFolderOrFunction() const {
   return results;
 }
 
+void EventsFunctionsContainer::ReinitializeFolderStructure() {
+  rootFolder->Clear();
+  AddMissingFunctionsInRootFolder();
+}
+
+
 void EventsFunctionsContainer::AddMissingFunctionsInRootFolder() {
   for (std::size_t i = 0; i < GetEventsFunctionsCount(); ++i) {
     auto &function = GetEventsFunction(i);
@@ -52,6 +58,7 @@ void EventsFunctionsContainer::AddMissingFunctionsInRootFolder() {
         }
       }
       const gd::String &group = groupSource->GetGroup();
+      // TODO Handle sub-folders
       auto &folder = !group.empty() ? rootFolder->GetOrCreateChildFolder(group)
                                     : *rootFolder;
       folder.InsertFunction(&function);

@@ -7,7 +7,13 @@ import {
   type AiRequest,
   type AiSettings,
   type GenerationStatus,
-  getAiRequests,
+  type AiRequestSummary,
+  type AiRequestSummariesFilter,
+  getAiRequestSummaries,
+  getAiRequestSummary,
+  updateAiRequest as apiUpdateAiRequest,
+  deleteAiRequest as apiDeleteAiRequest,
+  suspendAiRequest as apiSuspendAiRequest,
 } from '../Utils/GDevelopServices/Generation';
 import AuthenticatedUserContext from '../Profile/AuthenticatedUserContext';
 import { type EditorFunctionCallResult } from '../EditorFunctions';
@@ -16,8 +22,17 @@ import { AI_SETTINGS_FETCH_TIMEOUT } from '../Utils/GlobalFetchTimeouts';
 import { useAsyncLazyMemo } from '../Utils/UseLazyMemo';
 import { retryIfFailed } from '../Utils/RetryIfFailed';
 import { useInterval } from '../Utils/UseInterval';
+import { useAdaptivePollingInterval } from '../Utils/UseAdaptivePollingInterval';
+import { usePageBecameVisible } from '../Utils/PageVisibility';
+import { useKeepPageActive } from '../Utils/UseKeepPageActive';
 import useForceUpdate from '../Utils/UseForceUpdate';
-import { aiRequestShouldBeWatched } from './AiRequestUtils';
+import {
+  aiRequestShouldBeWatched,
+  aiRequestHasWorkInProgress,
+  aiRequestPollSawActivity,
+  getUserRequestText,
+} from './AiRequestUtils';
+import { type EditApprovalRequest } from './Utils';
 
 type EditorFunctionCallResultsStorage = {|
   getEditorFunctionCallResults: (
@@ -98,13 +113,47 @@ const useEditorFunctionCallResultsStorage = (): EditorFunctionCallResultsStorage
   };
 };
 
+/**
+ * The loading of an AI request known only by its id (opened from the history).
+ */
+export type AiRequestLoadingState = {|
+  isLoading: boolean,
+  error: ?Error,
+|};
+
 type AiRequestStorage = {|
-  fetchAiRequests: () => Promise<void>,
-  onLoadMoreAiRequests: () => Promise<void>,
+  fetchAiRequestSummaries: () => Promise<void>,
+  onLoadMoreAiRequestSummaries: () => Promise<void>,
   canLoadMore: boolean,
   error: ?Error,
   isLoading: boolean,
-  aiRequests: { [string]: AiRequest },
+  // Which chats are fetched in the history. The summaries of the other chats
+  // known are kept, the history only shows the ones matching the filter.
+  aiRequestSummariesFilter: AiRequestSummariesFilter,
+  setAiRequestSummariesFilter: (filter: AiRequestSummariesFilter) => void,
+  // The opened game, whose chats are fetched too, to be shown first.
+  aiRequestSummariesGameId: ?string,
+  setAiRequestSummariesGameId: (gameId: ?string) => void,
+  onLoadMoreGameAiRequestSummaries: () => Promise<void>,
+  canLoadMoreGameAiRequestSummaries: boolean,
+  // The chat history: the user's top-level AI requests, newest first.
+  aiRequestSummaries: { [aiRequestId: string]: AiRequestSummary },
+  // The AI requests loaded with their conversation: the ones opened, created
+  // or running in this session, and the sub-agents of the opened one.
+  aiRequests: { [aiRequestId: string]: AiRequest },
+  // The AI requests being loaded to be opened, or that could not be loaded.
+  aiRequestLoadingStates: { [aiRequestId: string]: AiRequestLoadingState },
+  loadAiRequest: (aiRequestId: string) => Promise<void>,
+  // Give a name to a chat (an empty title removes it). The name is shown right
+  // away and reverted if the API refuses it.
+  renameAiRequest: (aiRequestId: string, title: string) => Promise<void>,
+  // Archive a chat, or restore it. Shown right away and reverted on failure.
+  setAiRequestArchived: (
+    aiRequestId: string,
+    archived: boolean
+  ) => Promise<void>,
+  // Delete a chat. Removed right away, the history is refreshed on failure.
+  deleteAiRequest: (aiRequestId: string) => Promise<void>,
   updateAiRequest: (
     aiRequestId: string,
     updateFn: (previousAiRequest: ?AiRequest) => AiRequest
@@ -132,14 +181,33 @@ type AiRequestSendState = {|
   lastSendError: ?Error,
 |};
 
-type PaginationState = {|
+type AiRequestsState = {|
+  aiRequestSummaries: { [aiRequestId: string]: AiRequestSummary },
+  // The next page of the recent chats, and of the chats of the opened game.
+  nextPageUri: ?string,
+  gameId: ?string,
+  gameNextPageUri: ?string,
   aiRequests: { [aiRequestId: string]: AiRequest },
-  nextPageUri: ?Object,
 |};
 
-const emptyPaginationState: PaginationState = {
-  aiRequests: {},
+const emptyAiRequestsState: AiRequestsState = {
+  aiRequestSummaries: {},
   nextPageUri: null,
+  gameId: null,
+  gameNextPageUri: null,
+  aiRequests: {},
+};
+
+const toAiRequestSummariesById = (
+  aiRequestSummaries: Array<AiRequestSummary>
+): { [aiRequestId: string]: AiRequestSummary } => {
+  const aiRequestSummariesById: {
+    [aiRequestId: string]: AiRequestSummary,
+  } = {};
+  aiRequestSummaries.forEach(aiRequestSummary => {
+    aiRequestSummariesById[aiRequestSummary.id] = aiRequestSummary;
+  });
+  return aiRequestSummariesById;
 };
 
 export const useAiRequestsStorage = (): AiRequestStorage => {
@@ -147,85 +215,154 @@ export const useAiRequestsStorage = (): AiRequestStorage => {
     AuthenticatedUserContext
   );
 
-  const [state, setState] = React.useState<PaginationState>(
-    emptyPaginationState
+  const [state, setState] = React.useState<AiRequestsState>(
+    emptyAiRequestsState
   );
   const [error, setError] = React.useState<Error | null>(null);
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
+  const [aiRequestLoadingStates, setAiRequestLoadingStates] = React.useState<{
+    [aiRequestId: string]: AiRequestLoadingState,
+  }>({});
+  const [
+    aiRequestSummariesFilter,
+    setAiRequestSummariesFilterState,
+  ] = React.useState<AiRequestSummariesFilter>('active');
   const [forkingState, setForkingState] = React.useState<?{|
     aiRequestId: string,
     messageId: string,
   |}>(null);
 
-  const fetchAiRequests = React.useCallback(
-    async () => {
+  /**
+   * Fetch the first pages of the recent chats and of the chats of the game (if
+   * one is given), or the next page of one of them (`forceUri`).
+   */
+  const fetchAiRequestSummariesPages = React.useCallback(
+    async ({
+      filter,
+      gameId,
+      forceUri,
+    }: {|
+      filter: AiRequestSummariesFilter,
+      gameId: ?string,
+      forceUri?: {| list: 'recents' | 'game', uri: string |},
+    |}) => {
       if (!profile) return;
 
       setIsLoading(true);
       setError(null);
 
       try {
-        const history = await getAiRequests(getAuthorizationHeader, {
-          userId: profile.id,
-          forceUri: null, // Fetch the first page.
-        });
-        if (!history) return;
-        const aiRequestsById = history.aiRequests.reduce(
-          (accumulator, aiRequest) => {
-            // $FlowFixMe[prop-missing]
-            accumulator[aiRequest.id] = aiRequest;
-            return accumulator;
-          },
-          {}
-        );
-        setState({
-          aiRequests: aiRequestsById,
-          nextPageUri: history.nextPageUri,
-        });
+        const [recentsPage, gamePage] = await Promise.all([
+          forceUri && forceUri.list === 'game'
+            ? null
+            : getAiRequestSummaries(getAuthorizationHeader, {
+                userId: profile.id,
+                forceUri: forceUri ? forceUri.uri : null,
+                filter,
+              }),
+          gameId && (!forceUri || forceUri.list === 'game')
+            ? getAiRequestSummaries(getAuthorizationHeader, {
+                userId: profile.id,
+                forceUri: forceUri ? forceUri.uri : null,
+                filter,
+                gameId,
+              })
+            : null,
+        ]);
+        const fetchedSummaries = [
+          ...(recentsPage ? recentsPage.aiRequestSummaries : []),
+          ...(gamePage ? gamePage.aiRequestSummaries : []),
+        ];
+        setState(previousState => ({
+          ...previousState,
+          aiRequestSummaries: forceUri
+            ? {
+                // The summaries already known are the most up to date.
+                ...toAiRequestSummariesById(fetchedSummaries),
+                ...previousState.aiRequestSummaries,
+              }
+            : toAiRequestSummariesById(fetchedSummaries),
+          nextPageUri: recentsPage
+            ? recentsPage.nextPageUri
+            : previousState.nextPageUri,
+          gameNextPageUri: gamePage
+            ? gamePage.nextPageUri
+            : previousState.gameNextPageUri,
+        }));
       } catch (err) {
         setError(err);
-        console.error('Error fetching AI requests:', err);
+        console.error('Error fetching AI request summaries:', err);
       } finally {
         setIsLoading(false);
       }
     },
     [profile, getAuthorizationHeader]
   );
-
-  const onLoadMoreAiRequests = React.useCallback(
-    async () => {
-      if (!profile) return;
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const history = await getAiRequests(getAuthorizationHeader, {
-          userId: profile.id,
-          forceUri: state.nextPageUri,
+  const fetchAiRequestSummaries = React.useCallback(
+    () =>
+      fetchAiRequestSummariesPages({
+        filter: aiRequestSummariesFilter,
+        gameId: state.gameId,
+      }),
+    [fetchAiRequestSummariesPages, aiRequestSummariesFilter, state.gameId]
+  );
+  const setAiRequestSummariesFilter = React.useCallback(
+    (filter: AiRequestSummariesFilter) => {
+      setAiRequestSummariesFilterState(filter);
+      fetchAiRequestSummariesPages({ filter, gameId: state.gameId });
+    },
+    [fetchAiRequestSummariesPages, state.gameId]
+  );
+  const setAiRequestSummariesGameId = React.useCallback(
+    (gameId: ?string) => {
+      if (gameId === state.gameId) return;
+      setState(previousState => ({
+        ...previousState,
+        gameId,
+        gameNextPageUri: null,
+      }));
+      if (gameId) {
+        fetchAiRequestSummariesPages({
+          filter: aiRequestSummariesFilter,
+          gameId,
+          forceUri: { list: 'game', uri: '/ai-request-summary' },
         });
-        if (!history) return;
-        const newRequests = history.aiRequests;
-        const currentRequestsById = state.aiRequests;
-
-        newRequests.forEach(newRequest => {
-          // Add new requests to the state.
-          if (!currentRequestsById[newRequest.id]) {
-            currentRequestsById[newRequest.id] = newRequest;
-          }
-        });
-        setState({
-          aiRequests: currentRequestsById,
-          nextPageUri: history.nextPageUri,
-        });
-      } catch (err) {
-        setError(err);
-        console.error('Error fetching AI requests:', err);
-      } finally {
-        setIsLoading(false);
       }
     },
-    [profile, getAuthorizationHeader, state.nextPageUri, state.aiRequests]
+    [fetchAiRequestSummariesPages, aiRequestSummariesFilter, state.gameId]
+  );
+
+  const onLoadMoreAiRequestSummaries = React.useCallback(
+    async () => {
+      if (!state.nextPageUri) return;
+      await fetchAiRequestSummariesPages({
+        filter: aiRequestSummariesFilter,
+        gameId: state.gameId,
+        forceUri: { list: 'recents', uri: state.nextPageUri },
+      });
+    },
+    [
+      fetchAiRequestSummariesPages,
+      aiRequestSummariesFilter,
+      state.gameId,
+      state.nextPageUri,
+    ]
+  );
+  const onLoadMoreGameAiRequestSummaries = React.useCallback(
+    async () => {
+      if (!state.gameNextPageUri) return;
+      await fetchAiRequestSummariesPages({
+        filter: aiRequestSummariesFilter,
+        gameId: state.gameId,
+        forceUri: { list: 'game', uri: state.gameNextPageUri },
+      });
+    },
+    [
+      fetchAiRequestSummariesPages,
+      aiRequestSummariesFilter,
+      state.gameId,
+      state.gameNextPageUri,
+    ]
   );
 
   const updateAiRequest = React.useCallback(
@@ -233,17 +370,24 @@ export const useAiRequestsStorage = (): AiRequestStorage => {
       aiRequestId: string,
       updateFn: (previousAiRequest: ?AiRequest) => AiRequest
     ) => {
-      setState(prevState => {
-        const currentAiRequest = prevState.aiRequests
-          ? prevState.aiRequests[aiRequestId]
-          : null;
-        const newAiRequest = updateFn(currentAiRequest || null);
+      setState(previousState => {
+        const newAiRequest = updateFn(
+          previousState.aiRequests[aiRequestId] || null
+        );
         return {
-          ...prevState,
+          ...previousState,
           aiRequests: {
-            ...(prevState.aiRequests || {}),
+            ...previousState.aiRequests,
             [aiRequestId]: newAiRequest,
           },
+          // The history shows the request as it is now (sub-agents are not
+          // listed in the history).
+          aiRequestSummaries: newAiRequest.parentAiRequestId
+            ? previousState.aiRequestSummaries
+            : {
+                ...previousState.aiRequestSummaries,
+                [aiRequestId]: getAiRequestSummary(newAiRequest),
+              },
         };
       });
     },
@@ -251,7 +395,7 @@ export const useAiRequestsStorage = (): AiRequestStorage => {
   );
 
   const refreshAiRequest = React.useCallback(
-    async (aiRequestId: string) => {
+    async (aiRequestId: string): Promise<void> => {
       if (!profile) return;
 
       try {
@@ -270,11 +414,207 @@ export const useAiRequestsStorage = (): AiRequestStorage => {
     [getAuthorizationHeader, profile, updateAiRequest]
   );
 
+  /**
+   * Load an AI request known only by its id (typically from its summary in the
+   * history), so that it can be opened. The loading state is tracked per
+   * request so that the UI can show the loading and offer to retry.
+   *
+   * A request left with work in progress (e.g. from a previous session) is
+   * suspended before being stored: opening it never resumes this work.
+   */
+  const loadAiRequest = React.useCallback(
+    async (aiRequestId: string): Promise<void> => {
+      if (!profile) return;
+
+      setAiRequestLoadingStates(previousStates => ({
+        ...previousStates,
+        [aiRequestId]: { isLoading: true, error: null },
+      }));
+      try {
+        let aiRequest = await getAiRequest(getAuthorizationHeader, {
+          userId: profile.id,
+          aiRequestId,
+        });
+        if (aiRequestHasWorkInProgress(aiRequest, null)) {
+          try {
+            aiRequest = await apiSuspendAiRequest(getAuthorizationHeader, {
+              userId: profile.id,
+              aiRequestId,
+            });
+          } catch (error) {
+            console.error(
+              'Failed to suspend the AI request opened with work in progress - opening it as is:',
+              error
+            );
+          }
+        }
+        updateAiRequest(aiRequestId, () => aiRequest);
+        setAiRequestLoadingStates(
+          ({ [aiRequestId]: _, ...otherStates }) => otherStates
+        );
+      } catch (error) {
+        console.error('Error while loading AI request:', error);
+        setAiRequestLoadingStates(previousStates => ({
+          ...previousStates,
+          [aiRequestId]: { isLoading: false, error },
+        }));
+      }
+    },
+    [getAuthorizationHeader, profile, updateAiRequest]
+  );
+
+  /**
+   * Set the attributes the user can change on a request and on its summary,
+   * when they are known.
+   */
+  const setUserAttributesInState = React.useCallback(
+    (
+      aiRequestId: string,
+      attributes: {| title?: string | null, archivedAt?: string | null |}
+    ) => {
+      setState(previousState => {
+        const aiRequest = previousState.aiRequests[aiRequestId];
+        const aiRequestSummary = previousState.aiRequestSummaries[aiRequestId];
+        return {
+          ...previousState,
+          aiRequests: aiRequest
+            ? {
+                ...previousState.aiRequests,
+                [aiRequestId]: { ...aiRequest, ...attributes },
+              }
+            : previousState.aiRequests,
+          aiRequestSummaries: aiRequestSummary
+            ? {
+                ...previousState.aiRequestSummaries,
+                [aiRequestId]: { ...aiRequestSummary, ...attributes },
+              }
+            : previousState.aiRequestSummaries,
+        };
+      });
+    },
+    []
+  );
+
+  const renameAiRequest = React.useCallback(
+    async (aiRequestId: string, title: string): Promise<void> => {
+      if (!profile) return;
+      const newTitle = title.trim() || null;
+      const aiRequestSummary = state.aiRequestSummaries[aiRequestId];
+      const previousTitle =
+        (aiRequestSummary && aiRequestSummary.title) || null;
+      if (previousTitle === newTitle) return;
+
+      // Optimistic update: the new name is shown right away.
+      setUserAttributesInState(aiRequestId, { title: newTitle });
+
+      try {
+        await retryIfFailed({ times: 2 }, () =>
+          apiUpdateAiRequest(getAuthorizationHeader, {
+            userId: profile.id,
+            aiRequestId,
+            title: newTitle,
+          })
+        );
+      } catch (error) {
+        console.error(
+          'Error while renaming the AI request - reverting:',
+          error
+        );
+        setUserAttributesInState(aiRequestId, { title: previousTitle });
+      }
+    },
+    [
+      getAuthorizationHeader,
+      profile,
+      state.aiRequestSummaries,
+      setUserAttributesInState,
+    ]
+  );
+
+  const setAiRequestArchived = React.useCallback(
+    async (aiRequestId: string, archived: boolean): Promise<void> => {
+      if (!profile) return;
+      const aiRequestSummary = state.aiRequestSummaries[aiRequestId];
+      const previousArchivedAt =
+        (aiRequestSummary && aiRequestSummary.archivedAt) || null;
+      if (!!previousArchivedAt === archived) return;
+
+      // Optimistic update: the chat moves right away. The date is then the one
+      // set by the API.
+      setUserAttributesInState(aiRequestId, {
+        archivedAt: archived ? new Date().toISOString() : null,
+      });
+
+      try {
+        const updatedAiRequest = await retryIfFailed({ times: 2 }, () =>
+          apiUpdateAiRequest(getAuthorizationHeader, {
+            userId: profile.id,
+            aiRequestId,
+            archived,
+          })
+        );
+        setUserAttributesInState(aiRequestId, {
+          archivedAt: updatedAiRequest.archivedAt || null,
+        });
+      } catch (error) {
+        console.error(
+          'Error while archiving or restoring the AI request - reverting:',
+          error
+        );
+        setUserAttributesInState(aiRequestId, {
+          archivedAt: previousArchivedAt,
+        });
+      }
+    },
+    [
+      getAuthorizationHeader,
+      profile,
+      state.aiRequestSummaries,
+      setUserAttributesInState,
+    ]
+  );
+
+  const deleteAiRequest = React.useCallback(
+    async (aiRequestId: string): Promise<void> => {
+      if (!profile) return;
+
+      // Optimistic update: the chat disappears right away.
+      setState(previousState => {
+        const {
+          [aiRequestId]: _deletedAiRequest,
+          ...aiRequests
+        } = previousState.aiRequests;
+        const {
+          [aiRequestId]: _deletedAiRequestSummary,
+          ...aiRequestSummaries
+        } = previousState.aiRequestSummaries;
+        return { ...previousState, aiRequests, aiRequestSummaries };
+      });
+
+      try {
+        await retryIfFailed({ times: 2 }, () =>
+          apiDeleteAiRequest(getAuthorizationHeader, {
+            userId: profile.id,
+            aiRequestId,
+          })
+        );
+      } catch (error) {
+        console.error(
+          'Error while deleting the AI request - refreshing the history:',
+          error
+        );
+        fetchAiRequestSummaries();
+      }
+    },
+    [getAuthorizationHeader, profile, fetchAiRequestSummaries]
+  );
+
   React.useEffect(
     () => {
       // Reset AI requests when the user logs out.
       if (!profile) {
-        setState(emptyPaginationState);
+        setState(emptyAiRequestsState);
+        setAiRequestLoadingStates({});
       }
     },
     [profile]
@@ -334,12 +674,24 @@ export const useAiRequestsStorage = (): AiRequestStorage => {
   );
 
   return {
-    fetchAiRequests,
-    onLoadMoreAiRequests,
+    fetchAiRequestSummaries,
+    onLoadMoreAiRequestSummaries,
     canLoadMore: !!state.nextPageUri,
     error,
     isLoading,
+    aiRequestSummariesFilter,
+    setAiRequestSummariesFilter,
+    aiRequestSummariesGameId: state.gameId,
+    setAiRequestSummariesGameId,
+    onLoadMoreGameAiRequestSummaries,
+    canLoadMoreGameAiRequestSummaries: !!state.gameNextPageUri,
+    aiRequestSummaries: state.aiRequestSummaries,
     aiRequests: state.aiRequests,
+    aiRequestLoadingStates,
+    loadAiRequest,
+    renameAiRequest,
+    setAiRequestArchived,
+    deleteAiRequest,
     updateAiRequest,
     refreshAiRequest,
     isSendingAiRequest,
@@ -354,49 +706,24 @@ export const useAiRequestsStorage = (): AiRequestStorage => {
 export const useAiRequestHistory = (
   aiRequestStorage: AiRequestStorage
 ): AiRequestHistory => {
-  const { aiRequests } = aiRequestStorage;
+  const { aiRequestSummaries } = aiRequestStorage;
   const [historyIndex, setHistoryIndex] = React.useState<number>(-1);
   const [savedCurrentText, setSavedCurrentText] = React.useState<string>('');
-  // Build history from sent user messages across all aiRequests
+  // The history browsed with the up/down arrows: the first message of each
+  // conversation, from the oldest to the most recent.
   const requestsHistory = React.useMemo(
-    () => {
-      const history: Array<string> = [];
-
-      // Iterate through all aiRequests ordered by request update date.
-      // A request can request multiple user messages, but we only know the
-      // information about the request date, not the date of each user message.
-      Object.values(aiRequests)
-        .sort((a: AiRequest, b: AiRequest) => {
-          return (
+    () =>
+      Object.keys(aiRequestSummaries)
+        .map(aiRequestId => aiRequestSummaries[aiRequestId])
+        .sort(
+          (a, b) =>
             new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
-          );
-        })
-        .forEach((request: AiRequest) => {
-          if (!request.output) return;
-
-          const userMessages = request.output
-            .filter(
-              message => message.type === 'message' && message.role === 'user'
-            )
-            .map(
-              // $FlowFixMe[cannot-resolve-name]
-              (message: AiRequestUserMessage) => {
-                const content = message.content;
-                if (!Array.isArray(content)) return '';
-                const userRequest = content.find(
-                  item => item.type === 'user_request'
-                );
-                return userRequest ? userRequest.text : '';
-              }
-            )
-            .filter(text => text !== '');
-
-          history.push(...userMessages);
-        });
-
-      return history;
-    },
-    [aiRequests]
+        )
+        .map(({ firstUserMessage }) =>
+          firstUserMessage ? getUserRequestText(firstUserMessage) : ''
+        )
+        .filter(text => text !== ''),
+    [aiRequestSummaries]
   );
 
   const handleNavigateHistory = React.useCallback(
@@ -464,9 +791,33 @@ export type AiRequestContextState = {|
   getAiSettings: () => AiSettings | null,
   isFetchingSuggestions: boolean,
   setIsFetchingSuggestions: (value: boolean) => void,
+  /**
+   * The inline "Apply this edit?" approval currently shown in the chat (auto-edit
+   * off), or null. While non-null, the watch/polling loop is suspended.
+   */
+  pendingEditApproval: EditApprovalRequest | null,
+  /**
+   * Request an inline edit approval: shows the prompt and resolves to the user's
+   * Apply (true) / Cancel (false) choice. Passed to the function-call processing.
+   */
+  requestEditApproval: (request: EditApprovalRequest) => Promise<boolean>,
+  /** Resolve the current edit approval prompt (Apply: true, Cancel: false). */
+  resolveEditApproval: (accepted: boolean) => void,
   selectedAiRequestId: string | null,
   setSelectedAiRequestId: (aiRequestId: string | null) => void,
   selectedAiRequest: AiRequest | null,
+  /**
+   * Returns the selected AI request if it still has work in progress (server
+   * working, sub-agents running, or function calls left to process). Works even
+   * when the Ask AI editor is closed, since the request lives in this provider —
+   * used to guard destructive actions (e.g. closing the project).
+   */
+  getWorkingAiRequest: () => AiRequest | null,
+  /**
+   * Suspend a running AI request. Safe to call from anywhere, including when the
+   * Ask AI editor is not mounted.
+   */
+  suspendAiRequest: (aiRequestId: string) => Promise<void>,
   activeSubAgents: { [subAgentAiRequestId: string]: ActiveSubAgent },
   activateSubAgent: (
     subAgentAiRequestId: string,
@@ -477,12 +828,24 @@ export type AiRequestContextState = {|
 
 export const initialAiRequestContextState: AiRequestContextState = {
   aiRequestStorage: {
-    fetchAiRequests: async () => {},
-    onLoadMoreAiRequests: async () => {},
+    fetchAiRequestSummaries: async () => {},
+    onLoadMoreAiRequestSummaries: async () => {},
     canLoadMore: true,
     error: null,
     isLoading: false,
+    aiRequestSummariesFilter: 'active',
+    setAiRequestSummariesFilter: () => {},
+    aiRequestSummariesGameId: null,
+    setAiRequestSummariesGameId: () => {},
+    onLoadMoreGameAiRequestSummaries: async () => {},
+    canLoadMoreGameAiRequestSummaries: false,
+    aiRequestSummaries: {},
     aiRequests: {},
+    aiRequestLoadingStates: {},
+    loadAiRequest: async () => {},
+    renameAiRequest: async () => {},
+    setAiRequestArchived: async () => {},
+    deleteAiRequest: async () => {},
     updateAiRequest: () => {},
     refreshAiRequest: async () => {},
     isSendingAiRequest: () => false,
@@ -504,9 +867,14 @@ export const initialAiRequestContextState: AiRequestContextState = {
   getAiSettings: () => null,
   isFetchingSuggestions: false,
   setIsFetchingSuggestions: () => {},
+  pendingEditApproval: null,
+  requestEditApproval: async () => false,
+  resolveEditApproval: () => {},
   selectedAiRequestId: null,
   setSelectedAiRequestId: () => {},
   selectedAiRequest: null,
+  getWorkingAiRequest: () => null,
+  suspendAiRequest: async () => {},
   activeSubAgents: {},
   activateSubAgent: () => {},
 };
@@ -560,13 +928,78 @@ export const AiRequestProvider = ({
   const [selectedAiRequestId, setSelectedAiRequestId] = React.useState<
     string | null
   >(null);
-  const { aiRequests, updateAiRequest } = aiRequestStorage;
+  const {
+    aiRequests,
+    updateAiRequest,
+    aiRequestLoadingStates,
+    loadAiRequest,
+  } = aiRequestStorage;
   const selectedAiRequest =
     (selectedAiRequestId && aiRequests[selectedAiRequestId]) || null;
+
+  // A chat is selected as soon as the user opens it, even if only its summary
+  // is known (from the history): load it then. A failed loading is kept as is
+  // for the user to retry.
+  React.useEffect(
+    () => {
+      if (!selectedAiRequestId || selectedAiRequest) return;
+      const loadingState = aiRequestLoadingStates[selectedAiRequestId];
+      if (loadingState && (loadingState.isLoading || loadingState.error))
+        return;
+      loadAiRequest(selectedAiRequestId);
+    },
+    [
+      selectedAiRequestId,
+      selectedAiRequest,
+      aiRequestLoadingStates,
+      loadAiRequest,
+    ]
+  );
+
+  React.useEffect(
+    () => {
+      // Nothing can be selected when logged out (the AI requests are reset).
+      if (!profile) setSelectedAiRequestId(null);
+    },
+    [profile]
+  );
 
   const [shouldWatchRequest, setShouldWatchRequest] = React.useState<boolean>(
     false
   );
+
+  // Inline "Apply this edit?" approval shown in the chat when auto-edit is off
+  // and the AI is about to modify the project. `requestEditApproval` (passed to
+  // the function-call processing) stores the resolver and shows the prompt; the
+  // chat's Apply/Cancel buttons call `resolveEditApproval`. It lives here, next
+  // to the watch loop, so polling can be paused while the prompt is shown — the
+  // backend is only waiting for the function call outputs we haven't sent yet,
+  // so there is nothing new to poll for until the user answers.
+  const [
+    pendingEditApproval,
+    setPendingEditApproval,
+  ] = React.useState<EditApprovalRequest | null>(null);
+  const editApprovalResolverRef = React.useRef<(boolean => void) | null>(null);
+  const requestEditApproval = React.useCallback(
+    (request: EditApprovalRequest): Promise<boolean> => {
+      // If a previous prompt is somehow still pending, refuse it before
+      // replacing it, so its processing loop unblocks.
+      const previousResolver = editApprovalResolverRef.current;
+      if (previousResolver) previousResolver(false);
+
+      return new Promise(resolve => {
+        editApprovalResolverRef.current = resolve;
+        setPendingEditApproval(request);
+      });
+    },
+    []
+  );
+  const resolveEditApproval = React.useCallback((accepted: boolean) => {
+    const resolver = editApprovalResolverRef.current;
+    editApprovalResolverRef.current = null;
+    setPendingEditApproval(null);
+    if (resolver) resolver(accepted);
+  }, []);
   const [
     isFetchingSuggestions,
     setIsFetchingSuggestions,
@@ -582,12 +1015,31 @@ export const AiRequestProvider = ({
   // The selected AI request and its active sub-agents are watched together by a
   // single polling loop defined further below (see `onWatch`), so that a parent
   // request and all its sub-agents are status-polled in one batched request per
-  // tick instead of one request per entity.
-  const watchPollingIntervalInMs =
+  // tick instead of one request per entity. The interval is adaptive (see
+  // useAdaptivePollingInterval): fast while the agent produces output, backing
+  // off during idle waits to cut polling requests.
+  const baseWatchPollingIntervalInMs =
     (selectedAiRequest &&
       selectedAiRequest.toolOptions &&
       selectedAiRequest.toolOptions.watchPollingIntervalInMs) ||
     1400;
+  const {
+    intervalInMs: currentWatchPollingIntervalInMs,
+    reportTick: reportWatchPollingTick,
+    resetToBase: resetWatchPollingInterval,
+  } = useAdaptivePollingInterval({
+    baseIntervalInMs: baseWatchPollingIntervalInMs,
+    maxIntervalInMs: Math.max(baseWatchPollingIntervalInMs, 5000),
+  });
+
+  // Reset to the fast interval when a new request becomes watched or changes, so
+  // the first updates are picked up quickly. These deps are stable during polling.
+  React.useEffect(
+    () => {
+      resetWatchPollingInterval();
+    },
+    [selectedAiRequestId, shouldWatchRequest, resetWatchPollingInterval]
+  );
 
   React.useEffect(
     () => {
@@ -708,6 +1160,10 @@ export const AiRequestProvider = ({
     if (!profile) return;
     const now = Date.now();
 
+    // Set to true whenever this tick observes activity (a status change or new
+    // messages). Used at the end of the tick to drive the adaptive interval.
+    let sawChangeThisTick = false;
+
     const clearFetchingSuggestionsIfDone = (aiRequest: AiRequest) => {
       if (!isFetchingSuggestions) return;
       const output = aiRequest.output || [];
@@ -735,7 +1191,8 @@ export const AiRequestProvider = ({
       // Only fetch the messages we don't have yet: ask for everything from the
       // last message we already have onward (re-fetched so its in-place
       // updates, like suggestions, are picked up).
-      const currentOutput = (aiRequests[aiRequestId] || {}).output;
+      const previousAiRequest = aiRequests[aiRequestId];
+      const currentOutput = (previousAiRequest || {}).output;
       const lastMessage =
         currentOutput && currentOutput.length > 0
           ? currentOutput[currentOutput.length - 1]
@@ -749,9 +1206,13 @@ export const AiRequestProvider = ({
           outputFromMessageId,
         })
       );
-      updateAiRequest(aiRequestId, previousAiRequest =>
+      // Drive the adaptive polling interval: fast while there is activity.
+      if (aiRequestPollSawActivity(previousAiRequest, fetchedAiRequest)) {
+        sawChangeThisTick = true;
+      }
+      updateAiRequest(aiRequestId, previousAiRequestToMerge =>
         mergeIncrementalAiRequest(
-          previousAiRequest,
+          previousAiRequestToMerge,
           fetchedAiRequest,
           outputFromMessageId
         )
@@ -816,6 +1277,7 @@ export const AiRequestProvider = ({
           if (!currentRequest) return;
           if (newStatus !== currentRequest.status) {
             // Status changed — full fetch immediately to pick up new messages.
+            sawChangeThisTick = true;
             await doFullFetch(aiRequestId);
           } else {
             updateAiRequest(aiRequestId, prevRequest => ({
@@ -835,14 +1297,39 @@ export const AiRequestProvider = ({
         error
       );
     }
+
+    // Adapt the polling interval based on whether this tick saw any activity.
+    reportWatchPollingTick(sawChangeThisTick);
   };
+
+  // Kept in a ref so the visibility effect below can run the latest watch
+  // loop without re-registering a listener on every render.
+  const onWatchRef = React.useRef(onWatch);
+  onWatchRef.current = onWatch;
+
+  const isWatching =
+    (shouldWatchRequest || hasActiveSubAgents) && !pendingEditApproval;
 
   useInterval(
     () => {
       onWatch();
     },
-    shouldWatchRequest || hasActiveSubAgents ? watchPollingIntervalInMs : null
+    isWatching ? currentWatchPollingIntervalInMs : null
   );
+
+  // Catch up immediately when the user comes back to the editor. While the
+  // page is hidden, the browser throttles the watch loop (down to one wake
+  // up per minute after a few minutes in the background), and the adaptive
+  // interval has had every reason to back off to its maximum: without this,
+  // returning to the editor would show a stale conversation for seconds.
+  usePageBecameVisible(() => {
+    if (!isWatching) return;
+    resetWatchPollingInterval();
+    // Force the next tick to be a full fetch, so the messages produced
+    // while the editor was in the background are all picked up at once.
+    lastFullFetchTimeRef.current = 0;
+    onWatchRef.current();
+  });
 
   // Clear sub-agents when the parent request is suspended.
   React.useEffect(
@@ -911,6 +1398,69 @@ export const AiRequestProvider = ({
 
   const activeSubAgents = activeSubAgentsRef.current;
 
+  const {
+    getEditorFunctionCallResults,
+    clearEditorFunctionCallResults,
+  } = editorFunctionCallResultsStorage;
+
+  const getWorkingAiRequest = React.useCallback(
+    (): AiRequest | null => {
+      if (!selectedAiRequest) return null;
+      const editorFunctionCallResults =
+        getEditorFunctionCallResults(selectedAiRequest.id) || [];
+      return aiRequestHasWorkInProgress(
+        selectedAiRequest,
+        editorFunctionCallResults
+      )
+        ? selectedAiRequest
+        : null;
+    },
+    [selectedAiRequest, getEditorFunctionCallResults]
+  );
+
+  // Keep the app running at full speed while the AI is working, even if the
+  // user goes to another tab or covers the window: the whole agent loop
+  // (polling for the next turn, running the editor functions, sending their
+  // results back) lives in this page, so a throttled or frozen page means a
+  // paused AI request.
+  useKeepPageActive(!!getWorkingAiRequest());
+
+  const suspendAiRequest = React.useCallback(
+    async (aiRequestId: string): Promise<void> => {
+      if (!profile) return;
+      // Dismiss any pending edit approval.
+      editApprovalResolverRef.current = null;
+      setPendingEditApproval(null);
+
+      // Optimistic update: mark as suspended locally immediately so any in-flight
+      // async code sees the suspended status on the next render.
+      const currentRequest = aiRequests[aiRequestId];
+      if (currentRequest) {
+        updateAiRequest(aiRequestId, () => ({
+          ...currentRequest,
+          status: 'suspended',
+        }));
+        clearEditorFunctionCallResults(aiRequestId);
+      }
+
+      const suspendedRequest = await apiSuspendAiRequest(
+        getAuthorizationHeader,
+        {
+          userId: profile.id,
+          aiRequestId,
+        }
+      );
+      updateAiRequest(suspendedRequest.id, () => suspendedRequest);
+    },
+    [
+      profile,
+      aiRequests,
+      getAuthorizationHeader,
+      updateAiRequest,
+      clearEditorFunctionCallResults,
+    ]
+  );
+
   const state = React.useMemo(
     (): AiRequestContextState => ({
       aiRequestStorage,
@@ -919,9 +1469,14 @@ export const AiRequestProvider = ({
       getAiSettings,
       isFetchingSuggestions,
       setIsFetchingSuggestions,
+      pendingEditApproval,
+      requestEditApproval,
+      resolveEditApproval,
       selectedAiRequestId,
       setSelectedAiRequestId,
       selectedAiRequest,
+      getWorkingAiRequest,
+      suspendAiRequest,
       activeSubAgents,
       activateSubAgent,
     }),
@@ -932,9 +1487,14 @@ export const AiRequestProvider = ({
       getAiSettings,
       isFetchingSuggestions,
       setIsFetchingSuggestions,
+      pendingEditApproval,
+      requestEditApproval,
+      resolveEditApproval,
       selectedAiRequestId,
       setSelectedAiRequestId,
       selectedAiRequest,
+      getWorkingAiRequest,
+      suspendAiRequest,
       activeSubAgents,
       activateSubAgent,
     ]

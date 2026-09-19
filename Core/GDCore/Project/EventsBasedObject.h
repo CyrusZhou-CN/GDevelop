@@ -388,7 +388,22 @@ class GD_CORE_API EventsBasedObject: public AbstractEventsBasedEntity {
   void UnserializeFrom(gd::Project& project,
                        const SerializerElement& element) override;
 
- private:
+  void UnserializeDefaultVariantFrom(gd::Project &project,
+                                     const SerializerElement &element);
+
+  /** \name Lifecycle event functions
+   */
+  ///@{
+  /**
+   * Check if the name of the function is the name of a lifecycle function (for
+   * events-based objects), that will be called automatically by the game
+   * engine.
+   */
+  static bool
+  IsObjectLifecycleEventsFunction(const gd::String &eventsFunctionName);
+  ///@}
+
+private:
   gd::String defaultName;
   gd::String assetStoreTag;
   bool isRenderedIn3D;

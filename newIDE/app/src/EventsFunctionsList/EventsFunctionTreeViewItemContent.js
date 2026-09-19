@@ -32,12 +32,19 @@ const gd: libGDevelop = global.gd;
 
 export const EVENTS_FUNCTION_CLIPBOARD_KIND = 'Events Function';
 
-export const pasteEventsFunction = (
+export const pasteEventsFunction = ({
+  project,
+  eventsFunctionsContainer,
+  parentFolder,
+  insertionIndex,
+  isTargetFreeFunction,
+}: {
   project: gdProject,
   eventsFunctionsContainer: gdEventsFunctionsContainer,
   parentFolder: gdFunctionFolderOrFunction,
-  insertionIndex: number
-): gdEventsFunction | null => {
+  insertionIndex: number,
+  isTargetFreeFunction: boolean,
+}): gdEventsFunction | null => {
   if (!Clipboard.has(EVENTS_FUNCTION_CLIPBOARD_KIND)) return null;
 
   const clipboardContent = Clipboard.get(EVENTS_FUNCTION_CLIPBOARD_KIND);
@@ -66,6 +73,17 @@ export const pasteEventsFunction = (
   );
   newEventsFunction.setName(newName);
   newEventsFunction.setGroup(groupPath);
+  if (isTargetFreeFunction) {
+    // The Object parameter of custom object or behavior functions must be
+    // converted for free functions.
+    const parameters = newEventsFunction.getParameters();
+    if (parameters.getParametersCount() > 0) {
+      const firstParameter = parameters.getParameterAt(0);
+      if (firstParameter.getType() === 'object') {
+        firstParameter.setType('objectList');
+      }
+    }
+  }
   return newEventsFunction;
 };
 
@@ -151,6 +169,15 @@ export type EventsFunctionCallbacks = {|
     eventsFunction: gdEventsFunction,
     eventsBasedBehavior: ?gdEventsBasedBehavior,
     eventsBasedObject: ?gdEventsBasedObject
+  ) => void,
+  moveEventsFunctionTo: (
+    (destinationExtensionName: string) => Promise<void>
+  ) => void,
+  onEventsFunctionMoved: (
+    oldExtensionName: string,
+    newExtensionName: string,
+    oldObjectName: string,
+    newObjectName: string
   ) => void,
 |};
 
@@ -272,15 +299,16 @@ export class EventsFunctionTreeViewItemContent implements TreeViewItemContent {
     return null;
   }
 
-  onSelect(): void {
+  // Must stay side-effect free: also triggered when a drag starts.
+  onSelect(): void {}
+
+  onClick(): void {
     this.props.onSelectEventsFunction(
       this.functionFolderOrFunction.getFunction(),
       this.props.eventsBasedBehavior,
       this.props.eventsBasedObject
     );
   }
-
-  onClick(): void {}
 
   rename(newName: string): void {
     const eventsFunction = this.functionFolderOrFunction.getFunction();
@@ -296,6 +324,56 @@ export class EventsFunctionTreeViewItemContent implements TreeViewItemContent {
         this._onEventsFunctionModified();
       }
     );
+  }
+
+  _moveTo(): void {
+    const { eventsFunctionsContainer, project } = this.props;
+    const oldEventsFunction = this.functionFolderOrFunction.getFunction();
+
+    this.props.moveEventsFunctionTo(async destinationExtensionName => {
+      const extension = project.getEventsFunctionsExtension(
+        destinationExtensionName
+      );
+      const newEventsFunction = extension
+        .getEventsFunctions()
+        .insertNewEventsFunction(
+          newNameGenerator(oldEventsFunction.getName(), name =>
+            extension.getEventsFunctions().hasEventsFunctionNamed(name)
+          ),
+          extension.getEventsFunctions().getEventsFunctionsCount()
+        );
+      unserializeFromJSObject(
+        newEventsFunction,
+        serializeToJSObject(oldEventsFunction),
+        'unserializeFrom',
+        project
+      );
+      const oldExtensionName = this.props.eventsFunctionsExtension.getName();
+      const newExtensionName = extension.getName();
+      const oldFunctionName = oldEventsFunction.getName();
+      const newFunctionName = newEventsFunction.getName();
+      gd.WholeProjectRefactorer.moveEventsFunction(
+        project,
+        this.props.eventsFunctionsExtension,
+        oldExtensionName,
+        newExtensionName,
+        oldFunctionName,
+        newFunctionName
+      );
+      // Rebuild tabs with the newly created custom object.
+      this.props.onEventsFunctionMoved(
+        oldExtensionName,
+        newExtensionName,
+        oldFunctionName,
+        newFunctionName
+      );
+      // We can now safely remove the old custom object
+      // since it's no longer used in the UI.
+      eventsFunctionsContainer.removeEventsFunction(
+        oldEventsFunction.getName()
+      );
+      this._onEventsFunctionModified();
+    });
   }
 
   edit(): void {
@@ -355,6 +433,8 @@ export class EventsFunctionTreeViewItemContent implements TreeViewItemContent {
         eventsBasedObject,
         addFolder,
         onMovedFunctionFolderOrFunctionToAnotherFolderInSameContainer,
+        moveToExtension: () => this._moveTo(),
+        canBeRenamed: this.canBeRenamed(),
       }),
       {
         label: i18n._(t`Delete`),
@@ -508,12 +588,14 @@ export class EventsFunctionTreeViewItemContent implements TreeViewItemContent {
   }
 
   paste(): void {
-    const newEventsFunction = pasteEventsFunction(
-      this.props.project,
-      this.props.eventsFunctionsContainer,
-      this.functionFolderOrFunction.getParent(),
-      this.getIndex() + 1
-    );
+    const newEventsFunction = pasteEventsFunction({
+      project: this.props.project,
+      eventsFunctionsContainer: this.props.eventsFunctionsContainer,
+      parentFolder: this.functionFolderOrFunction.getParent(),
+      insertionIndex: this.getIndex() + 1,
+      isTargetFreeFunction:
+        !this.props.eventsBasedBehavior && !this.props.eventsBasedObject,
+    });
     if (!newEventsFunction) {
       return;
     }

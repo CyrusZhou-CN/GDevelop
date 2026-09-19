@@ -1,8 +1,12 @@
 // @flow
 import {
+  getLocalResourceFullPath,
   parseLocalFilePathOrExtensionFromMetadata,
   renameResourcesInProject,
   updateResourceJsonMetadata,
+  getResourceCustomProperties,
+  getResourceCustomPropertyValue,
+  setResourceCustomPropertyValue,
 } from './ResourceUtils';
 const gd: libGDevelop = global.gd;
 
@@ -22,6 +26,29 @@ const addNewAnimationWithImageToSpriteObject = (
 };
 
 describe('ResourceUtils', () => {
+  it('gives the path on disk of a local resource, even with special characters', () => {
+    const project = gd.ProjectHelper.createNewGDJSProject();
+    project.setProjectFile('/home/user/My Project/game.json');
+    const resource = new gd.AudioResource();
+    resource.setName('Track #3');
+    resource.setFile('assets/Track #3 (100%).wav');
+    project.getResourcesManager().addResource(resource);
+    const urlResource = new gd.ImageResource();
+    urlResource.setName('Remote');
+    urlResource.setFile('https://example.com/a%23b.png');
+    project.getResourcesManager().addResource(urlResource);
+
+    expect(getLocalResourceFullPath(project, 'Track #3')).toBe(
+      '/home/user/My Project/assets/Track #3 (100%).wav'
+    );
+    expect(getLocalResourceFullPath(project, 'Remote')).toBe(
+      'https://example.com/a%23b.png'
+    );
+    expect(getLocalResourceFullPath(project, 'Unknown')).toBe('');
+
+    project.delete();
+  });
+
   it('can rename a resource in the whole project', () => {
     const project = gd.ProjectHelper.createNewGDJSProject();
 
@@ -221,6 +248,56 @@ describe('ResourceUtils', () => {
           "localFilePath": null,
         }
       `);
+    });
+  });
+
+  describe('Resource custom properties', () => {
+    let resource = null;
+    afterEach(() => {
+      if (resource) resource.delete();
+      resource = null;
+    });
+
+    it('returns an empty object when no custom properties are set', () => {
+      const r = (resource = new gd.Resource());
+      expect(getResourceCustomProperties(r)).toEqual({});
+    });
+
+    it('can set and read custom property values of different types', () => {
+      const r = (resource = new gd.Resource());
+      setResourceCustomPropertyValue(r, 'scale-multiplier', 0.3);
+      setResourceCustomPropertyValue(r, 'no-resize', true);
+      setResourceCustomPropertyValue(r, 'no-atlas', false);
+
+      expect(getResourceCustomProperties(r)).toEqual({
+        'scale-multiplier': 0.3,
+        'no-resize': true,
+        'no-atlas': false,
+      });
+      expect(getResourceCustomPropertyValue(r, 'scale-multiplier', null)).toBe(
+        0.3
+      );
+      expect(getResourceCustomPropertyValue(r, 'no-resize', null)).toBe(true);
+      expect(getResourceCustomPropertyValue(r, 'no-atlas', null)).toBe(false);
+    });
+
+    it('falls back to the provided default when a property is not set', () => {
+      const r = (resource = new gd.Resource());
+      expect(getResourceCustomPropertyValue(r, 'scale-multiplier', 1)).toBe(1);
+      expect(getResourceCustomPropertyValue(r, 'missing', null)).toBeNull();
+    });
+
+    it('does not collide with other metadata keys', () => {
+      const r = (resource = new gd.Resource());
+      updateResourceJsonMetadata(r, { localFilePath: 'test' });
+      setResourceCustomPropertyValue(r, 'no-atlas', true);
+
+      // $FlowFixMe[incompatible-type]
+      expect(parseLocalFilePathOrExtensionFromMetadata(r)).toEqual({
+        extension: null,
+        localFilePath: 'test',
+      });
+      expect(getResourceCustomProperties(r)).toEqual({ 'no-atlas': true });
     });
   });
 });
