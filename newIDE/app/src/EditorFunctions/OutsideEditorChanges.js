@@ -40,15 +40,20 @@ export type SceneEventsOutsideEditorChanges = {|
   // were changed.
   eventsFunction?: ?gdEventsFunction,
   extensionName?: ?string,
+  // Set instead of `scene` when the events of external events were changed.
+  externalEvents?: ?gdExternalEvents,
   newOrChangedAiGeneratedEventIds: Set<string>,
 |};
 
 export const getSceneEventsOutsideEditorChangesKey = (
   changes: SceneEventsOutsideEditorChanges
-): string =>
-  changes.eventsFunction
-    ? `events-function:${changes.eventsFunction.ptr}`
-    : `scene:${changes.scene ? changes.scene.ptr : 'none'}`;
+): string => {
+  if (changes.eventsFunction)
+    return `events-function:${changes.eventsFunction.ptr}`;
+  if (changes.externalEvents)
+    return `external-events:${changes.externalEvents.ptr}`;
+  return `scene:${changes.scene ? changes.scene.ptr : 'none'}`;
+};
 
 export type InstancesOutsideEditorChanges = {|
   ...OutsideEditorChangesTarget,
@@ -65,6 +70,7 @@ export type ObjectGroupsOutsideEditorChanges = {|
 
 export type RenamableProjectItemKind =
   | 'scene'
+  | 'external-layout'
   | 'gameplay-test'
   | 'extension'
   | 'custom-object'
@@ -115,10 +121,12 @@ export type WillDeleteExtensionItemChanges = {|
   functionName?: string,
 |};
 
-// Called before the scene is actually deleted, so its gdLayout is still
-// valid (e.g. to let editors close any tab bound to it by object identity).
+// Called before the scene (or the external layout: exactly one of the two is
+// set) is actually deleted, so its gd object is still valid (e.g. to let
+// editors close any tab bound to it by object identity).
 export type WillDeleteSceneChanges = {|
-  scene: gdLayout,
+  scene?: gdLayout,
+  externalLayout?: gdExternalLayout,
 |};
 
 // Called before the gameplay test is actually deleted, so any tab bound to it

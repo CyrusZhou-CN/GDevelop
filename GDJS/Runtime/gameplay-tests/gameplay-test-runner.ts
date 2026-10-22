@@ -71,7 +71,9 @@ namespace gdjs {
        * as possible.
        */
       speedFactor?: number;
-      /** Maximum number of screenshots kept. Default: 5. */
+      /** Maximum number of screenshots kept: the first one and the last
+       * ones. When the script takes none, one is taken when it ends.
+       * 0 disables screenshots. Default: 4. */
       maxScreenshots?: number;
       /**
        * When true, the game is left paused and muted when the test finishes,
@@ -120,6 +122,15 @@ namespace gdjs {
         | 'unknown';
       /** For an `external` cause: where the change came from (call stack). */
       causeDetail?: string;
+    };
+
+    /** A variable without its content: the value of a number, a boolean or
+     * a (cut) text, the size of a structure or an array. */
+    export type GameplayTestVariableSummary = {
+      name: string;
+      type: VariableType;
+      value?: string | float | boolean;
+      childrenCount?: integer;
     };
 
     export type GameplayTestScreenshot = {
@@ -177,7 +188,8 @@ namespace gdjs {
       animation?: string;
       text?: string;
       opacity?: float;
-      variables: Array<Object>;
+      /** In full, except in the final state of a result (summarized). */
+      variables: Array<VariableNetworkSyncData | GameplayTestVariableSummary>;
       /** The object's own conditions/expressions, evaluated (see
        * `GameplayTestEvaluatedState`). */
       state: GameplayTestEvaluatedState;
@@ -350,6 +362,29 @@ namespace gdjs {
     };
 
     /**
+     * The measures of `harness.benchmark`: the time of each measured frame
+     * (game logic and rendering), and counters that don't depend on the
+     * machine, to compare two versions of the engine running the same
+     * scenario.
+     */
+    export type GameplayTestBenchmarkResult = {
+      name: string;
+      /** The time of each measured frame, in order. */
+      frameTimesMs: Array<number>;
+      medianFrameTimeMs: number;
+      /** The profiled sections (see `GameplayTestProfilingResult`), for
+       * the last 600 measured frames at most. */
+      sections: Array<{ name: string; avgTimeMs: number; maxTimeMs: number }>;
+      /** WebGL draw calls (2D and 3D) per frame, or null without renderer. */
+      drawCallsPerFrame: number | null;
+      objectsCount: integer;
+      /** A hash of the position and angle of every object at the end: two
+       * versions of the engine running the same scenario must end on the
+       * same state. */
+      stateChecksum: string;
+    };
+
+    /**
      * The outcome of `lookTowardWithMouseDelta`: whether the aim succeeded,
      * the remaining aim error, and whether the game responded to the mouse
      * at all. `sawYawResponse: false` usually means the game ignores mouse
@@ -420,11 +455,18 @@ namespace gdjs {
         watchedObjects: {
           [objectName: string]: Array<GameplayTestObjectSnapshot>;
         };
-        sceneVariables: Array<Object>;
+        sceneVariables: Array<GameplayTestVariableSummary>;
+        /** Says how to read what the summaries leave out. */
+        sceneVariablesNote?: string;
+        watchedObjectsNote?: string;
       };
       screenshots: Array<GameplayTestScreenshot>;
+      /** Screenshots taken, including the ones not kept in `screenshots`. */
+      screenshotsTakenCount: integer;
       /** The `stopProfiling()` summaries captured during the run. */
       profiles: Array<GameplayTestProfilingResult>;
+      /** The `benchmark()` measures captured during the run. */
+      benchmarks: Array<GameplayTestBenchmarkResult>;
       performance: {
         avgStepMs: number;
         worstStepMs: number;
@@ -432,6 +474,8 @@ namespace gdjs {
     };
 
     const DEFAULT_TIMEOUT_MS = 30000;
+    /** The longest budget a test can ask for (see `setTimeoutMs`). */
+    const MAX_TIMEOUT_MS = 10 * 60 * 1000;
     /** Loading (game boot, scene assets) is excluded from `timeoutMs` -
      * on the web, a first preview can download assets for minutes - but
      * still bounded, so a dead network cannot hang a run forever. */
@@ -450,12 +494,15 @@ namespace gdjs {
     // cost before the next one.
     const FAST_RUN_RENDER_DUTY_MULTIPLIER = 4;
     const MAX_PLAYED_SOUNDS = 500;
-    const DEFAULT_MAX_SCREENSHOTS = 5;
+    const DEFAULT_MAX_SCREENSHOTS = 4;
     const DEFAULT_PROBE_FRAMES = 30;
     const MAX_PROFILING_SECTIONS = 50;
     const MAX_PROFILING_TIMELINE_ENTRIES = 120;
     const MAX_PROFILING_WORST_FRAMES = 5;
     const MAX_PROFILES_PER_RESULT = 5;
+    const MAX_BENCHMARKS_PER_RESULT = 20;
+    const DEFAULT_BENCHMARK_WARMUP_FRAMES = 60;
+    const DEFAULT_BENCHMARK_FRAMES = 300;
     /** The scene change cause declared by the harness (see
      * `SceneStack.runWithSceneChangeCause`). */
     const GAMEPLAY_TEST_SCENE_CHANGE_CAUSE = 'gameplayTest';
@@ -468,11 +515,18 @@ namespace gdjs {
     const MAX_EVENT_LOG_ENTRIES = 500;
     const MAX_ERRORS = 20;
     const MAX_WARNINGS = 20;
-    const SCREENSHOT_MAX_SIZE = 512;
+    const SCREENSHOT_MAX_SIZE = 768;
     const DEFAULT_FRAME_DT_MS = 1000 / 60;
     /** Deepest `children` nesting a snapshot can expose (nested custom
      * objects), to keep snapshots bounded. */
     const MAX_CHILDREN_DEPTH = 8;
+    /** The scene variables of the final state are summarized: some games
+     * store large data in them (a map, a save...). */
+    const MAX_SUMMARIZED_VARIABLES = 50;
+    const MAX_SUMMARIZED_TEXT_LENGTH = 100;
+    /** Watched objects are summarized too: instances of a watched object can
+     * be many (bullets...), each with its variables. */
+    const MAX_WATCHED_INSTANCES = 20;
 
     /**
      * Describe a value that should have been a string, for an error message:
@@ -730,11 +784,17 @@ namespace gdjs {
       /** The profiling summaries captured during the run (attached to the
        * result as `profiles`). */
       _profiles: Array<GameplayTestProfilingResult> = [];
+      _benchmarks: Array<GameplayTestBenchmarkResult> = [];
+      /** The `Math.random` replaced by `setRandomSeed`, restored at the end
+       * of the run. */
+      _originalMathRandom: (() => number) | null = null;
       _timeoutMs: number;
       _loadingTimeoutMs: number;
       /** Time spent waiting for loading (game boot, scene assets) so far:
        * excluded from the `_timeoutMs` budget, reported as `loadingMs`. */
       _loadingTimeMs: number = 0;
+      /** When the ongoing loading started (see `_countAsLoading`), or null. */
+      _loadingSinceMs: number | null = null;
       /** Time already spent frozen by the browser because the page was
        * hidden, excluded from the `_timeoutMs` budget (see
        * `_installPageVisibilityTracking`). */
@@ -766,6 +826,7 @@ namespace gdjs {
       _paceReferenceWallTimeMs: number = 0;
       _paceReferenceGameTimeMs: number = 0;
       _maxScreenshots: integer;
+      _screenshotsTakenCount: integer = 0;
       _totalStepTimeMs: number = 0;
       _worstStepTimeMs: number = 0;
       _lastTrackedSceneName: string | null = null;
@@ -921,7 +982,7 @@ namespace gdjs {
         if (
           Date.now() -
             this._startTimeMs -
-            this._loadingTimeMs -
+            this._getLoadingTimeMs() -
             this._getHiddenStallTimeMs() >
           this._timeoutMs
         ) {
@@ -962,32 +1023,59 @@ namespace gdjs {
         loadingPromise: Promise<unknown>,
         description: string
       ): Promise<void> {
-        const loadingStartTimeMs = Date.now();
         const heartbeatIntervalId = setInterval(() => {
           if (this._onProgress) this._onProgress(this._framesExecuted);
         }, 1000);
         let loadingTimeoutId: any = null;
         try {
-          await Promise.race([
-            loadingPromise,
-            new Promise<never>((_, reject) => {
-              loadingTimeoutId = setTimeout(
-                () =>
-                  reject(
-                    new Error(
-                      `${description} did not finish loading within ` +
-                        `${this._loadingTimeoutMs}ms.`
-                    )
-                  ),
-                this._loadingTimeoutMs
-              );
-            }),
-          ]);
+          await this._countAsLoading(() =>
+            Promise.race([
+              loadingPromise,
+              new Promise<never>((_, reject) => {
+                loadingTimeoutId = setTimeout(
+                  () =>
+                    reject(
+                      new Error(
+                        `${description} did not finish loading within ` +
+                          `${this._loadingTimeoutMs}ms.`
+                      )
+                    ),
+                  this._loadingTimeoutMs
+                );
+              }),
+            ])
+          );
         } finally {
           clearInterval(heartbeatIntervalId);
           if (loadingTimeoutId) clearTimeout(loadingTimeoutId);
-          this._loadingTimeMs += Date.now() - loadingStartTimeMs;
         }
+      }
+
+      /**
+       * Run something counted as loading: excluded from the `timeoutMs`
+       * budget, while it runs (for the watchdog) and after (in `loadingMs`).
+       */
+      async _countAsLoading<T>(load: () => Promise<T>): Promise<T> {
+        // Already counted by an enclosing loading.
+        if (this._loadingSinceMs !== null) return load();
+        const loadingStartTimeMs = Date.now();
+        this._loadingSinceMs = loadingStartTimeMs;
+        try {
+          return await load();
+        } finally {
+          this._loadingTimeMs += Date.now() - loadingStartTimeMs;
+          this._loadingSinceMs = null;
+        }
+      }
+
+      /** The time spent loading so far, including an ongoing loading. */
+      _getLoadingTimeMs(): number {
+        return (
+          this._loadingTimeMs +
+          (this._loadingSinceMs !== null
+            ? Date.now() - this._loadingSinceMs
+            : 0)
+        );
       }
 
       /**
@@ -1097,11 +1185,10 @@ namespace gdjs {
         const reportedObjectNames = new Set<string>();
 
         /**
-         * Report the custom objects with no child in them, `object` included:
-         * they render nothing at all and fall back to a 1x1x1 size. Except
-         * the ones the JavaScript code of their extension draws (like the 3D
-         * particle emitters, rendered with Three.js): no child either, yet
-         * something on screen.
+         * Report custom objects with no child instances at the end of the
+         * test, `object` included. Skip known custom rendering, and describe
+         * the observed state without assuming that it is a rendering bug:
+         * extension code can draw elsewhere or create children dynamically.
          */
         const checkObject = (
           object: gdjs.RuntimeObject,
@@ -1115,11 +1202,11 @@ namespace gdjs {
             .getChildrenContainer()
             .getAdhocListOfAllInstances();
           if (children.length === 0) {
-            if (this._isCustomObjectRenderedByCode(object)) return;
+            if (this._hasCustomRendering(object)) return;
             if (reportedObjectNames.has(path)) return;
             reportedObjectNames.add(path);
             warnings.push(
-              `"${path}" is a custom object with no child in it: it renders nothing. Either its variant declares child objects with no instance of them placed (it then also falls back to a 1x1x1 size), or its children were all destroyed while the test ran.`
+              `"${path}" has no child instances at the end of the test. Check whether its variant is missing initial instances or its children were destroyed. This can be intentional for objects rendered by extension code or creating children dynamically; it does not prove a rendering failure.`
             );
             return;
           }
@@ -1147,24 +1234,27 @@ namespace gdjs {
       }
 
       /**
-       * Whether a custom object without any child still renders something,
-       * because the JavaScript code of its extension draws it: either the
-       * code replaced the renderer of the object (the 3D particle emitters,
-       * lights and texts swap theirs for a Three.js object), or it added
+       * Whether a custom object may render independently of its child
+       * instances: either extension code replaced or subclassed its renderer
+       * (3D particle emitters draw through a shared layer renderer), or added
        * something to draw (a mesh, a sprite, a graphics...) in the container
        * the stock renderer holds for the children.
        */
-      private _isCustomObjectRenderedByCode(
-        object: gdjs.RuntimeObject
-      ): boolean {
+      private _hasCustomRendering(object: gdjs.RuntimeObject): boolean {
         const renderer = (object as any)._renderer;
         if (!renderer) return false;
         const anyGdjs = gdjs as any;
+        // `instanceof` also accepts extension subclasses, such as
+        // ParticleEmitter3DRenderer. Their meshes can live outside the
+        // object's renderer tree, so only inspect the exact stock classes.
+        const rendererPrototype = Object.getPrototypeOf(renderer);
         const isStockRenderer =
           (typeof anyGdjs.CustomRuntimeObject2DRenderer !== 'undefined' &&
-            renderer instanceof anyGdjs.CustomRuntimeObject2DRenderer) ||
+            rendererPrototype ===
+              anyGdjs.CustomRuntimeObject2DRenderer.prototype) ||
           (typeof anyGdjs.CustomRuntimeObject3DRenderer !== 'undefined' &&
-            renderer instanceof anyGdjs.CustomRuntimeObject3DRenderer);
+            rendererPrototype ===
+              anyGdjs.CustomRuntimeObject3DRenderer.prototype);
         if (!isStockRenderer) return true;
 
         // The containers hold the (empty) layers of the custom object, which
@@ -1260,17 +1350,17 @@ namespace gdjs {
 
       /**
        * Step a single game frame (game logic + rendering) with a fixed
-       * time delta.
+       * time delta, and return the time it took.
        */
-      _stepSingleFrame(dtMs: float): void {
+      _stepSingleFrame(dtMs: float): float {
         this._checkGuards();
-        const stepStartTimeMs = Date.now();
+        const stepStartTimeMs = performance.now();
         this._runtimeGame.getSceneStack().step(dtMs);
+        const stepTimeMs = performance.now() - stepStartTimeMs;
         this._callOnFrameEnded();
         this._framesExecuted++;
         this._gameTimeMs += dtMs;
-        const stepTimeMs = Date.now() - stepStartTimeMs;
-        this._lastFrameStepTimeMs = stepStartTimeMs + stepTimeMs;
+        this._lastFrameStepTimeMs = Date.now();
         this._totalStepTimeMs += stepTimeMs;
         if (stepTimeMs > this._worstStepTimeMs) {
           this._worstStepTimeMs = stepTimeMs;
@@ -1281,6 +1371,7 @@ namespace gdjs {
           this._lastProgressTimeMs = Date.now();
           this._onProgress(this._framesExecuted);
         }
+        return stepTimeMs;
       }
 
       /**
@@ -1382,20 +1473,39 @@ namespace gdjs {
           );
         }
         this._checkGuards();
-        this._runtimeGame
-          .getSceneStack()
-          .runWithSceneChangeCause(GAMEPLAY_TEST_SCENE_CHANGE_CAUSE, () =>
-            this._runtimeGame.getSceneStack().replace({
-              sceneName,
-              clear: true,
-              skipCreatingInstances: options
-                ? options.skipCreatingInstances
-                : undefined,
-            })
+        // Creating the scene and its first frame are counted as loading:
+        // they can take seconds in a big 3D scene (objects, physics bodies,
+        // shaders to compile, notably with a software renderer on CI).
+        await this._countAsLoading(async () => {
+          this._runtimeGame
+            .getSceneStack()
+            .runWithSceneChangeCause(GAMEPLAY_TEST_SCENE_CHANGE_CAUSE, () =>
+              this._runtimeGame.getSceneStack().replace({
+                sceneName,
+                clear: true,
+                skipCreatingInstances: options
+                  ? options.skipCreatingInstances
+                  : undefined,
+              })
+            );
+          // Step one frame so the scene is fully initialized ("beginning of
+          // scene" events have run) before the test continues.
+          await this.stepFrames(1);
+        });
+      }
+
+      /**
+       * Change the wall-clock budget of the test (30s by default, loading
+       * excluded), for a heavy game or a slow machine (like a 3D game
+       * rendered in software on a CI server). At most 10 minutes.
+       */
+      setTimeoutMs(timeoutMs: float): void {
+        if (!(timeoutMs > 0)) {
+          throw new Error(
+            'setTimeoutMs expects a positive number of milliseconds.'
           );
-        // Step one frame so the scene is fully initialized ("beginning of
-        // scene" events have run) before the test continues.
-        await this.stepFrames(1);
+        }
+        this._timeoutMs = Math.min(timeoutMs, MAX_TIMEOUT_MS);
       }
 
       /**
@@ -1520,6 +1630,12 @@ namespace gdjs {
         const tolerance = (options && options.tolerance) || 0.5;
         const stableFrames = (options && options.stableFrames) || 20;
         const maxFrames = (options && options.maxFrames) || 300;
+        const instancesCount = this._getInstances(objectName).length;
+        if (instancesCount > 1) {
+          this._addRunWarning(
+            `stepUntilObjectIsStable("${objectName}") only waits for the first of the ${instancesCount} instances of "${objectName}": the others can still be moving. Use \`stepUntil\` with a condition on the instance read.`
+          );
+        }
         let previous: [float, float, float] | null = null;
         let stillFrames = 0;
         return await this.stepUntil(() => stillFrames >= stableFrames, {
@@ -1634,8 +1750,16 @@ namespace gdjs {
           if (threeCamera && typeof THREE !== 'undefined') {
             threeCamera.updateMatrixWorld();
             // The three.js world Y axis is the opposite of the scene one
+            // and the three.js world is scaled by the inverse world scale
             // (see `transformTo3DWorld`, the inverse of this projection).
-            const vector = new THREE.Vector3(x, -y, 0);
+            const inverseWorldScale = layer
+              .getRuntimeScene()
+              .getRenderer3DInverseWorldScale();
+            const vector = new THREE.Vector3(
+              x * inverseWorldScale,
+              -y * inverseWorldScale,
+              0
+            );
             vector.project(threeCamera);
             if (Number.isFinite(vector.x) && Number.isFinite(vector.y)) {
               return [
@@ -3406,29 +3530,36 @@ namespace gdjs {
       }
 
       /**
-       * Take a screenshot of the game canvas (downscaled). It's returned
-       * in the test result.
+       * Take a screenshot of the game canvas (downscaled, unless
+       * `fullResolution` is set: the size of the game, which can be set with
+       * `setGameResolutionSize`). The first one and the last ones are
+       * returned in the test result.
        */
-      async takeScreenshot(label: string = ''): Promise<void> {
-        if (this._screenshots.length >= this._maxScreenshots) {
-          logger.warn(
-            `Ignoring screenshot "${label}": already ${this._maxScreenshots} screenshots taken.`
-          );
-          return;
-        }
-        // Let an animation frame happen so the canvas shows the current
-        // state of the game (fast runs only render a few times per second).
-        await this._renderOnce();
+      async takeScreenshot(
+        label: string = '',
+        options?: { fullResolution?: boolean }
+      ): Promise<void> {
+        if (this._maxScreenshots <= 0) return;
+        // Render the current state of the game now: fast runs skip renders,
+        // and a slow renderer delays animation frames, so the canvas could
+        // show an old frame, or be black after a resize.
+        const currentScene = this._runtimeGame
+          .getSceneStack()
+          .getCurrentScene();
+        if (currentScene) currentScene.render();
         const canvas = this._runtimeGame.getRenderer().getCanvas();
         if (!canvas) {
           logger.warn('No canvas found: unable to take a screenshot.');
           return;
         }
         try {
-          const scale = Math.min(
-            1,
-            SCREENSHOT_MAX_SIZE / Math.max(canvas.width, canvas.height, 1)
-          );
+          const fullResolution = !!(options && options.fullResolution);
+          const scale = fullResolution
+            ? 1
+            : Math.min(
+                1,
+                SCREENSHOT_MAX_SIZE / Math.max(canvas.width, canvas.height, 1)
+              );
           const targetWidth = Math.max(1, Math.round(canvas.width * scale));
           const targetHeight = Math.max(1, Math.round(canvas.height * scale));
           const downscaledCanvas = document.createElement('canvas');
@@ -3437,7 +3568,15 @@ namespace gdjs {
           const context = downscaledCanvas.getContext('2d');
           if (!context) return;
           context.drawImage(canvas, 0, 0, targetWidth, targetHeight);
-          const dataUrl = downscaledCanvas.toDataURL('image/jpeg', 0.7);
+          const dataUrl = downscaledCanvas.toDataURL(
+            'image/jpeg',
+            fullResolution ? 0.92 : 0.7
+          );
+          this._screenshotsTakenCount++;
+          if (this._screenshots.length >= this._maxScreenshots) {
+            // Keep the first one and the most recent ones.
+            this._screenshots.splice(this._maxScreenshots > 1 ? 1 : 0, 1);
+          }
           this._screenshots.push({
             label,
             frame: this._framesExecuted,
@@ -3588,6 +3727,162 @@ namespace gdjs {
       }
 
       /**
+       * Replace `Math.random` by a generator seeded with the given number
+       * until the end of the test, so that the game makes the same random
+       * choices at every run.
+       */
+      setRandomSeed(seed: integer): void {
+        if (!this._originalMathRandom) {
+          this._originalMathRandom = Math.random;
+        }
+        // Mulberry32, a small and fast pseudo-random generator.
+        let state = seed >>> 0;
+        Math.random = () => {
+          state = (state + 0x6d2b79f5) >>> 0;
+          let t = state;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      _restoreMathRandom(): void {
+        if (this._originalMathRandom) {
+          Math.random = this._originalMathRandom;
+          this._originalMathRandom = null;
+        }
+      }
+
+      /**
+       * Step `warmupFrames` frames (not measured: the JavaScript engine
+       * optimizes the code meanwhile), then measure each of the next
+       * `frames` frames, the profiled sections, the draw calls and a
+       * checksum of the final state.
+       * Frames never wait for an animation frame (which renders the game
+       * once more, and can be delayed by the browser), so that two runs of
+       * the same scenario do the same work.
+       */
+      async benchmark(
+        name: string,
+        options?: { warmupFrames?: integer; frames?: integer; dtMs?: float }
+      ): Promise<GameplayTestBenchmarkResult> {
+        const warmupFrames =
+          options && options.warmupFrames !== undefined
+            ? options.warmupFrames
+            : DEFAULT_BENCHMARK_WARMUP_FRAMES;
+        const frames = (options && options.frames) || DEFAULT_BENCHMARK_FRAMES;
+        const dtMs = (options && options.dtMs) || DEFAULT_FRAME_DT_MS;
+        const frameTimesMs: Array<number> = [];
+        const stepFramesWithoutRendering = async (
+          frameCount: integer,
+          isMeasured: boolean
+        ) => {
+          for (let i = 0; i < frameCount; i++) {
+            const stepTimeMs = this._stepSingleFrame(dtMs);
+            if (isMeasured) {
+              frameTimesMs.push(Math.round(stepTimeMs * 1000) / 1000);
+            }
+            await this._waitForGameSceneSwitchIfNeeded();
+            if (Date.now() - this._lastYieldTimeMs >= YIELD_BUDGET_MS) {
+              await new Promise<void>((resolve) => setTimeout(resolve, 0));
+              this._lastYieldTimeMs = Date.now();
+            }
+          }
+        };
+        await stepFramesWithoutRendering(warmupFrames, false);
+
+        // Available when the browser is launched with `--js-flags=--expose-gc`.
+        const collectGarbage = (globalThis as any).gc;
+        if (typeof collectGarbage === 'function') collectGarbage();
+
+        const drawCallsCounter = this._countDrawCalls();
+        this.startProfiling();
+        try {
+          await stepFramesWithoutRendering(frames, true);
+        } finally {
+          if (drawCallsCounter) drawCallsCounter.uninstall();
+        }
+        const profile = this.stopProfiling();
+
+        const sortedFrameTimesMs = [...frameTimesMs].sort((a, b) => a - b);
+        const benchmarkResult: GameplayTestBenchmarkResult = {
+          name,
+          frameTimesMs,
+          medianFrameTimeMs:
+            sortedFrameTimesMs[Math.floor(sortedFrameTimesMs.length / 2)] || 0,
+          sections: profile ? profile.sections : [],
+          drawCallsPerFrame: drawCallsCounter
+            ? Math.round((drawCallsCounter.getCount() / frames) * 100) / 100
+            : null,
+          objectsCount:
+            this._getCurrentScene().getAdhocListOfAllInstances().length,
+          stateChecksum: this._computeStateChecksum(),
+        };
+        this._benchmarks.push(benchmarkResult);
+        if (this._benchmarks.length > MAX_BENCHMARKS_PER_RESULT) {
+          this._benchmarks.shift();
+        }
+        return benchmarkResult;
+      }
+
+      /**
+       * Count the WebGL draw calls, made by PixiJS and Three.js (which
+       * share the same WebGL context), until `uninstall` is called.
+       */
+      private _countDrawCalls(): {
+        getCount: () => integer;
+        uninstall: () => void;
+      } | null {
+        const pixiRenderer = this._runtimeGame.getRenderer().getPIXIRenderer();
+        const gl: any = pixiRenderer ? pixiRenderer.gl : null;
+        if (!gl) return null;
+        let count = 0;
+        const originalMethods: { [methodName: string]: Function } = {};
+        for (const methodName of [
+          'drawArrays',
+          'drawElements',
+          'drawArraysInstanced',
+          'drawElementsInstanced',
+        ]) {
+          const originalMethod = gl[methodName];
+          if (!originalMethod) continue;
+          originalMethods[methodName] = originalMethod;
+          gl[methodName] = function () {
+            count++;
+            return originalMethod.apply(this, arguments);
+          };
+        }
+        return {
+          getCount: () => count,
+          uninstall: () => {
+            for (const methodName in originalMethods) {
+              gl[methodName] = originalMethods[methodName];
+            }
+          },
+        };
+      }
+
+      private _computeStateChecksum(): string {
+        const instances = [
+          ...this._getCurrentScene().getAdhocListOfAllInstances(),
+        ].sort((a, b) => a.id - b.id);
+        // FNV-1a hash of the rounded values.
+        let hash = 0x811c9dc5;
+        const addText = (text: string) => {
+          for (let i = 0; i < text.length; i++) {
+            hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
+          }
+        };
+        for (const instance of instances) {
+          addText(instance.getName());
+          addText(instance.getX().toFixed(2));
+          addText(instance.getY().toFixed(2));
+          addText(instance.getAngle().toFixed(2));
+        }
+        return (hash >>> 0).toString(16);
+      }
+
+      /**
        * Record a console log in the test result (also shown in the
        * browser console). Used by the `console` given to the script.
        */
@@ -3709,12 +4004,13 @@ namespace gdjs {
             }
           }
         }
+        const watchedObjectsSummary = summarizeWatchedObjects(watchedObjects);
         return {
           testName: this._payload.testName,
           status,
           framesExecuted: this._framesExecuted,
           durationMs: this._startTimeMs ? Date.now() - this._startTimeMs : 0,
-          loadingMs: Math.round(this._loadingTimeMs),
+          loadingMs: Math.round(this._getLoadingTimeMs()),
           timeoutMs: this._timeoutMs,
           hiddenStallMs: Math.round(this._getHiddenStallTimeMs()),
           gameTimeMs: Math.round(this._gameTimeMs),
@@ -3726,13 +4022,17 @@ namespace gdjs {
           finalState: {
             sceneName: currentScene ? currentScene.getName() : '',
             objectCounts: this._getObjectCounts(),
-            watchedObjects,
-            sceneVariables: currentScene
-              ? currentScene.getVariables().getNetworkSyncData({})
-              : [],
+            ...watchedObjectsSummary,
+            ...summarizeSceneVariables(
+              currentScene
+                ? currentScene.getVariables().getNetworkSyncData({})
+                : []
+            ),
           },
           screenshots: this._screenshots,
+          screenshotsTakenCount: this._screenshotsTakenCount,
           profiles: this._profiles,
+          benchmarks: this._benchmarks,
           performance:
             this._framesExecuted > 0
               ? {
@@ -3740,12 +4040,121 @@ namespace gdjs {
                     Math.round(
                       (this._totalStepTimeMs / this._framesExecuted) * 100
                     ) / 100,
-                  worstStepMs: this._worstStepTimeMs,
+                  worstStepMs: Math.round(this._worstStepTimeMs * 100) / 100,
                 }
               : null,
         };
       }
     }
+
+    const summarizeVariables = (
+      variables: Array<VariableNetworkSyncData>
+    ): {
+      summaries: Array<GameplayTestVariableSummary>;
+      isSomethingLeftOut: boolean;
+    } => {
+      let isSomethingLeftOut = variables.length > MAX_SUMMARIZED_VARIABLES;
+      const summaries = variables
+        .slice(0, MAX_SUMMARIZED_VARIABLES)
+        .map(({ name, type, value, children }) => {
+          if (type === 'structure' || type === 'array') {
+            isSomethingLeftOut = true;
+            return {
+              name,
+              type,
+              childrenCount: children ? children.length : 0,
+            };
+          }
+          if (
+            typeof value === 'string' &&
+            value.length > MAX_SUMMARIZED_TEXT_LENGTH
+          ) {
+            isSomethingLeftOut = true;
+            return {
+              name,
+              type,
+              value: value.slice(0, MAX_SUMMARIZED_TEXT_LENGTH) + '…',
+            };
+          }
+          return { name, type, value };
+        });
+      return { summaries, isSomethingLeftOut };
+    };
+
+    const summarizeSceneVariables = (
+      variables: Array<VariableNetworkSyncData>
+    ): {
+      sceneVariables: Array<GameplayTestVariableSummary>;
+      sceneVariablesNote?: string;
+    } => {
+      const { summaries, isSomethingLeftOut } = summarizeVariables(variables);
+      return isSomethingLeftOut
+        ? {
+            sceneVariables: summaries,
+            sceneVariablesNote: `Summarized (${variables.length} variables): read one in full with \`harness.getSceneVariable(name)\` in the test.`,
+          }
+        : { sceneVariables: summaries };
+    };
+
+    const summarizeWatchedObjects = (watchedObjects: {
+      [objectName: string]: Array<GameplayTestObjectSnapshot>;
+    }): {
+      watchedObjects: {
+        [objectName: string]: Array<GameplayTestObjectSnapshot>;
+      };
+      watchedObjectsNote?: string;
+    } => {
+      let areInstancesLeftOut = false;
+      let areVariablesLeftOut = false;
+      const summarizeSnapshot = (
+        snapshot: GameplayTestObjectSnapshot
+      ): GameplayTestObjectSnapshot => {
+        const { summaries, isSomethingLeftOut } = summarizeVariables(
+          snapshot.variables as Array<VariableNetworkSyncData>
+        );
+        areVariablesLeftOut = areVariablesLeftOut || isSomethingLeftOut;
+        if (!snapshot.children) return { ...snapshot, variables: summaries };
+        const children: {
+          [objectName: string]: Array<GameplayTestObjectSnapshot>;
+        } = {};
+        for (const childName in snapshot.children) {
+          children[childName] = summarizeInstances(
+            snapshot.children[childName]
+          );
+        }
+        return { ...snapshot, variables: summaries, children };
+      };
+      const summarizeInstances = (
+        snapshots: Array<GameplayTestObjectSnapshot>
+      ): Array<GameplayTestObjectSnapshot> => {
+        areInstancesLeftOut =
+          areInstancesLeftOut || snapshots.length > MAX_WATCHED_INSTANCES;
+        return snapshots.slice(0, MAX_WATCHED_INSTANCES).map(summarizeSnapshot);
+      };
+
+      const summarizedWatchedObjects: {
+        [objectName: string]: Array<GameplayTestObjectSnapshot>;
+      } = {};
+      for (const objectName in watchedObjects) {
+        summarizedWatchedObjects[objectName] = summarizeInstances(
+          watchedObjects[objectName]
+        );
+      }
+      const notes = [
+        areInstancesLeftOut
+          ? `only the first ${MAX_WATCHED_INSTANCES} instances of an object are listed (see \`objectCounts\`): get them all with \`harness.getObjects(name)\``
+          : '',
+        areVariablesLeftOut
+          ? 'variables are summarized: read one in full with `harness.getObjectVariable(instanceId, variableName)`'
+          : '',
+      ].filter(Boolean);
+      return notes.length
+        ? {
+            watchedObjects: summarizedWatchedObjects,
+            watchedObjectsNote: `Summarized: ${notes.join('; ')}, in the test.`,
+          }
+        : { watchedObjects: summarizedWatchedObjects };
+    };
 
     /**
      * The gameplay test being currently run, if any.
@@ -3945,7 +4354,7 @@ namespace gdjs {
             if (
               Date.now() -
                 harness._startTimeMs -
-                harness._loadingTimeMs -
+                harness._getLoadingTimeMs() -
                 harness._getHiddenStallTimeMs() >
               harness._timeoutMs + 1000
             ) {
@@ -4015,6 +4424,15 @@ namespace gdjs {
           ]);
         }
       } finally {
+        // The end state is the most useful one to look at, whatever the
+        // outcome, so capture it when the script took no screenshot.
+        if (
+          harness._screenshotsTakenCount === 0 &&
+          !harness._stopped &&
+          runtimeGame.getRenderer().getCanvas()
+        ) {
+          await harness.takeScreenshot('End of the test');
+        }
         // Restore everything, whatever happened:
         try {
           harness.releaseAllInputs();
@@ -4022,6 +4440,7 @@ namespace gdjs {
           // Ignore errors during cleanup.
         }
         inputManager.onFrameEnded = originalOnFrameEnded;
+        harness._restoreMathRandom();
         harness._uninstallPageVisibilityTracking();
         harness._uninstallPointerLockShim();
         harness._uninstallSoundLog();
@@ -4042,6 +4461,7 @@ namespace gdjs {
         currentlyRunningHarness = null;
       }
 
+      result.screenshotsTakenCount = harness._screenshotsTakenCount;
       return result;
     };
   }
